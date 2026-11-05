@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}YAML importieren · AP YAML Hub{% endblock %}
+{% block content %}
+<h1>YAML importieren</h1>
+<p class="muted">Vorhandene YAMLs werden zu Vorlagen. Der Spielername in der Datei wird ignoriert – beim Spielen wird
+  automatisch dein Slot-Name eingesetzt. Dateien mit mehreren Spielen ergeben eine Vorlage pro Spiel.</p>
+
+{% for e in errors %}<div class="flash error">{{ e }}</div>{% endfor %}
+{% if results %}
+<div class="panel stack">
+  <b>{{ results|length }} Vorlage{{ '' if results|length == 1 else 'n' }} angelegt:</b>
+  {% for r in results %}
+    <div>
+      <a href="{{ url_for('game', slug=r.slug, _anchor='t-%s'|format(r.id)) }}">{{ r.game }} – {{ r.name }}</a>
+      <span class="muted small">({{ r['values']|length }} geänderte Optionen)</span>
+      {% if r.warnings %}<ul class="summary">{% for w in r.warnings %}<li>{{ w }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="panel stack" style="margin-top:16px">
+  <label>YAML-Dateien<br><input type="file" name="files" accept=".yaml,.yml,.txt" multiple></label>
+  <label>… oder Inhalt einfügen<br><textarea name="text" rows="8" placeholder="name: Max&#10;game: Dark Souls III&#10;Dark Souls III:&#10;  ..."></textarea></label>
+  <label><input type="checkbox" name="shared" value="1" checked> Für die Gruppe freigeben</label>
+  <div><button class="primary">Importieren</button></div>
+</form>
+{% endblock %}

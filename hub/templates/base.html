@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}AP YAML Hub{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="top">
+  <div class="inner">
+    <a class="brand" href="{{ url_for('index') }}">AP YAML Hub</a>
+    {% if g.user %}
+    <nav>
+      <a href="{{ url_for('games') }}">Spiele</a>
+      <a href="{{ url_for('index') }}">Sessions</a>
+      <a href="{{ url_for('import_view') }}">YAML importieren</a>
+      {% if g.user.is_admin %}<a href="{{ url_for('admin') }}">Admin</a>{% endif %}
+    </nav>
+    <div class="me">
+      <a href="{{ url_for('profile') }}" title="Profil">{{ g.user.username }} · Slot „{{ g.user.slot_name }}“</a>
+      <form class="inline" method="post" action="{{ url_for('logout') }}"><button class="linkish small">Abmelden</button></form>
+    </div>
+    {% endif %}
+  </div>
+</header>
+<main class="inner">
+  {% if g.user and not ap_ready %}
+    <div class="flash error">Archipelago ist auf diesem Server noch nicht eingerichtet. Bitte <code>setup.ps1</code> ausführen (siehe README).</div>
+  {% elif g.user and extract.status == 'running' %}
+    <div class="flash info">Die Spiel-Optionen werden gerade eingelesen … das dauert meist unter einer Minute.</div>
+  {% endif %}
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="flash {{ category }}">{{ message }}</div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

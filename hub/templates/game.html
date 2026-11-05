@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ schema.game }} · AP YAML Hub{% endblock %}
+{% block content %}
+<p class="small"><a href="{{ url_for('games') }}">← Spiele</a></p>
+<div class="row spread">
+  <div>
+    <h1>{{ schema.game }}</h1>
+    <p class="muted small">
+      {% if schema.custom %}APWorld{% else %}In Archipelago eingebaut{% endif %}
+      {% if schema.version != '0.0.0' %} · v{{ schema.version }}{% endif %}
+      · {{ schema.options|length }} Optionen
+    </p>
+  </div>
+  <a class="btn" href="{{ url_for('template_new', slug=schema.slug) }}">+ Neue Vorlage</a>
+</div>
+
+<p class="muted">Wähle eine Vorlage und klick auf <b>Ich spiele das</b>. Dein Slot-Name
+(„{{ g.user.slot_name }}“) und deine persönlichen Einstellungen aus dem <a href="{{ url_for('profile') }}">Profil</a>
+werden automatisch eingesetzt.</p>
+
+<div class="stack">
+{% for t in templates %}
+  <div class="panel card" id="{{ 't-%s'|format(t.id) if t.id else t.ref }}">
+    <h3>
+      {% if t.is_default %}<span class="star" title="Gruppen-Standard">★</span>{% endif %}
+      {{ t.name }}
+      <span class="chip">{{ t.source }}</span>
+      {% if t.owner %}<span class="muted small">von {{ t.owner }}</span>{% endif %}
+    </h3>
+    {% if t.description %}<p class="muted small" style="margin:4px 0 0">{{ t.description }}</p>{% endif %}
+    {% if t.summary %}
+      <ul class="summary">
+        {% for name, val in t.summary[:8] %}<li>{{ name }}: {{ val }}</li>{% endfor %}
+        {% if t.summary|length > 8 %}<li>… und {{ t.summary|length - 8 }} weitere</li>{% endif %}
+      </ul>
+    {% elif t.ref != 'default' %}
+      <p class="muted small">Keine Abweichungen vom Standard.</p>
+    {% endif %}
+    <div class="actions">
+      <form method="post" action="{{ url_for('game_play', slug=schema.slug) }}" class="row">
+        <input type="hidden" name="ref" value="{{ t.ref }}">
+        <select name="session" aria-label="Session">
+          {% for s in sessions %}
+            <option value="{{ s.id }}" {% if preselect == s.id %}selected{% endif %}>{{ s.name }} (#{{ s.id }})</option>
+          {% endfor %}
+          <option value="new">Neue Session anlegen</option>
+        </select>
+        <button class="primary">Ich spiele das</button>
+      </form>
+      <a class="btn" href="{{ url_for('game_yaml', slug=schema.slug, ref=t.ref) }}">Nur YAML</a>
+      {% if t.editable %}
+        <a class="btn" href="{{ url_for('template_edit', tid=t.id) }}">Bearbeiten</a>
+      {% endif %}
+      <a class="btn" href="{{ url_for('template_new', slug=schema.slug, **{'from': t.ref}) }}">Anpassen (Kopie)</a>
+      {% if g.user.is_admin and not t.is_default and t.source != 'Persönlich' %}
+        <form method="post" action="{{ url_for('set_game_default', slug=schema.slug) }}" class="inline">
+          <input type="hidden" name="ref" value="{{ t.ref }}">
+          <button class="linkish small">Als Gruppen-Standard</button>
+        </form>
+      {% endif %}
+      {% if t.editable %}
+        <form method="post" action="{{ url_for('template_delete', tid=t.id) }}" class="inline"
+              data-confirm="Vorlage „{{ t.name }}“ löschen?">
+          <button class="linkish small danger">Löschen</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

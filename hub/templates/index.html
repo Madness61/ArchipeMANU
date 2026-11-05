@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row spread">
+  <div>
+    <h1>Hallo {{ g.user.username }}</h1>
+    <p class="muted">Spiel auswählen, Vorlage wählen, „Ich spiele das“ – fertig.</p>
+  </div>
+  <div class="hero-actions">
+    <a class="btn primary" href="{{ url_for('games') }}">Spiel auswählen</a>
+    <form method="post" action="{{ url_for('session_create') }}" class="row">
+      <input name="name" placeholder="Name, z. B. Samstag" maxlength="80">
+      <button>Neue Session</button>
+    </form>
+  </div>
+</div>
+
+<h2>Sessions</h2>
+{% if sessions %}
+<div class="panel table-wrap">
+  <table>
+    <tr><th>Name</th><th>Spieler</th><th>Status</th><th>Angelegt</th></tr>
+    {% for s in sessions %}
+    <tr>
+      <td><a href="{{ url_for('session_view', sid=s.id) }}">{{ s.name }}</a> <span class="muted small">von {{ s.username }}</span></td>
+      <td>{{ s.n }}</td>
+      <td>
+        {% if s.gen_status == 'done' %}<span class="chip ok">generiert</span>
+        {% elif s.gen_status == 'running' %}<span class="chip warn">generiert …</span>
+        {% elif s.gen_status == 'error' %}<span class="chip err">Fehler</span>
+        {% elif s.locked %}<span class="chip">gesperrt</span>
+        {% else %}<span class="chip">offen</span>{% endif %}
+      </td>
+      <td class="muted small">{{ s.created_at[:16] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% else %}
+<p class="muted">Noch keine Sessions. Leg oben eine an oder klick bei einem Spiel auf „Ich spiele das“.</p>
+{% endif %}
+{% endblock %}

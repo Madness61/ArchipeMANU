@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Spiele · AP YAML Hub{% endblock %}
+{% block content %}
+<div class="row spread">
+  <h1>Spiele</h1>
+  <form class="row" method="get">
+    <input name="q" value="{{ q }}" placeholder="Spiel suchen …" autofocus>
+    <button>Suchen</button>
+  </form>
+</div>
+<p class="muted">
+  {% if show_all %}Alle {{ total }} installierten Spiele.{% else %}Hochgeladene und bereits gespielte Spiele.
+  <a href="{{ url_for('games', all=1) }}">Alle {{ total }} anzeigen</a> (inkl. der in Archipelago eingebauten).{% endif %}
+</p>
+{% if rows %}
+<div class="grid">
+  {% for r in rows %}
+  <a class="panel card" href="{{ url_for('game', slug=r.slug) }}" style="color:inherit;text-decoration:none">
+    <h3>{{ r.game }}</h3>
+    <div class="row small muted" style="margin-top:6px">
+      {% if r.custom %}<span class="chip">APWorld</span>{% else %}<span class="chip">eingebaut</span>{% endif %}
+      {% if r.version and r.version != '0.0.0' %}<span>v{{ r.version }}</span>{% endif %}
+      <span>{{ r.templates }} Vorlage{{ '' if r.templates == 1 else 'n' }}</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">Keine Spiele gefunden.{% if g.user.is_admin %} <a href="{{ url_for('admin') }}">APWorld hochladen</a>{% endif %}</p>
+{% endif %}
+{% endblock %}

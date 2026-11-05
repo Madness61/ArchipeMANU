@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}{{ s.name }} · AP YAML Hub{% endblock %}
+{% block content %}
+<div class="row spread">
+  <div>
+    <h1>{{ s.name }}</h1>
+    <p class="muted small">Session #{{ s.id }} · Link zum Teilen: <code>{{ request.url }}</code></p>
+  </div>
+  <div class="row">
+    {% if s.locked %}<span class="chip">gesperrt</span>{% else %}<span class="chip ok">offen</span>{% endif %}
+  </div>
+</div>
+
+{% if not s.locked %}
+<form method="post" action="{{ url_for('entry_add', sid=s.id) }}" class="panel row" id="add-entry">
+  <b>Ich spiele:</b>
+  <select name="game" id="add-game" required>
+    <option value="">Spiel wählen …</option>
+    {% for slug, info in games %}<option value="{{ slug }}">{{ info.game }}</option>{% endfor %}
+  </select>
+  <select name="ref" id="add-ref" aria-label="Vorlage"><option value="">Gruppen-Standard</option></select>
+  <button class="primary">Hinzufügen</button>
+</form>
+{% endif %}
+
+<h2>Spieler ({{ entries|length }})</h2>
+{% if entries %}
+<div class="panel table-wrap">
+  <table>
+    <tr><th>Slot</th><th>Spieler</th><th>Spiel</th><th>Vorlage</th><th></th></tr>
+    {% for e in entries %}
+    <tr>
+      <td><b>{{ e.slot }}</b></td>
+      <td>{{ e.username }}</td>
+      <td>
+        {% if e.installed %}<a href="{{ url_for('game', slug=e.game) }}">{{ e.game_name }}</a>
+        {% else %}<span class="chip err">{{ e.game }} nicht installiert</span>{% endif %}
+      </td>
+      <td>
+        {{ e.template_label }}
+        {% if not e.template_found %}<span class="chip warn" title="Die Vorlage wurde gelöscht – es gelten die Standardwerte.">fehlt</span>{% endif %}
+        {% if e.summary %}
+          <details class="small"><summary class="muted">{{ e.summary|length }} Einstellung{{ '' if e.summary|length == 1 else 'en' }}</summary>
+            <ul class="summary">{% for name, val in e.summary %}<li>{{ name }}: {{ val }}</li>{% endfor %}</ul>
+          </details>
+        {% endif %}
+      </td>
+      <td style="white-space:nowrap">
+        {% if not s.locked and (e.user_id == g.user.id or manage) and e.installed %}
+          <form method="post" action="{{ url_for('entry_template', eid=e.id) }}" class="inline">
+            <select name="ref" class="entry-ref" data-game="{{ e.game }}" data-current="{{ e.template_ref }}"
+                    aria-label="Vorlage wechseln"><option value="{{ e.template_ref }}">Vorlage wechseln …</option></select>
+          </form>
+          <form method="post" action="{{ url_for('entry_delete', eid=e.id) }}" class="inline">
+            <button class="linkish small danger">Entfernen</button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% else %}
+<p class="muted">Noch niemand dabei.</p>
+{% endif %}
+
+<h2>Fertig machen</h2>
+<div class="panel stack">
+  <div class="row">
+    <a class="btn" href="{{ url_for('session_zip', sid=s.id) }}">Alle YAMLs als .zip</a>
+    <span class="muted small">Zum selbst Generieren im Archipelago Launcher oder auf archipelago.gg.</span>
+  </div>
+
+  {% if manage %}
+  <form method="post" action="{{ url_for('session_generate', sid=s.id) }}" class="row">
+    <button class="primary" {% if s.gen_status == 'running' or not entries %}disabled{% endif %}>Auf dem Server generieren</button>
+    <label class="small">Spoiler-Log
+      <select name="spoiler">
+        {% for v, label in [(0, 'aus'), (1, 'nur Einstellungen'), (2, 'mit Playthrough'), (3, 'komplett')] %}
+          <option value="{{ v }}" {% if s.spoiler == v %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select></label>
+    <label class="small"><input type="checkbox" name="race" value="1" {% if s.race %}checked{% endif %}> Race-Modus</label>
+  </form>
+  {% endif %}
+
+  <div id="gen" data-status-url="{{ url_for('session_status', sid=s.id) }}" data-status="{{ s.gen_status }}">
+    {% if s.gen_status == 'running' %}
+      <p><span class="chip warn">Generiert gerade …</span> <span class="muted small">Die Seite lädt sich neu, wenn es fertig ist.</span></p>
+    {% elif s.gen_status == 'done' %}
+      <p><span class="chip ok">Fertig</span>
+        <a class="btn primary" href="{{ url_for('session_download', sid=s.id) }}">{{ s.gen_file }} herunterladen</a></p>
+      <p class="small muted">Hosten: auf <a href="https://archipelago.gg/uploads" target="_blank" rel="noopener">archipelago.gg/uploads</a>
+        hochladen und den Raum-Link teilen. Spieler mit eigenen APWorlds brauchen dieselbe APWorld-Version lokal.</p>
+    {% elif s.gen_status == 'error' %}
+      <p><span class="chip err">Generierung fehlgeschlagen</span></p>
+    {% endif %}
+    {% if s.gen_log %}
+      <details {% if s.gen_status == 'error' %}open{% endif %}><summary class="small muted">Log</summary>
+        <pre class="log">{{ s.gen_log }}</pre></details>
+    {% endif %}
+  </div>
+
+  <div class="row">
+    <form method="post" action="{{ url_for('session_clone', sid=s.id) }}" class="inline">
+      <button>Wie letztes Mal: neue Session mit denselben Spielern</button>
+    </form>
+    {% if manage %}
+      <form method="post" action="{{ url_for('session_lock', sid=s.id) }}" class="inline">
+        <button>{{ 'Entsperren' if s.locked else 'Sperren' }}</button>
+      </form>
+      <form method="post" action="{{ url_for('session_delete', sid=s.id) }}" class="inline" data-confirm="Session „{{ s.name }}“ löschen?">
+        <button class="danger">Löschen</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>window.HUB_TEMPLATES_URL = {{ url_for('api_templates', slug='__SLUG__')|tojson }};</script>
+{% endblock %}

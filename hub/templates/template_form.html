@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Vorlage · {{ schema.game }}{% endblock %}
+
+{% macro field(opt) %}
+  {% set key = opt.key %}
+  {% set cur = values[key] if key in values else opt.default %}
+  {% set fid = 'f-' ~ key %}
+  <div class="opt {% if key in values %}changed{% endif %}">
+    <input type="hidden" name="_r" value="{{ key }}">
+    <label class="name" for="{{ fid }}">{{ opt.name }}
+      {% if key in values %}<span class="chip small">geändert</span>{% endif %}</label>
+
+    {% if opt.kind == 'raw' or yg.is_weighted(opt, cur) %}
+      {% if opt.kind != 'raw' %}<input type="hidden" name="m.{{ key }}" value="raw">
+        <p class="small muted">Gewichteter Wert (Archipelago-Syntax). Leeren, um den Standard zu nutzen.</p>{% endif %}
+      <textarea id="{{ fid }}" name="o.{{ key }}" rows="4" placeholder="YAML">{{ yg.form_text(opt, cur) if cur not in (None, [], {}) else '' }}</textarea>
+
+    {% elif opt.kind == 'toggle' %}
+      <label><input id="{{ fid }}" type="checkbox" name="o.{{ key }}" value="1" {% if cur is sameas true %}checked{% endif %}> an</label>
+
+    {% elif opt.kind == 'choice' %}
+      <select id="{{ fid }}" name="o.{{ key }}">
+        {% for name, label in opt.choices %}
+          <option value="{{ name }}" {% if name == cur %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+
+    {% elif opt.kind == 'textchoice' %}
+      <input id="{{ fid }}" name="o.{{ key }}" value="{{ cur if cur is not none else '' }}" list="dl-{{ key }}" style="min-width:240px">
+      <datalist id="dl-{{ key }}">{% for name, label in opt.choices %}<option value="{{ name }}">{{ label }}</option>{% endfor %}</datalist>
+
+    {% elif opt.kind == 'range' %}
+      <div class="row">
+        <input type="range" min="{{ opt.min }}" max="{{ opt.max }}" value="{{ cur if cur is number else opt.min }}" data-sync="{{ fid }}" aria-label="{{ opt.name }}">
+        <input id="{{ fid }}" name="o.{{ key }}" value="{{ cur }}" size="6" inputmode="numeric">
+        {% if opt.special %}
+          <select data-set="{{ fid }}" aria-label="Spezialwerte">
+            <option value="">Spezialwert …</option>
+            {% for sname, sval in opt.special.items() %}<option value="{{ sval }}">{{ sname }} ({{ sval }})</option>{% endfor %}
+          </select>
+        {% endif %}
+        <span class="muted small">{{ opt.min }}–{{ opt.max }}</span>
+      </div>
+
+    {% elif opt.kind == 'text' %}
+      <input id="{{ fid }}" name="o.{{ key }}" value="{{ cur if cur is not none else '' }}" style="width:100%">
+
+    {% elif yg.checkbox_mode(opt) %}
+      <div class="checks">
+        {% for vk in opt.valid_keys %}
+          <label><input type="checkbox" name="o.{{ key }}" value="{{ vk }}" {% if cur and vk in cur %}checked{% endif %}> {{ vk }}</label>
+        {% endfor %}
+      </div>
+
+    {% else %}
+      <textarea id="{{ fid }}" name="o.{{ key }}" rows="3"
+        placeholder="{{ 'Ein Eintrag pro Zeile, Format „Name: Anzahl“' if opt.kind == 'counter' else 'Ein Eintrag pro Zeile' }}">{{ yg.form_text(opt, cur) }}</textarea>
+      {% if opt['items'] or opt['locations'] or opt.valid_keys %}
+      <div class="row small" style="margin-top:4px">
+        <input class="name-picker" data-target="{{ fid }}" data-counter="{{ 1 if opt.kind == 'counter' else 0 }}"
+               data-source="{{ 'items' if opt['items'] else 'locations' if opt['locations'] else '' }}"
+               data-keys="{{ opt.valid_keys|join('\n') }}" placeholder="Name suchen …" style="min-width:240px">
+        <button type="button" class="name-add">Hinzufügen</button>
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {% if errors[key] %}<div class="err">{{ errors[key] }}</div>{% endif %}
+    {% if opt.doc %}<div class="doc" title="Klicken zum Aufklappen">{{ opt.doc }}</div>{% endif %}
+  </div>
+{% endmacro %}
+
+{% block content %}
+<p class="small"><a href="{{ url_for('game', slug=schema.slug) }}">← {{ schema.game }}</a></p>
+<h1>{% if template %}Vorlage bearbeiten{% else %}Neue Vorlage{% endif %} · {{ schema.game }}</h1>
+<p class="muted small">Gespeichert werden nur Werte, die vom Standard der APWorld abweichen.
+  {% if expert %}<a href="{{ simple_url }}">Einfacher Modus</a>
+  {% else %}{% if hidden %}{{ hidden }} Experten-Optionen ausgeblendet. {% endif %}
+  <a href="{{ expert_url }}">Experten-Modus</a>{% endif %}
+</p>
+
+<form method="post" class="panel">
+  <div class="row" style="align-items:flex-start">
+    <label style="flex:1;min-width:220px">Name der Vorlage<br>
+      <input name="name" value="{{ name }}" maxlength="80" required style="width:100%"></label>
+    <label style="flex:2;min-width:220px">Beschreibung<br>
+      <input name="description" value="{{ description }}" maxlength="200" style="width:100%"></label>
+  </div>
+  {% if errors._name %}<div class="err">{{ errors._name }}</div>{% endif %}
+  <p><label><input type="checkbox" name="shared" value="1" {% if shared %}checked{% endif %}>
+    Für die Gruppe freigeben (sonst nur für dich sichtbar)</label></p>
+
+  {% for group, opts in groups.items() %}
+    <details class="group" {% if group != 'Item & Location Options' or opts|selectattr('key', 'in', values)|list %}open{% endif %}>
+      <summary>{{ group }} <span class="muted small">({{ opts|length }})</span></summary>
+      {% for opt in opts %}{{ field(opt) }}{% endfor %}
+    </details>
+  {% endfor %}
+
+  <div class="sticky-save row">
+    <button class="primary">Speichern</button>
+    <a href="{{ url_for('game', slug=schema.slug) }}">Abbrechen</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>window.HUB_NAMES_URL = {{ url_for('api_names', slug=schema.slug)|tojson }};</script>
+{% endblock %}

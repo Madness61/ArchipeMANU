@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Admin · AP YAML Hub{% endblock %}
+{% block content %}
+<h1>Admin</h1>
+<p class="muted small">Archipelago {{ ap_version }} ·
+  Optionen eingelesen: <span id="extract-status" data-url="{{ url_for('admin_status') }}" data-status="{{ status.status }}">
+  {% if status.status == 'ok' %}<span class="chip ok">ok</span>
+  {% elif status.status == 'running' %}<span class="chip warn">läuft …</span>
+  {% elif status.status == 'error' %}<span class="chip err">Fehler</span>
+  {% else %}<span class="chip">noch nie</span>{% endif %}</span></p>
+
+<h2>APWorlds</h2>
+<form method="post" action="{{ url_for('admin_upload') }}" enctype="multipart/form-data" class="panel row">
+  <input type="file" name="files" accept=".apworld" multiple required>
+  <button class="primary">Hochladen</button>
+  <span class="small muted">APWorlds enthalten Python-Code, der auf diesem Server läuft – nur vertrauenswürdige hochladen.
+    Eine APWorld mit dem Namen eines eingebauten Spiels ersetzt dessen eingebaute Version.</span>
+</form>
+
+{% if apworlds %}
+<div class="panel table-wrap" style="margin-top:12px">
+  <table>
+    <tr><th>Datei</th><th>Spiel</th><th>Version</th><th>Status</th><th></th></tr>
+    {% for a in apworlds %}
+    <tr>
+      <td><code>{{ a.file }}</code></td>
+      <td>{{ a.game or (games_index[a.module].game if a.module in games_index else '–') }}</td>
+      <td>{{ a.version or '–' }}</td>
+      <td>
+        {% if a.error %}<span class="chip err">{{ a.error }}</span>
+        {% elif a.module in games_index %}<span class="chip ok">geladen</span>
+        {% elif a.game in failed %}<span class="chip err" title="{{ failed[a.game] }}">Fehler</span>
+        {% else %}<span class="chip warn">nicht geladen</span>{% endif %}
+      </td>
+      <td>
+        <form method="post" action="{{ url_for('admin_delete_apworld', module=a.module) }}" class="inline"
+              data-confirm="{{ a.file }} entfernen?"><button class="linkish small danger">Entfernen</button></form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('admin_extract') }}" style="margin-top:12px">
+  <button>Optionen neu einlesen</button>
+</form>
+
+{% if failed %}
+<h2>Nicht geladene Welten</h2>
+<div class="panel stack">
+  {% for game, reason in failed.items() %}
+    <details><summary>{{ game }}</summary><pre class="log">{{ reason }}</pre></details>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if status.log %}
+<details style="margin-top:12px"><summary class="small muted">Log vom letzten Einlesen</summary><pre class="log">{{ status.log }}</pre></details>
+{% endif %}
+
+<h2>Benutzer</h2>
+<div class="panel table-wrap">
+  <table>
+    <tr><th>Name</th><th>Slot</th><th>Rolle</th><th></th></tr>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.username }}</td><td>{{ u.slot_name }}</td><td>{{ 'Admin' if u.is_admin else 'Spieler' }}</td>
+      <td>{% if u.id != g.user.id %}
+        <form method="post" action="{{ url_for('admin_toggle', uid=u.id) }}" class="inline">
+          <button class="linkish small">{{ 'Admin entziehen' if u.is_admin else 'Zum Admin machen' }}</button></form>
+      {% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}
