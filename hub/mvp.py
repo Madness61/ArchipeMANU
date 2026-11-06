@@ -201,6 +201,36 @@ def join_open_lobby(sid):
     return redirect(url_for("mvp.choose_game", sid=sid))
 
 
+@bp.route("/sessions/<int:sid>/leave", methods=["POST"])
+def leave_lobby(sid):
+    _user()
+    room = _session(sid)
+    if room["locked"]:
+        abort(409, "Nach der Seed-Generierung ist die Lobby geschlossen.")
+    db.execute("DELETE FROM entries WHERE session_id=? AND user_id=?",
+               (sid, g.user["id"]))
+    db.execute("DELETE FROM lobby_members WHERE session_id=? AND user_id=?",
+               (sid, g.user["id"]))
+    flash("Du hast die Lobby verlassen.", "info")
+    return redirect(url_for("mvp.lobby_list"))
+
+
+@bp.route("/sessions/<int:sid>/members/<int:uid>/remove", methods=["POST"])
+def remove_member(sid, uid):
+    _user()
+    room = _session(sid)
+    if not _manager(room):
+        abort(403)
+    if room["locked"]:
+        abort(409)
+    if uid == room["created_by"]:
+        abort(400, "Host kann sich nur selbst über „Lobby verlassen“ entfernen.")
+    db.execute("DELETE FROM entries WHERE session_id=? AND user_id=?", (sid, uid))
+    db.execute("DELETE FROM lobby_members WHERE session_id=? AND user_id=?", (sid, uid))
+    flash("Teilnehmer entfernt. Der Slot blockiert die Generierung nicht mehr.", "info")
+    return redirect(url_for("session_view", sid=sid))
+
+
 @bp.route("/sessions/<int:sid>/choose")
 def choose_game(sid):
     _user()
