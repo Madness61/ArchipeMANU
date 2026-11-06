@@ -51,9 +51,9 @@ def apworld_info(path: Path) -> dict:
     }
 
 
-def store_apworld(data: bytes) -> dict:
+def store_apworld(data: bytes, source_url: str = "") -> dict:
     """Persist new versions without discarding previous APWorld releases."""
-    info = apworld_library.store(data)
+    info = apworld_library.store(data, source_url=source_url)
     return {**info, "mtime": (config.APWORLDS / info["file"]).stat().st_mtime}
 
 
