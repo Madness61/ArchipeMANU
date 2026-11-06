@@ -10,6 +10,7 @@
 {% else %}<a href="{{ url_for('mvp.entry_options', eid=entry.id, expert=1) }}">Alle Optionen anzeigen</a>{% endif %}
 </p>
 <form method="post" class="panel">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   {% for group, opts in groups.items() %}
     <details class="group" open>
       <summary>{{ group }} ({{ opts|length }})</summary>
