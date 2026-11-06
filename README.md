@@ -79,3 +79,18 @@ APWorld-Standard          ← was das Spiel mitbringt
 | `hub/ap_bridge.py` | APWorld-Dateien, Aufruf von Archipelago als Unterprozess |
 | `ap_runner.py` | Läuft innerhalb von Archipelago: liest Optionen aus, generiert |
 | `data/` | `hub.db` (SQLite), `apworlds/`, `schemas/`, `sessions/` |
+
+
+## Phase 1 – APWorld-Versionierung (Feature-Branch)
+
+Die Admin-Seite zeigt neben der aktiven APWorld eine **Versionshistorie** je Modul an. Jede hochgeladene Version wird unter `data/apworlds/_versions/<sha256>.apworld` gespeichert und mit SHA-256, Modul, Version, Dateigröße und Zeitstempel in `data/apworld_versions.sqlite3` registriert. Neue Uploads aktivieren ihre Version; alte bleiben erhalten. Im Adminbereich lassen sich alte Dateien herunterladen oder erneut aktivieren. „Entfernen“ deaktiviert eine APWorld, ohne ihre archivierten Versionen zu löschen.
+
+Vorhandene Dateien in `data/apworlds/*.apworld` und dem bisherigen `_old/`-Ordner werden beim ersten Zugriff auf den Versionskatalog **ohne Löschen** übernommen. Alte Datenbanken und YAML-Vorlagen werden nicht migriert oder ersetzt. Vor dem Update den vollständigen `data/`-Ordner sichern.
+
+Die Archivprüfung begrenzt Uploadgröße, entpackte Größe, Anzahl der Dateien, Kompressionsverhältnisse und problematische Archivpfade; sie ist **keine Malware-Analyse und keine Sandbox**. Vor Upload und Aktivierung einer Version muss der Admin eine Vertrauensbestätigung abgeben.
+
+**Sicherheitsgrenze:** Das vorhandene Archipelago-Setup importiert den Python-Code aktiver APWorlds beim Schema-Einlesen und Generieren. Dieser Code ist weiterhin **nicht in einer echten Sicherheits-Sandbox isoliert**. Nur überprüfte APWorlds aus vertrauenswürdigen Quellen auf einem privaten Server verwenden. Die Ausführung beliebiger fremder APWorlds und öffentliches Internet-Hosting sind ausdrücklich nicht freigegeben. Ein separater, ressourcenbegrenzter Worker ist eine notwendige Folgeaufgabe.
+
+Die neue Versionshistorie ist noch **nicht** mit unveränderlichen Runden-Snapshots verknüpft; ein späterer APWorld-Wechsel kann deshalb bestehende noch nicht generierte Sessions beeinflussen. Einladungslinks, Bereitschaftsstatus, Seed-Snapshots und der Archipelago-Raumlink-Workflow folgen in späteren Phasen.
+
+Tests: `python -m unittest discover -s tests -v`. GitHub Actions prüft die Tests auf Feature-Branches und Pull Requests.
