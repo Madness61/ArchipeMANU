@@ -11,7 +11,12 @@
       · {{ schema.options|length }} Optionen
     </p>
   </div>
-  <a class="btn" href="{{ url_for('template_new', slug=schema.slug) }}">+ Neue Vorlage</a>
+  <div class="row">
+    {% if g.user.is_admin %}
+      <a class="btn" href="{{ url_for('mvp.guide_edit', slug=schema.slug) }}">Installationsanleitung pflegen</a>
+    {% endif %}
+    <a class="btn" href="{{ url_for('template_new', slug=schema.slug) }}">+ Neue Vorlage</a>
+  </div>
 </div>
 
 <p class="muted">Wähle eine Vorlage und klick auf <b>Ich spiele das</b>. Dein Slot-Name
