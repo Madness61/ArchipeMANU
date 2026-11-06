@@ -5,6 +5,7 @@
   <h1>Anmelden</h1>
   <p class="muted">Einfach deinen Namen eingeben. Gibt es ihn noch nicht, wird er angelegt.</p>
   <form method="post" class="stack">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
     <div><label>Name<br><input name="username" required maxlength="32" autofocus style="width:100%"></label></div>
     {% if needs_password %}
     <div><label>Gruppen-Passwort<br><input name="password" type="password" required style="width:100%"></label></div>
