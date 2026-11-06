@@ -1,32 +1,58 @@
 {% extends "base.html" %}
-{% block title %}Spiele · AP YAML Hub{% endblock %}
+{% block title %}Spielebibliothek · ArchipeMANU{% endblock %}
 {% block content %}
 <div class="row spread">
-  <h1>Spiele</h1>
-  <form class="row" method="get">
-  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-    <input name="q" value="{{ q }}" placeholder="Spiel suchen …" autofocus>
-    <button>Suchen</button>
-  </form>
+  <div><h1>Gemeinsame Spielebibliothek</h1><p class="muted">Jeder Mitspieler kann neue Custom APWorlds hinzufügen – sie stehen anschließend allen in der Gruppe zur Verfügung.</p></div>
+  <a href="{{ url_for('community.game_add') }}" class="btn primary">+ Spiel hinzufügen</a>
 </div>
-<p class="muted">
-  {% if show_all %}Alle {{ total }} installierten Spiele.{% else %}Hochgeladene und bereits gespielte Spiele.
-  <a href="{{ url_for('games', all=1) }}">Alle {{ total }} anzeigen</a> (inkl. der in Archipelago eingebauten).{% endif %}
-</p>
+<form method="get" class="panel row" style="margin:16px 0">
+  <label>Spiel suchen <input name="q" value="{{ q }}" placeholder="Name, APWorld oder Uploader"></label>
+  <button>Suchen</button>
+  <span class="muted small">{{ rows|length }} von {{ total }} Spielen</span>
+</form>
 {% if rows %}
 <div class="grid">
-  {% for r in rows %}
-  <a class="panel card" href="{{ url_for('game', slug=r.slug) }}" style="color:inherit;text-decoration:none">
-    <h3>{{ r.game }}</h3>
-    <div class="row small muted" style="margin-top:6px">
-      {% if r.custom %}<span class="chip">APWorld</span>{% else %}<span class="chip">eingebaut</span>{% endif %}
-      {% if r.version and r.version != '0.0.0' %}<span>v{{ r.version }}</span>{% endif %}
-      <span>{{ r.templates }} Vorlage{{ '' if r.templates == 1 else 'n' }}</span>
+  {% for item in rows %}
+  <div class="panel card">
+    <div class="row spread">
+      <h3>{{ item.name }}</h3>
+      {% if item.installed %}<span class="chip ok">Spielbereit</span>{% else %}<span class="chip warn">Wartet auf Freigabe</span>{% endif %}
     </div>
-  </a>
+    <p class="muted small" style="margin:8px 0">
+      {{ 'Custom APWorld' if item.custom else 'Integriertes Archipelago-Spiel' }}
+      {% if item.version %} · v{{ item.version }}{% endif %}
+      {% if item.added_by %} · Eingereicht von {{ item.added_by }}{% endif %}
+    </p>
+    <div class="row">
+      {% if item.installed %}<a class="btn primary" href="{{ url_for('game', slug=item.slug) }}">Spiel öffnen</a>{% else %}
+        <span class="muted small">Die APWorld muss vom Host freigegeben und eingelesen werden.</span>
+      {% endif %}
+    </div>
+    {% if item.versions %}
+    <details style="margin-top:12px"><summary class="small">Gespeicherte APWorld-Versionen ({{ item.versions|length }})</summary>
+      {% for version in item.versions %}
+      <div class="row" style="margin-top:8px">
+        <code>{{ version.version or 'Unbekannt' }}</code>
+        <span class="muted small">{{ version.sha256[:12] }}… · von {{ version.username }}</span>
+        {% if version.approved %}<span class="chip ok">Freigegeben</span>{% else %}<span class="chip warn">Archiviert</span>{% endif %}
+        {% if version.yaml_file %}
+          <a class="btn small" href="{{ url_for('community.download_yaml', sha256=version.sha256) }}">YAML herunterladen</a>
+        {% endif %}
+        {% if g.user.is_admin and not version.approved %}
+          <form method="post" action="{{ url_for('community.approve', sha256=version.sha256) }}" class="inline">
+            <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+            <input type="hidden" name="trust_apworlds" value="yes">
+            <button class="primary" data-confirm="Nur nach Prüfung des Python-Codes: APWorld aktivieren?">Freigeben & aktivieren</button>
+          </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </details>
+    {% endif %}
+  </div>
   {% endfor %}
 </div>
 {% else %}
-<p class="muted">Keine Spiele gefunden.{% if g.user.is_admin %} <a href="{{ url_for('admin') }}">APWorld hochladen</a>{% endif %}</p>
+<div class="panel"><p>Keine Spiele gefunden. Jeder Spieler kann eine APWorld zur Bibliothek hinzufügen.</p></div>
 {% endif %}
 {% endblock %}
