@@ -74,6 +74,9 @@ def migrate() -> None:
             author INTEGER NOT NULL REFERENCES users(id)
         );
         """)
+        conn.execute("""UPDATE seed_builds SET status='failed',
+            log='Generierung durch Neustart des Servers unterbrochen.',
+            finished_at=? WHERE status IN ('running','queued')""", (utc_now(),))
 
 
 def _user():
@@ -297,7 +300,10 @@ def _generate_job(build_id: int, snapshot: dict, files: list[tuple[str, str]]):
             h = slot["apworld_sha256"]
             if h and active.get(slot["game"]) != h:
                 raise ValueError(f"{slot['game']}: APWorld-Version wurde seit dem Snapshot verändert.")
-        ok, log, archive = ap_bridge.generate(players, output, snapshot["spoiler"], snapshot["race"])
+        expected = {slot["game"]: slot["apworld_sha256"] for slot in snapshot["slots"]
+                    if slot["apworld_sha256"]}
+        ok, log, archive = ap_bridge.generate(
+            players, output, snapshot["spoiler"], snapshot["race"], expected_worlds=expected)
         if not ok or archive is None:
             raise ValueError(log[-12000:] or "Archipelago hat keine Seed-ZIP erzeugt.")
         with db.connect() as conn:
