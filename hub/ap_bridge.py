@@ -1,4 +1,5 @@
 """Everything that touches the Archipelago install: APWorld files, option extraction, generation."""
+import hashlib
 import json
 import os
 import shutil
@@ -200,8 +201,15 @@ def schema(slug: str) -> dict | None:
 
 # --- Generation --------------------------------------------------------------------------------
 
-def generate(yaml_dir: Path, out_dir: Path, spoiler: int, race: bool) -> tuple[bool, str, Path | None]:
+def generate(yaml_dir: Path, out_dir: Path, spoiler: int, race: bool,
+             expected_worlds: dict[str, str] | None = None) -> tuple[bool, str, Path | None]:
     with ap_lock:
+        # Check the exact active archive bytes while holding the same lock used
+        # by upload/activation routes. Version switches cannot race a build.
+        for module, expected_sha in (expected_worlds or {}).items():
+            file = config.APWORLDS / (module + ".apworld")
+            if not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() != expected_sha:
+                return False, f"{module}: APWorld wurde seit dem Seed-Snapshot verändert.", None
         try:
             _sync_custom_worlds()
         except ValueError as exc:
