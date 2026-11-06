@@ -8,6 +8,7 @@
   <div class="hero-actions">
     <a class="btn primary" href="{{ url_for('games') }}">Spiel auswählen</a>
     <form method="post" action="{{ url_for('session_create') }}" class="row">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
       <input name="name" placeholder="Name, z. B. Samstag" maxlength="80">
       <button>Neue Session</button>
     </form>
