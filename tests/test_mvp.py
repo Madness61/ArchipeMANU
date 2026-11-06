@@ -45,13 +45,20 @@ class MVPTests(unittest.TestCase):
         self.app.config.update(TESTING=True)
         self.client = self.app.test_client()
 
+    def post(self, url, data, client=None, **kwargs):
+        client = client or self.client
+        client.get("/login")
+        with client.session_transaction() as sess:
+            csrf = sess["_csrf"]
+        return client.post(url, data={**data, "_csrf": csrf}, **kwargs)
+
     def tearDown(self):
         for p in reversed(self.patches):
             p.stop()
         self.temp.cleanup()
 
     def test_full_lobby_readiness_and_rejection_on_not_ready(self):
-        self.client.post("/login", data={"username": "Host"})
+        self.post("/login", {"username": "Host"})
         with self.app.app_context():
             from hub import db
             sid = db.execute("INSERT INTO sessions(name,created_by) VALUES (?,?)", ("Test", 1))
@@ -62,7 +69,7 @@ class MVPTests(unittest.TestCase):
         self.assertIn(b"Slotoptionen", page.data)
         opt = self.client.get(f"/entries/{eid}/options")
         self.assertEqual(opt.status_code, 200, opt.data[:200])
-        changed = self.client.post(f"/entries/{eid}/options", data={
+        changed = self.post(f"/entries/{eid}/options", {
             "_r": ["goal", "difficulty"], "o.goal": "collect", "o.difficulty": "6"
         }, follow_redirects=True)
         self.assertEqual(changed.status_code, 200)
@@ -81,7 +88,7 @@ class MVPTests(unittest.TestCase):
                 g.user = db.query("SELECT * FROM users WHERE username='Host'", one=True)
                 chosen, yamls, problems = mvp.preflight(sid)
             self.assertTrue(any("bereit" in p.lower() for p in problems))
-        self.client.post(f"/entries/{eid}/ready", data={"ready": "1"})
+        self.post(f"/entries/{eid}/ready", {"ready": "1"})
         with self.app.app_context():
             from hub import db
             self.assertEqual(db.query("SELECT ready FROM entries WHERE id=?", (eid,), one=True)["ready"], 1)
@@ -92,7 +99,7 @@ class MVPTests(unittest.TestCase):
                 self.assertIn("collect", files[0][1])
 
     def test_invitation_works_and_does_not_grant_host(self):
-        self.client.post("/login", data={"username": "Host"})
+        self.post("/login", {"username": "Host"})
         with self.app.app_context():
             from hub import db
             sid = db.execute("INSERT INTO sessions(name,created_by) VALUES (?,?)", ("Friends", 1))
@@ -100,7 +107,7 @@ class MVPTests(unittest.TestCase):
             pass
         # Confirm a newly created user does not gain host privileges.
         other = self.app.test_client()
-        other.post("/login", data={"username": "Friend"})
+        self.post("/login", {"username": "Friend"}, client=other)
         with self.app.app_context():
             from hub import db
             user = db.query("SELECT is_admin FROM users WHERE username=?", ("Friend",), one=True)
