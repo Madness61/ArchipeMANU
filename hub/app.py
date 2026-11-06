@@ -661,6 +661,7 @@ def admin_upload():
         flash("Bitte zuerst bestätigen, dass du den Python-Code der APWorld-Quelle geprüft hast.", "error")
         return redirect(url_for("admin"))
     uploaded = 0
+    source_url = request.form.get("source_url", "").strip()
     for f in request.files.getlist("files"):
         if not f.filename:
             continue
@@ -670,7 +671,7 @@ def admin_upload():
         try:
             payload = f.stream.read(ap_bridge.apworld_library.MAX_UPLOAD + 1)
             with ap_bridge.ap_lock:
-                info = ap_bridge.store_apworld(payload)
+                info = ap_bridge.store_apworld(payload, source_url=source_url)
             uploaded += 1
             flash(f"{f.filename} gespeichert ({info['game'] or info['module']}).", "info")
         except ValueError as e:
