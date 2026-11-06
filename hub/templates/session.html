@@ -28,6 +28,13 @@
   <div class="row" style="margin-top:9px">
   {% for u in lobby_guests %}
     <span class="chip {{ 'ok' if u.entry_id else 'warn' }}">{{ u.username }} · {{ 'Spiel gewählt' if u.entry_id else 'Spiel fehlt' }}</span>
+    {% if manage and not s.locked and u.user_id != s.created_by %}
+      <form method="post" action="{{ url_for('mvp.remove_member', sid=s.id, uid=u.user_id) }}" class="inline"
+            data-confirm="Spieler {{ u.username }} aus der Lobby entfernen?">
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+        <button class="linkish danger small">Entfernen</button>
+      </form>
+    {% endif %}
   {% endfor %}
   </div>
 </div>
@@ -45,6 +52,11 @@
 <div class="panel row spread">
   <div><h3>Deine Spielauswahl</h3><p class="muted small">Du kannst dein Spiel jederzeit vor dem Seed-Start ändern.</p></div>
   <a class="btn primary" href="{{ url_for('mvp.choose_game', sid=s.id) }}">Spiel wählen / ändern →</a>
+  <form method="post" action="{{ url_for('mvp.leave_lobby', sid=s.id) }}" class="inline"
+        data-confirm="Du verlässt die Lobby; dein Spielslot wird entfernt.">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <button>Lobby verlassen</button>
+  </form>
 </div>
 <form method="post" action="{{ url_for('entry_add', sid=s.id) }}" class="panel row" id="add-entry">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
