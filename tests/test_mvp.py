@@ -3,7 +3,9 @@ import io
 import json
 from pathlib import Path
 import tempfile
+import time
 import unittest
+import zipfile
 from unittest.mock import patch
 
 from hub import ap_bridge, config, mvp, yamlgen
@@ -112,6 +114,57 @@ class MVPTests(unittest.TestCase):
             from hub import db
             user = db.query("SELECT is_admin FROM users WHERE username=?", ("Friend",), one=True)
             self.assertEqual(user["is_admin"], 0)
+
+    def test_seed_snapshot_download_and_manual_hosting(self):
+        self.post("/login", {"username": "Host"})
+        with self.app.app_context():
+            from hub import db
+            sid = db.execute("INSERT INTO sessions(name,created_by) VALUES (?,?)", ("Seed Test",1))
+            db.execute("""INSERT INTO entries(session_id,user_id,game,template_ref,ready,option_overrides)
+                VALUES (?,?,?,?,?,?)""", (sid,1,"test_world","default",1,'{"goal":"collect"}'))
+        def fake_generate(players, out, spoiler, race, expected_worlds=None):
+            out.mkdir(parents=True, exist_ok=True)
+            result = out / "AP_TEST.zip"
+            with zipfile.ZipFile(result, "w") as z:
+                z.writestr("AP_TEST.archipelago", "fake")
+                z.writestr("Test_Player.apdelta", "patch payload")
+            return True, "Fake generation passed", result
+        with patch.object(ap_bridge, "ap_ready", return_value=True), \
+             patch.object(ap_bridge, "list_apworld_versions", return_value=[]), \
+             patch.object(ap_bridge, "generate", side_effect=fake_generate):
+            response = self.post(f"/sessions/{sid}/generate", {"spoiler":"1"})
+            self.assertEqual(response.status_code, 302)
+            for _ in range(100):
+                with self.app.app_context():
+                    from hub import db
+                    build = db.query("SELECT * FROM seed_builds WHERE session_id=?", (sid,), one=True)
+                    if build and build["status"] in ("succeeded", "failed"):
+                        break
+                time.sleep(.03)
+            self.assertIsNotNone(build)
+            self.assertEqual(build["status"], "succeeded", build["log"])
+            snapshot = json.loads(build["snapshot"])
+            self.assertEqual(snapshot["slots"][0]["game"], "test_world")
+            self.assertTrue(snapshot["yamls"])
+            zip_download = self.client.get(f"/sessions/{sid}/builds/{build['id']}/download")
+            self.assertEqual(zip_download.status_code, 200)
+            self.assertIn(b"PK", zip_download.data[:2])
+            hosting = self.post(f"/sessions/{sid}/builds/{build['id']}/hosting", {
+                "room_url": "https://archipelago.gg/room/example",
+                "host": "archipelago.gg", "port": "38281", "confirmed":"1"
+            })
+            self.assertEqual(hosting.status_code, 302)
+            play = self.client.get(f"/sessions/{sid}/builds/{build['id']}/play")
+            self.assertEqual(play.status_code, 200, play.data[:200])
+            self.assertIn(b"38281", play.data)
+            self.assertIn(b"Test_Player.apdelta", play.data)
+            asset = self.client.get(f"/sessions/{sid}/builds/{build['id']}/assets/1")
+            self.assertEqual(asset.data, b"patch payload")
+            with self.app.app_context():
+                from hub import db
+                stored = db.query("SELECT * FROM hosted_rooms WHERE build_id=?", (build["id"],), one=True)
+                self.assertEqual(stored["confirmed"], 1)
+                self.assertEqual(stored["port"], 38281)
 
     def test_weights_and_room_validation(self):
         choice = {"key": "goal", "kind": "choice",
