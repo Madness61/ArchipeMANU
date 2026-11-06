@@ -13,6 +13,7 @@
 <p class="muted small">Neue Uploads aktivieren ihre Version automatisch; vorherige Uploads werden nicht gelöscht.</p>
 <form method="post" action="{{ url_for('admin_upload') }}" enctype="multipart/form-data" class="panel row">
   <input type="file" name="files" accept=".apworld" multiple required>
+  <label class="small"><input type="checkbox" name="trust_apworlds" value="yes" required> Ich habe die Herkunft dieser ausführbaren APWorlds geprüft.</label>
   <button class="primary">Hochladen</button>
   <span class="small muted">APWorlds enthalten Python-Code, der auf diesem Server läuft – nur vertrauenswürdige hochladen.
     Eine APWorld mit dem Namen eines eingebauten Spiels ersetzt dessen eingebaute Version.</span>
@@ -58,7 +59,9 @@
       <td class="small muted">{{ v.added_at[:16] }}</td>
       <td>
         {% if v.active %}<span class="chip ok">Aktiv</span>{% else %}
-          <form method="post" action="{{ url_for('admin_activate_apworld', sha256=v.sha256) }}" class="inline">
+          <form method="post" action="{{ url_for('admin_activate_apworld', sha256=v.sha256) }}" class="inline"
+                data-confirm="Diese APWorld-Version kann ausführbaren Python-Code enthalten. Nur geprüfte Quellen aktivieren. Fortfahren?">
+            <input type="hidden" name="trust_apworlds" value="yes">
             <button>Aktivieren</button>
           </form>
         {% endif %}
