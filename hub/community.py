@@ -59,6 +59,21 @@ def all_games(search=""):
         library[key]["versions"].append(dict(row))
         if not library[key]["added_by"]:
             library[key]["added_by"] = row["username"]
+    # Include legacy Admin uploads and older versions in the same shared library.
+    tracked = {v["sha256"] for info in library.values() for v in info["versions"]}
+    for version in ap_bridge.list_apworld_versions():
+        module = version["module"]
+        if module not in library:
+            library[module] = {"slug": module, "name": version["game"] or module,
+                               "version": version["version"], "installed": False,
+                               "custom": True, "added_by": "Legacy-Upload",
+                               "pending": not version["active"], "versions": []}
+        if version["sha256"] not in tracked:
+            library[module]["versions"].append({
+                "sha256": version["sha256"], "version": version["version"],
+                "username": "Legacy/Admin", "approved": bool(version["active"]),
+                "yaml_file": "", "source_url": version.get("source_url", ""),
+            })
     return sorted([v for v in library.values() if
                    search.casefold() in (v["name"] + " " + v["slug"] + " " + v["added_by"]).casefold()],
                   key=lambda v: v["name"].casefold())
@@ -148,6 +163,19 @@ def download_yaml(sha256):
         abort(404)
     return send_file(path, as_attachment=True, download_name="options.yaml",
                      mimetype="text/yaml")
+
+
+@bp.route("/games/community/<sha256>/apworld")
+def download_apworld(sha256):
+    if g.user is None:
+        abort(401)
+    try:
+        path = ap_bridge.archived_apworld(sha256)
+    except ValueError:
+        abort(404)
+    module = apworld_library.inspect_bytes(path.read_bytes())["module"]
+    return send_file(path, as_attachment=True, download_name=module + ".apworld",
+                     mimetype="application/octet-stream")
 
 
 @bp.route("/games/community/<sha256>/approve", methods=["POST"])
