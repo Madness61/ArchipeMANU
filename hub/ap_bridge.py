@@ -92,9 +92,9 @@ def _sync_custom_worlds() -> None:
     target = config.AP_SOURCE / "custom_worlds"
     target.mkdir(exist_ok=True)
     wanted = {p.name: p for p in config.APWORLDS.glob("*.apworld")}
-    for existing in target.glob("*.apworld"):
-        if existing.name not in wanted:
-            existing.unlink()
+    if any(target.glob("*.apworld")) and not trusted_custom_execution():
+        raise ValueError("Bereits installierte Custom APWorlds erfordern eine ausdrückliche Vertrauensfreigabe.")
+    # Never delete manually installed worlds from the user's Archipelago installation.
     for name, src in wanted.items():
         dst = target / name
         if not dst.exists() or dst.stat().st_size != src.stat().st_size or dst.stat().st_mtime < src.stat().st_mtime:
@@ -112,7 +112,12 @@ def ap_ready() -> bool:
 
 
 def _run(args: list[str], timeout: int) -> tuple[bool, str]:
-    env = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+    # Pass a minimal environment; HUB_PASSWORD and other host secrets must not be exposed.
+    safe_keys = ("PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR",
+                 "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "LANG",
+                 "LC_ALL", "LD_LIBRARY_PATH", "VIRTUAL_ENV")
+    env = {name: os.environ[name] for name in safe_keys if name in os.environ}
+    env.update(PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
     hide = ",".join(_hidden_builtins())
     cmd = [str(config.AP_PYTHON), str(RUNNER), *args] + (["--hide", hide] if hide else [])
     try:
