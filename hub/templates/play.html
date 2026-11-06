@@ -3,6 +3,7 @@
 {% block content %}
 <p><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
 <h1>Jetzt spielen · {{ room.name }}</h1>
+<p><a class="btn" href="{{ url_for('mvp.build_stats', sid=room.id, build_id=build.id) }}">Itemverteilung & Statistiken anzeigen</a></p>
 <p>Seed #{{ build.id }} · <span class="chip {{ 'ok' if build.status == 'succeeded' else 'warn' }}">{{ build.status }}</span> · {{ build.created_at[:16] }}</p>
 {% if build.status == 'succeeded' %}
 <p><a class="btn primary" href="{{ url_for('mvp.build_download', sid=room.id, build_id=build.id) }}">Multiworld-ZIP herunterladen</a></p>
