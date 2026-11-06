@@ -37,6 +37,10 @@ def migrate() -> None:
             conn.execute("ALTER TABLE entries ADD COLUMN option_overrides TEXT NOT NULL DEFAULT '{}'")
         if "ready" not in cols:
             conn.execute("ALTER TABLE entries ADD COLUMN ready INTEGER NOT NULL DEFAULT 0")
+        if "ready_hash" not in cols:
+            conn.execute("ALTER TABLE entries ADD COLUMN ready_hash TEXT NOT NULL DEFAULT ''")
+        if "selected_apworld_sha" not in cols:
+            conn.execute("ALTER TABLE entries ADD COLUMN selected_apworld_sha TEXT NOT NULL DEFAULT ''")
         columns = {r["name"] for r in conn.execute("PRAGMA table_info(sessions)")}
         if "description" not in columns:
             conn.execute("ALTER TABLE sessions ADD COLUMN description TEXT NOT NULL DEFAULT ''")
