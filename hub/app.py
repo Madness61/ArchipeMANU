@@ -459,7 +459,10 @@ def session_view(sid):
         e["summary"] = yamlgen.summarize(ap_bridge.schema(e["game"]), e["values"]) if e["installed"] else []
     games = sorted(ap_bridge.index()["games"].items(), key=lambda kv: kv[1]["game"].casefold())
     history = mvp.builds(sid)
-    guests = db.query("SELECT u.username FROM lobby_members m JOIN users u ON u.id=m.user_id WHERE m.session_id=? ORDER BY u.username", (sid,))
+    guests = db.query("""SELECT u.username, u.id AS user_id, e.id AS entry_id
+        FROM lobby_members m JOIN users u ON u.id=m.user_id
+        LEFT JOIN entries e ON e.session_id=m.session_id AND e.user_id=m.user_id
+        WHERE m.session_id=? GROUP BY u.id ORDER BY u.username""", (sid,))
     is_member = bool(db.query("SELECT 1 FROM lobby_members WHERE session_id=? AND user_id=?",
                               (sid,g.user["id"]),one=True))
     return render_template("session.html", s=row, entries=entries, games=games,
