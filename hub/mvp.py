@@ -44,6 +44,9 @@ def migrate() -> None:
         columns = {r["name"] for r in conn.execute("PRAGMA table_info(sessions)")}
         if "description" not in columns:
             conn.execute("ALTER TABLE sessions ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+        build_cols = {r["name"] for r in conn.execute("PRAGMA table_info(seed_builds)")}
+        if build_cols and "stats_json" not in build_cols:
+            conn.execute("ALTER TABLE seed_builds ADD COLUMN stats_json TEXT NOT NULL DEFAULT ''")
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS lobby_members(
             session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -80,6 +83,9 @@ def migrate() -> None:
             author INTEGER NOT NULL REFERENCES users(id)
         );
         """)
+        build_cols = {r["name"] for r in conn.execute("PRAGMA table_info(seed_builds)")}
+        if "stats_json" not in build_cols:
+            conn.execute("ALTER TABLE seed_builds ADD COLUMN stats_json TEXT NOT NULL DEFAULT ''")
         conn.execute("""UPDATE seed_builds SET status='failed',
             log='Generierung durch Neustart des Servers unterbrochen.',
             finished_at=? WHERE status IN ('running','queued')""", (utc_now(),))
@@ -103,6 +109,9 @@ def _manager(room) -> bool:
 
 
 def _allowed(room) -> bool:
+    # Every authenticated group member can view an open community lobby.
+    if not room["locked"] and g.user is not None:
+        return True
     if _manager(room):
         return True
     return bool(db.query(
@@ -152,6 +161,89 @@ def entry_world_version(eid):
                (chosen, eid))
     flash("Version gewählt. Prüfe danach Optionen und Bereitschaft.", "info")
     return redirect(url_for("session_view", sid=room["id"]))
+
+
+@bp.route("/seeds")
+def seed_list():
+    _user()
+    rows = db.query("""SELECT b.id, b.session_id, b.status, b.created_at,
+        s.name AS session_name FROM seed_builds b
+        JOIN sessions s ON s.id=b.session_id
+        WHERE (?=1 OR s.created_by=? OR EXISTS (
+            SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.id AND lm.user_id=?
+        ) OR EXISTS (
+            SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?
+        )) ORDER BY b.id DESC LIMIT 100""",
+        (g.user["is_admin"],g.user["id"],g.user["id"],g.user["id"]))
+    return render_template("seeds.html", builds=rows)
+
+
+@bp.route("/lobbies")
+def lobby_list():
+    _user()
+    rows = db.query("""SELECT s.*, u.username AS host_name,
+        (SELECT COUNT(*) FROM lobby_members lm WHERE lm.session_id=s.id) AS member_count,
+        (SELECT COUNT(*) FROM entries e WHERE e.session_id=s.id) AS game_count
+        FROM sessions s LEFT JOIN users u ON u.id=s.created_by
+        ORDER BY s.locked, s.id DESC""")
+    return render_template("lobbies.html", rooms=rows)
+
+
+@bp.route("/sessions/<int:sid>/join", methods=["POST"])
+def join_open_lobby(sid):
+    _user()
+    room = _session(sid)
+    if room["locked"]:
+        abort(409, "Die Lobby ist bereits geschlossen.")
+    db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
+               (sid, g.user["id"]))
+    flash("Du bist der Lobby beigetreten. Wähle jetzt dein Spiel.", "info")
+    return redirect(url_for("mvp.choose_game", sid=sid))
+
+
+@bp.route("/sessions/<int:sid>/leave", methods=["POST"])
+def leave_lobby(sid):
+    _user()
+    room = _session(sid)
+    if room["locked"]:
+        abort(409, "Nach der Seed-Generierung ist die Lobby geschlossen.")
+    db.execute("DELETE FROM entries WHERE session_id=? AND user_id=?",
+               (sid, g.user["id"]))
+    db.execute("DELETE FROM lobby_members WHERE session_id=? AND user_id=?",
+               (sid, g.user["id"]))
+    flash("Du hast die Lobby verlassen.", "info")
+    return redirect(url_for("mvp.lobby_list"))
+
+
+@bp.route("/sessions/<int:sid>/members/<int:uid>/remove", methods=["POST"])
+def remove_member(sid, uid):
+    _user()
+    room = _session(sid)
+    if not _manager(room):
+        abort(403)
+    if room["locked"]:
+        abort(409)
+    if uid == room["created_by"]:
+        abort(400, "Host kann sich nur selbst über „Lobby verlassen“ entfernen.")
+    db.execute("DELETE FROM entries WHERE session_id=? AND user_id=?", (sid, uid))
+    db.execute("DELETE FROM lobby_members WHERE session_id=? AND user_id=?", (sid, uid))
+    flash("Teilnehmer entfernt. Der Slot blockiert die Generierung nicht mehr.", "info")
+    return redirect(url_for("session_view", sid=sid))
+
+
+@bp.route("/sessions/<int:sid>/choose")
+def choose_game(sid):
+    _user()
+    room = _session(sid)
+    if room["locked"]:
+        return redirect(url_for("session_view", sid=sid))
+    if not _manager(room) and not db.query(
+        "SELECT 1 FROM lobby_members WHERE session_id=? AND user_id=?",
+        (sid, g.user["id"]), one=True):
+        return redirect(url_for("mvp.lobby_list"))
+    from .community import all_games
+    choices = [game for game in all_games() if game["installed"]]
+    return render_template("choose_game.html", room=room, games=choices)
 
 
 def _join_url(token: str):
@@ -289,6 +381,13 @@ def preflight(sid: int) -> tuple[list[dict], list[tuple[str, str]], list[str]]:
     failures = []
     if not entries:
         failures.append("Keine Spieler-Spiele konfiguriert.")
+    # Joining a lobby is not enough: every joined member must choose a game.
+    selected_players = {entry["user_id"] for entry in entries}
+    joined = db.query("""SELECT lm.user_id, u.username FROM lobby_members lm
+        JOIN users u ON u.id=lm.user_id WHERE lm.session_id=?""", (sid,))
+    for member in joined:
+        if member["user_id"] not in selected_players:
+            failures.append(f"{member['username']} hat noch kein Spiel gewählt.")
     known_slots = {}
     for entry in entries:
         if not entry["installed"]:
@@ -355,10 +454,21 @@ def _generate_job(build_id: int, snapshot: dict, files: list[tuple[str, str]]):
             players, output, snapshot["spoiler"], snapshot["race"], expected_worlds=expected)
         if not ok or archive is None:
             raise ValueError(log[-12000:] or "Archipelago hat keine Seed-ZIP erzeugt.")
+        stats_path = output / "item_distribution.json"
+        stats_json = ""
+        if not snapshot["race"] and stats_path.is_file() and stats_path.stat().st_size <= 2 * 1024 * 1024:
+            try:
+                data = json.loads(stats_path.read_text(encoding="utf-8"))
+                if (data.get("source") == "archipelago_generated_multiworld"
+                        and isinstance(data.get("matrix"), dict)
+                        and isinstance(data.get("players"), list)):
+                    stats_json = json.dumps(data, ensure_ascii=False)
+            except (OSError, ValueError, TypeError):
+                pass
         with db.connect() as conn:
             conn.execute("""UPDATE seed_builds SET status='succeeded', log=?, zip_name=?,
-                seed_name=?, finished_at=? WHERE id=?""",
-                (log[-30000:], archive.name, archive.stem, utc_now(), build_id))
+                seed_name=?, stats_json=?, finished_at=? WHERE id=?""",
+                (log[-30000:], archive.name, archive.stem, stats_json, utc_now(), build_id))
     except Exception as exc:
         with db.connect() as conn:
             conn.execute("UPDATE seed_builds SET status='failed', log=?, finished_at=? WHERE id=?",
@@ -492,6 +602,27 @@ def save_hosting(sid, build_id):
                 g.user["id"], utc_now()))
     flash("Raumadresse diesem Seed zugeordnet. Alle Teilnehmer können sie unter „Jetzt spielen“ sehen.", "info")
     return redirect(url_for("mvp.play_page", sid=sid, build_id=build_id))
+
+
+@bp.route("/sessions/<int:sid>/builds/<int:build_id>/stats")
+def build_stats(sid, build_id):
+    room = _session(sid)
+    _assert_access(room)
+    build = db.query("SELECT * FROM seed_builds WHERE id=? AND session_id=?", (build_id,sid),one=True)
+    if not build:
+        abort(404)
+    metadata = json.loads(build["snapshot"])
+    # Race mode intentionally never presents spoiler-based distribution stats.
+    payload = None
+    if not metadata.get("race") and build["status"] == "succeeded" and build["stats_json"]:
+        try:
+            candidate = json.loads(build["stats_json"])
+            if candidate.get("source") == "archipelago_generated_multiworld":
+                payload = candidate
+        except (ValueError, TypeError):
+            pass
+    return render_template("seed_stats.html", room=room, build=build,
+                           stats=payload, race=bool(metadata.get("race")))
 
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/play")

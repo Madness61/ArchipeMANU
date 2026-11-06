@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Spiel auswählen · ArchipeMANU{% endblock %}
+{% block content %}
+<p class="small"><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
+<h1>Welches Spiel spielst du?</h1>
+<p class="muted">Lobby: <b>{{ room.name }}</b>. Wähle ein Spiel aus der gemeinsamen Bibliothek. Andere Spieler dürfen dasselbe Spiel wählen. Deine Wahl kann vor dem Seed-Start geändert werden.</p>
+<div class="grid" style="margin-top:17px">
+{% for game in games %}
+<div class="panel card">
+  <h3>{{ game.name }}</h3>
+  <p class="small muted">{{ 'Custom APWorld' if game.custom else 'In Archipelago integriert' }} · Version {{ game.version or 'unbekannt' }}</p>
+  <form method="post" action="{{ url_for('entry_add', sid=room.id) }}" style="margin-top:13px" class="row">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="game" value="{{ game.slug }}">
+    <button class="primary">Dieses Spiel auswählen →</button>
+  </form>
+</div>
+{% else %}
+<p class="muted">Es sind noch keine ausführbaren Spiele installiert. Alle Mitspieler können eine APWorld in der <a href="{{ url_for('games') }}">Spielebibliothek</a> hochladen; der Host aktiviert sie anschließend.</p>
+{% endfor %}
+</div>
+{% endblock %}

@@ -3,17 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}AP YAML Hub{% endblock %}</title>
+  <title>{% block title %}ArchipeMANU{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <header class="top">
   <div class="inner">
-    <a class="brand" href="{{ url_for('index') }}">AP YAML Hub</a>
+    <a class="brand" href="{{ url_for('index') }}"><span class="brand-symbol">A</span> ArchipeMANU <small>GAME HUB</small></a>
     {% if g.user %}
     <nav>
-      <a href="{{ url_for('games') }}">Spiele</a>
-      <a href="{{ url_for('index') }}">Sessions</a>
+      <a href="{{ url_for('games') }}">Spielebibliothek</a>
+       <a href="{{ url_for('mvp.lobby_list') }}">Lobbys</a>
+       <a href="{{ url_for('mvp.seed_list') }}">Seed-Analyse</a>
+      <a href="{{ url_for('index') }}">Übersicht</a>
       <a href="{{ url_for('import_view') }}">YAML importieren</a>
       {% if g.user.is_admin %}<a href="{{ url_for('admin') }}">Admin</a>{% endif %}
     </nav>

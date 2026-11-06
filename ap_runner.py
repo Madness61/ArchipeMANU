@@ -172,7 +172,39 @@ def generate(players: str, out: str, spoiler: int, race: bool) -> None:
     from Main import main as ERmain
 
     args, seed = Generate.main()
-    ERmain(args, seed)
+    multiworld = ERmain(args, seed)
+    if race:
+        # Item placement information must not reveal race spoilers.
+        print("Race mode: item distribution analytics disabled.")
+        return
+    try:
+        from hub.stats import aggregate_placements
+        from BaseClasses import ItemClassification
+        player_ids = sorted(multiworld.player_ids)
+        players = [{"id": p, "name": multiworld.get_player_name(p),
+                    "game": multiworld.game[p]} for p in player_ids]
+        placements = []
+        for loc in multiworld.get_filled_locations():
+            if type(loc.address) is not int or not loc.item or type(loc.item.code) is not int:
+                continue
+            item = loc.item
+            classification = item.classification
+            if classification & ItemClassification.progression:
+                kind = "progression"
+            elif classification & ItemClassification.trap:
+                kind = "trap"
+            elif classification & ItemClassification.useful:
+                kind = "useful"
+            else:
+                kind = "filler"
+            placements.append((loc.player, item.player, kind))
+        result = aggregate_placements(players, placements)
+        with open(os.path.join(out, "item_distribution.json"), "w", encoding="utf-8") as fp:
+            json.dump(result, fp, ensure_ascii=False, indent=2)
+        print("Real item distribution statistics written.")
+    except Exception:
+        # Successful seed generation must not be discarded for analytics errors.
+        logging.exception("Item distribution analytics unavailable for this seed.")
 
 
 def main() -> None:

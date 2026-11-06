@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Seed-Analyse · ArchipeMANU{% endblock %}
+{% block content %}
+<p class="small"><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
+<div class="row spread">
+  <div><h1>Seed-Analyse #{{ build.id }}</h1><p class="muted">{{ room.name }} · {{ build.created_at[:16] }}</p></div>
+  <span class="chip {{ 'ok' if build.status == 'succeeded' else 'warn' }}">{{ build.status }}</span>
+</div>
+{% if race %}
+<div class="flash info" style="margin-top:16px">Race-Modus: Itemverteilung wird zum Schutz der spoilerfreien Runde nicht veröffentlicht.</div>
+{% elif not stats %}
+<div class="panel" style="margin-top:16px">
+  <h2>Keine verifizierten Statistikdaten verfügbar</h2>
+  <p class="muted">Für diesen Seed liegen keine vom Archipelago-Generator bestätigten Itemplatzierungen vor. Das gilt auch für ältere Seeds und bei fehlgeschlagener Statistik-Erfassung. Es werden keine Werte geschätzt.</p>
+</div>
+{% else %}
+<p class="muted small" style="margin:12px 0">Quelle: tatsächlich generierte Itemplatzierungen aus der Archipelago-Multiworld. Keine Demo-Zahlen.</p>
+<div class="grid metric-grid" style="margin:18px 0">
+  <div class="panel"><span class="muted small">Spieler</span><div class="metric">{{ stats.players|length }}</div></div>
+  <div class="panel"><span class="muted small">Itemplatzierungen</span><div class="metric">{{ stats.total_placements }}</div></div>
+  <div class="panel"><span class="muted small">Crossworld-Items</span><div class="metric">{{ stats.crossworld_placements }}</div></div>
+  <div class="panel"><span class="muted small">Crossworld-Anteil</span><div class="metric">{{ stats.crossworld_percent }} %</div></div>
+</div>
+<h2>Items: Wo liegen sie, für wen sind sie?</h2>
+<p class="muted small">Zeile: Welt, in der das Item gefunden wird. Spalte: Spieler, dem das Item gehört. Die Diagonale zeigt die eigene Welt.</p>
+<div class="panel table-wrap" style="margin-top:12px">
+  <table class="matrix"><thead><tr><th>Fundort / Empfänger</th>{% for p in stats.players %}<th>{{ p.name }}</th>{% endfor %}<th>Summe</th></tr></thead>
+  <tbody>
+  {% for finder in stats.players %}
+    {% set fid=finder.id|string %}
+    <tr><td><strong>{{ finder.name }}</strong><div class="muted small">{{ finder.game }}</div></td>
+    {% for receiver in stats.players %}
+       {% set rid=receiver.id|string %}
+       {% set count=stats.matrix[fid][rid] %}
+       <td><span class="matrix-cell {% if finder.id == receiver.id %}matrix-own{% endif %}">{{ count }}</span></td>
+    {% endfor %}
+    <td><b>{{ stats.location_totals[fid] }}</b></td></tr>
+  {% endfor %}
+  </tbody></table>
+</div>
+<h2>Itemklassen nach Empfänger</h2>
+<div class="panel" style="margin-top:12px">
+{% for p in stats.players %}
+  {% set pid=p.id|string %}
+  {% set c=stats.categories[pid] %}
+  {% set total=stats.recipient_totals[pid] %}
+  <div class="stat-row">
+    <div class="row spread"><strong>{{ p.name }} · {{ p.game }}</strong><span class="muted small">{{ total }} Items</span></div>
+    <div class="stackbar">
+      {% if total %}
+      <span class="progression" style="width:{{ 100*c.progression/total }}%"></span>
+      <span class="useful" style="width:{{ 100*c.useful/total }}%"></span>
+      <span class="filler" style="width:{{ 100*c.filler/total }}%"></span>
+      <span class="trap" style="width:{{ 100*c.trap/total }}%"></span>
+      {% endif %}
+    </div>
+    <span class="muted small">Progression {{ c.progression }} · Nützlich {{ c.useful }} · Filler {{ c.filler }} · Trap {{ c.trap }}</span>
+  </div>
+{% endfor %}
+<div class="row legend small"><span>■ Progression</span><span>■ Nützlich</span><span>■ Filler</span><span>■ Trap</span></div>
+</div>
+<p class="muted small" style="margin-top:14px">{{ stats.limitation }}</p>
+{% endif %}
+<div class="row" style="margin-top:19px">
+  <a class="btn" href="{{ url_for('mvp.play_page', sid=room.id, build_id=build.id) }}">Jetzt spielen / Verbindung</a>
+  {% if build.status == 'succeeded' %}<a class="btn primary" href="{{ url_for('mvp.build_download', sid=room.id, build_id=build.id) }}">Seed-ZIP herunterladen</a>{% endif %}
+</div>
+{% endblock %}

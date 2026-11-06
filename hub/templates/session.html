@@ -4,7 +4,7 @@
 <div class="row spread">
   <div>
     <h1>{{ s.name }}</h1>
-    <p class="muted small">Session #{{ s.id }} · Bitte den Einladungslink unten verwenden.</p>
+    <p class="muted small">Lobby #{{ s.id }} · Offen für angemeldete Mitspieler bis zum Seed-Start.</p>
   </div>
   <div class="row">
     {% if s.locked %}<span class="chip">gesperrt</span>{% else %}<span class="chip ok">offen</span>{% endif %}
@@ -22,9 +22,42 @@
 </div>
 {% endif %}
 {% if lobby_guests %}
-<p class="muted small">In der Lobby: {% for u in lobby_guests %}{{ u.username }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+<div class="panel" style="margin:10px 0">
+  <h3>Teilnehmer ({{ lobby_guests|length }})</h3>
+  <p class="muted small">Der Seed startet erst, wenn jeder beigetretene Spieler ein Spiel gewählt und als bereit markiert hat.</p>
+  <div class="row" style="margin-top:9px">
+  {% for u in lobby_guests %}
+    <span class="chip {{ 'ok' if u.entry_id else 'warn' }}">{{ u.username }} · {{ 'Spiel gewählt' if u.entry_id else 'Spiel fehlt' }}</span>
+    {% if manage and not s.locked and u.user_id != s.created_by %}
+      <form method="post" action="{{ url_for('mvp.remove_member', sid=s.id, uid=u.user_id) }}" class="inline"
+            data-confirm="Spieler {{ u.username }} aus der Lobby entfernen?">
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+        <button class="linkish danger small">Entfernen</button>
+      </form>
+    {% endif %}
+  {% endfor %}
+  </div>
+</div>
 {% endif %}
 {% if not s.locked %}
+{% if not is_member %}
+<div class="panel">
+  <h3>Du möchtest mitspielen?</h3><p class="muted small">Tritt der Lobby bei und wähle erst danach dein Spiel.</p>
+  <form method="post" action="{{ url_for('mvp.join_open_lobby', sid=s.id) }}" class="row">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <button class="primary">Ich möchte mitmachen →</button>
+  </form>
+</div>
+{% else %}
+<div class="panel row spread">
+  <div><h3>Deine Spielauswahl</h3><p class="muted small">Du kannst dein Spiel jederzeit vor dem Seed-Start ändern.</p></div>
+  <a class="btn primary" href="{{ url_for('mvp.choose_game', sid=s.id) }}">Spiel wählen / ändern →</a>
+  <form method="post" action="{{ url_for('mvp.leave_lobby', sid=s.id) }}" class="inline"
+        data-confirm="Du verlässt die Lobby; dein Spielslot wird entfernt.">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <button>Lobby verlassen</button>
+  </form>
+</div>
 <form method="post" action="{{ url_for('entry_add', sid=s.id) }}" class="panel row" id="add-entry">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <b>Ich spiele:</b>
@@ -33,8 +66,9 @@
     {% for slug, info in games %}<option value="{{ slug }}">{{ info.game }}</option>{% endfor %}
   </select>
   <select name="ref" id="add-ref" aria-label="Vorlage"><option value="">Gruppen-Standard</option></select>
-  <button class="primary">Hinzufügen</button>
+  <button class="primary">Auswahl übernehmen</button>
 </form>
+{% endif %}
 {% endif %}
 
 <h2>Spieler ({{ entries|length }})</h2>
@@ -159,7 +193,8 @@
     </div>
     {% if b.status == 'succeeded' %}
       <p><a class="btn primary" href="{{ url_for('mvp.build_download', sid=s.id, build_id=b.id) }}">Multiworld-ZIP herunterladen</a>
-      <a class="btn" href="{{ url_for('mvp.play_page', sid=s.id, build_id=b.id) }}">Jetzt spielen</a></p>
+      <a class="btn" href="{{ url_for('mvp.play_page', sid=s.id, build_id=b.id) }}">Jetzt spielen</a>
+      <a class="btn" href="{{ url_for('mvp.build_stats', sid=s.id, build_id=b.id) }}">Seed-Analyse</a></p>
       {% if manage %}
       <details><summary>Hosting-Adresse für diesen Seed speichern</summary>
         <p class="small">1. ZIP herunterladen. 2. <a href="https://archipelago.gg/uploads" target="_blank" rel="noopener">archipelago.gg/uploads öffnen</a>.

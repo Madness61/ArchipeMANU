@@ -149,3 +149,62 @@ Diese Freigabe ist **keine Sandbox und schützt nicht vor bösartigem APWorld-Co
 py -3.13 -m pip install -r requirements.txt
 py -3.13 -m unittest discover -s tests -v
 ```
+
+
+## Community-Multiworld-Workflow (November 2026)
+
+Diese Ausbaustufe setzt den gemeinsam abgestimmten Prototypen in der bestehenden Flask-Anwendung um. Alle Änderungen sind **additiv**: Vorhandene Benutzer, Spiele, YAML-Vorlagen, APWorld-Dateien, Seeds und Hosting-Einträge werden nicht überschrieben. Vor dem Update den gesamten lokalen Ordner `data/` sichern.
+
+### 1. Anmelden und Übersicht
+
+Der Nutzer meldet sich wie bisher an. Die Startseite zeigt die Anzahl vorhandener Spiele, offener Lobbys und registrierter Spieler. **Wichtig:** Die Anmeldung verwendet weiterhin Benutzername plus optionalem gemeinsamem Gruppenpasswort und ist gegen Identitätsübernahme innerhalb der Gruppe nicht hinreichend geschützt. Nicht öffentlich im Internet hosten.
+
+### 2. Gemeinsame Spielebibliothek
+
+Jeder angemeldete Spieler kann unter **Spielebibliothek → Spiel hinzufügen** ein Custom-Spiel einreichen:
+
+- APWorld-Datei (maximal 20 MiB); die .apworld wird ohne Import und Codeausführung validiert und mit SHA-256 versioniert archiviert.
+- Optional Spielname, HTTPS-Quellenlink und YAML-Vorlage (maximal 512 KiB, UTF-8, mit `name` und `game`).
+- Die APWorld und YAML-Datei stehen angemeldeten Spielern als Download zur Verfügung. Alte Versionen bleiben archiviert. Bereits installierte und integrierte Archipelago-Spiele erscheinen ebenfalls im Katalog.
+- **Ein neuer Upload ist zunächst inaktiv.** Der Host prüft die Herkunft und den Code, startet seine lokale Instanz bei bewusstem Vertrauen mit `HUB_TRUSTED_APWORLDS=1` und aktiviert die gewünschte Version. Erst dann kann das Spiel beim Archipelago-Schemaeinlesen geladen und in der Lobby gewählt werden.
+- Diese Freigabe ist **KEINE Sandbox**. Custom APWorlds sind ausführbarer Python-Code, der auf dem Host mit dessen Rechten läuft. Auch vertraute Mitspieler können versehentlich fehlerhaften Code hochladen. Die sichere Isolation in einer OS-/VM-Sandbox bleibt offen.
+
+Wird die optionale YAML-Vorlage hochgeladen, bleibt sie als **unverändertes Original** erhalten und kann heruntergeladen werden. Sie wird bewusst nicht ungeprüft zum aktiven Slot-Preset gemacht. Für spielbare Einstellungen liest der Host nach der Aktivierung die tatsächlichen Optionen der World ein; Vorlagen können mit der bestehenden YAML-Importfunktion weiterverarbeitet werden.
+
+### 3. Offene Lobbys und Spielauswahl
+
+**Lobbys** listet alle offenen und geschlossenen Runden für angemeldete Gruppenmitglieder auf. Jeder kann selbst eine Lobby erstellen. Eine offene Lobby lässt beliebig viele Beitritte zu – keine feste Teilnehmeranzahl und kein Einladungscode erforderlich. Der bisherige optionale Einladungslink bleibt aus Kompatibilitätsgründen erhalten.
+
+Ablauf: **Lobby ansehen → Mitmachen → eigenes Spiel wählen → Slotoptionen konfigurieren → Bereitschaft bestätigen**. Pro Spieler wird in einer neuen Lobby **ein aktiver Spielslot** geführt. Ein Wechsel aktualisiert den bestehenden Slot, statt einen zweiten zu erzeugen. Solange die Lobby offen ist, darf jeder seine Auswahl ändern.
+
+Der Host darf den Seed nur erzeugen, wenn **alle beigetretenen Mitspieler ein Spiel gewählt haben** und sämtliche vorhandenen Slots nach der Konfigurationsprüfung bereit sind. Wer noch kein Spiel gewählt hat, wird in der Lobby gesondert angezeigt. Die Generierung schließt die Lobby; sie kann nach einem erfolgreichen Seed nicht wieder geöffnet werden. Für weitere Mitspieler oder eine neue Konfiguration eine neue Runde erstellen bzw. klonen.
+
+### 4. Seed-Analyse und echte Itemverteilung
+
+Nach einer erfolgreichen Generierung: **Seed-Historie → Seed-Analyse**. Ein eigener Menüpunkt **Seed-Analyse** listet die verfügbaren Builds.
+
+Die Analyse verwendet **keine Demo-Zahlen** und liest keine beliebigen fremden ZIP-Pickles. Stattdessen erhält der bereits für die Generierung eingesetzte Archipelago-Unterprozess das vollständige MultiWorld-Objekt von `Main.main`, zählt dessen tatsächlich platzierte, adressierte Items und schreibt die **aggregierten** Daten als `item_distribution.json` neben dem Seed-ZIP. Das Flask-Backend übernimmt diese JSON-Statistik in den Build-Datensatz.
+
+Anzeige:
+- Anzahl der Spieler, echte gezählte Itemplatzierungen, Crossworld-Items und deren Anteil.
+- **Item-Matrix:** Zeilen = Spiel/Welt des Fundorts; Spalten = Empfänger. Diagonale = Items in der eigenen Welt.
+- **Itemklassen:** Progression, Useful, Trap und Filler pro Empfänger.
+- Es werden ausschließlich platzierte Items mit numerischen Location-/Item-IDs berücksichtigt. Event-Locations, Startinventar und gesonderte Item-Link-Gruppen-Slots sind **nicht enthalten**; daraus folgt, dass „Itemplatzierungen“ nicht zwangsläufig alle internen Spiele-Checks umfassen.
+- **Race-Modus:** Analytics ist absichtlich deaktiviert, um spoilerhaltige Itemplatzierungen nicht offenzulegen.
+- Fehlende oder ältere Seed-Daten: `Keine verifizierten Statistikdaten verfügbar`, keine geschätzten Werte.
+
+### 5. Hosting und lokaler Test
+
+Der Hosting-Ablauf bleibt wie zuvor: ZIP vom Host herunterladen → auf https://archipelago.gg/uploads hochladen → dort `Create Room` → echte Host-/Portdaten und optional Raum-URL im Hub speichern. Es gibt keine behauptete offizielle Upload-API.
+
+Unter Windows im geklonten Projektordner (vorher `data/` sichern):
+
+```powershell
+git pull
+py -3.13 -m unittest discover -s tests -v
+.\start.ps1
+```
+
+Teste danach mit mindestens zwei getrennten Browser-Sessions die Registrierung, Bibliotheks-Uploads, Host-Freigabe, offenen Beitritt, Slotoptionen, Bereitschaft und Seed-Analyse. Die automatisierten GitHub-Tests verwenden einen **Mock-Generator**; die echte Multiworld-Generierung und statistische Ausgabe mit euren Custom APWorlds muss auf deinem Windows-Host geprüft werden.
+
+Die Website ist weiterhin für ein **privates, vertrauenswürdiges LAN oder VPN** gedacht, nicht für ungeschütztes Internet. Die gemeinsame Anmeldung ist keine eigenständige, sichere Benutzeridentität. Eigenständige Passwörter, HTTPS, Rate-Limits und echte Ausführungsisolation sind für öffentlichen Betrieb erforderlich.

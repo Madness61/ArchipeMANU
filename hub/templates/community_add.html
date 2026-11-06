@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Spiel hinzufügen · ArchipeMANU{% endblock %}
+{% block content %}
+<p class="small"><a href="{{ url_for('games') }}">← Spielebibliothek</a></p>
+<div class="row spread"><h1>Neues Spiel hinzufügen</h1><span class="chip">Für alle Spieler</span></div>
+<p class="muted">Alle angemeldeten Mitspieler können eine Custom APWorld einreichen. Die Datei wird sofort in der gemeinsamen Bibliothek archiviert. Vor dem Ausführen von Python-Code muss der Host die Version aktivieren.</p>
+<form method="post" action="{{ url_for('community.game_add') }}" enctype="multipart/form-data" class="panel stack" style="margin-top:18px">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <div class="grid">
+    <label>Spielname (optional, sonst APWorld-Manifest)<br><input name="name" maxlength="100" style="width:100%" placeholder="z. B. Dark Souls III"></label>
+    <label>Custom APWorld *<br><input type="file" name="apworld" accept=".apworld" required></label>
+    <label>Passende YAML-Vorlage (optional)<br><input type="file" name="yaml" accept=".yaml,.yml"></label>
+    <label>Quellenlink (optional)<br><input type="url" name="source_url" style="width:100%" placeholder="https://github.com/..."></label>
+  </div>
+  <p class="small muted">Max. 20 MiB pro APWorld und 512 KiB pro YAML. Die YAML bleibt als Originalvorlage erhalten. Nach dem Aktivieren liest Archipelago die tatsächlich unterstützten Spieloptionen ein.</p>
+  <p class="flash info">APWorlds enthalten ausführbaren Python-Code. Uploads werden nicht automatisch aktiviert. Eine Freigabe ist keine Sandbox – nur überprüfte Welten auf einem privaten Host verwenden.</p>
+  <div class="row"><button class="primary">Zur Spielebibliothek hinzufügen</button><a class="btn" href="{{ url_for('games') }}">Abbrechen</a></div>
+</form>
+{% endblock %}

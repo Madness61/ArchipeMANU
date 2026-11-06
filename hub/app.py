@@ -9,7 +9,7 @@ import zipfile
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, session,
                    url_for)
 
-from . import ap_bridge, config, db, yamlgen, mvp
+from . import ap_bridge, config, db, yamlgen, mvp, community
 
 app = Flask(__name__)
 app.teardown_appcontext(db.close)
@@ -153,11 +153,7 @@ def templates_for(schema: dict) -> list[dict]:
 
 
 def open_sessions():
-    return db.query("""SELECT s.* FROM sessions s WHERE s.locked=0 AND
-        (? = 1 OR s.created_by=? OR EXISTS
-          (SELECT 1 FROM lobby_members m WHERE m.session_id=s.id AND m.user_id=?)
-          OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?))
-        ORDER BY s.id DESC""", (g.user["is_admin"], g.user["id"], g.user["id"], g.user["id"]))
+    return db.query("SELECT * FROM sessions WHERE locked=0 ORDER BY id DESC")
 
 
 def user_values(schema: dict, template_values: dict, user) -> dict:
@@ -229,34 +225,20 @@ def inject_globals():
 def index():
     sessions = db.query(
         "SELECT s.*, u.username, (SELECT COUNT(*) FROM entries e WHERE e.session_id = s.id) AS n "
-        """FROM sessions s LEFT JOIN users u ON u.id = s.created_by
-        WHERE (? = 1 OR s.created_by=? OR EXISTS
-           (SELECT 1 FROM lobby_members m WHERE m.session_id=s.id AND m.user_id=?)
-           OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?))
-        ORDER BY s.id DESC LIMIT 10""",
-        (g.user["is_admin"], g.user["id"], g.user["id"], g.user["id"]))
-    return render_template("index.html", sessions=sessions)
+        "FROM sessions s LEFT JOIN users u ON u.id = s.created_by ORDER BY s.locked, s.id DESC LIMIT 10")
+    return render_template("index.html", sessions=sessions,
+                           games_total=len(community.all_games()),
+                           open_total=db.query("SELECT COUNT(*) AS n FROM sessions WHERE locked=0", one=True)["n"],
+                           players_total=db.query("SELECT COUNT(*) AS n FROM users", one=True)["n"])
 
 
 @app.route("/games")
 @login_required
 def games():
-    q = request.args.get("q", "").strip().casefold()
-    show_all = request.args.get("all") == "1" or bool(q)
-    counts = {r["game"]: r["n"] for r in db.query(
-        "SELECT game, COUNT(*) AS n FROM templates WHERE shared = 1 OR created_by = ? GROUP BY game",
-        (g.user["id"],))}
-    played = {r["game"] for r in db.query("SELECT DISTINCT game FROM entries")}
-    rows = []
-    for slug, info in ap_bridge.index()["games"].items():
-        if q and q not in info["game"].casefold():
-            continue
-        relevant = info["custom"] or slug in counts or slug in played
-        if show_all or relevant:
-            rows.append({"slug": slug, **info, "templates": counts.get(slug, 0), "relevant": relevant})
-    rows.sort(key=lambda r: (not r["relevant"], r["game"].casefold()))
-    total = len(ap_bridge.index()["games"])
-    return render_template("games.html", rows=rows, q=request.args.get("q", ""), show_all=show_all, total=total)
+    q = request.args.get("q", "").strip()
+    rows = community.all_games(q)
+    return render_template("games.html", rows=rows, q=q, total=len(community.all_games()))
+
 
 
 @app.route("/games/<slug>")
@@ -462,7 +444,9 @@ def profile():
 def session_create():
     name = request.form.get("name", "").strip() or "Spielabend"
     sid = db.execute("INSERT INTO sessions (name, created_by) VALUES (?, ?)", (name[:80], g.user["id"]))
-    return redirect(url_for("session_view", sid=sid))
+    db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
+               (sid,g.user["id"]))
+    return redirect(url_for("mvp.choose_game", sid=sid))
 
 
 @app.route("/sessions/<int:sid>")
@@ -475,10 +459,16 @@ def session_view(sid):
         e["summary"] = yamlgen.summarize(ap_bridge.schema(e["game"]), e["values"]) if e["installed"] else []
     games = sorted(ap_bridge.index()["games"].items(), key=lambda kv: kv[1]["game"].casefold())
     history = mvp.builds(sid)
-    guests = db.query("SELECT u.username FROM lobby_members m JOIN users u ON u.id=m.user_id WHERE m.session_id=? ORDER BY u.username", (sid,))
+    guests = db.query("""SELECT u.username, u.id AS user_id, e.id AS entry_id
+        FROM lobby_members m JOIN users u ON u.id=m.user_id
+        LEFT JOIN entries e ON e.session_id=m.session_id AND e.user_id=m.user_id
+        WHERE m.session_id=? GROUP BY u.id ORDER BY u.username""", (sid,))
+    is_member = bool(db.query("SELECT 1 FROM lobby_members WHERE session_id=? AND user_id=?",
+                              (sid,g.user["id"]),one=True))
     return render_template("session.html", s=row, entries=entries, games=games,
                            manage=can_manage_session(row), build_history=history,
-                           lobby_guests=guests, world_versions=ap_bridge.list_apworld_versions())
+                           lobby_guests=guests, is_member=is_member,
+                           world_versions=ap_bridge.list_apworld_versions())
 
 
 @app.route("/games/<slug>/play", methods=["POST"])
@@ -488,6 +478,8 @@ def game_play(slug):
     target = request.form.get("session", "new")
     if target == "new":
         sid = db.execute("INSERT INTO sessions (name, created_by) VALUES (?, ?)", ("Spielabend", g.user["id"]))
+        db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
+                   (sid,g.user["id"]))
     elif target.isdigit():
         sid = int(target)
     else:
@@ -503,6 +495,10 @@ def entry_add(sid):
     if row["locked"]:
         flash("Die Session ist gesperrt.", "error")
         return redirect(url_for("session_view", sid=sid))
+    if not db.query("SELECT 1 FROM lobby_members WHERE session_id=? AND user_id=?",
+                    (sid,g.user["id"]),one=True):
+        flash("Bitte zuerst der Lobby beitreten.", "error")
+        return redirect(url_for("mvp.lobby_list"))
     slug = request.form.get("game") or request.view_args.get("slug", "")
     schema = get_schema(slug)
     ref = request.form.get("ref") or group_default_ref(slug)
@@ -511,11 +507,16 @@ def entry_add(sid):
         abort(400)
     sha = next((v["sha256"] for v in ap_bridge.list_apworld_versions()
                 if v["active"] and v["module"] == slug), "")
-    db.execute("""INSERT INTO entries
-               (session_id, user_id, game, template_ref, selected_apworld_sha)
-               VALUES (?, ?, ?, ?, ?)""", (sid, g.user["id"], slug, ref, sha))
-    db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
-               (sid, g.user["id"]))
+    existing = db.query("SELECT id FROM entries WHERE session_id=? AND user_id=?",
+                        (sid,g.user["id"]),one=True)
+    if existing:
+        db.execute("""UPDATE entries SET game=?, template_ref=?, selected_apworld_sha=?,
+                   option_overrides='{}', ready=0, ready_hash='' WHERE id=?""",
+                   (slug,ref,sha,existing["id"]))
+    else:
+        db.execute("""INSERT INTO entries
+                   (session_id, user_id, game, template_ref, selected_apworld_sha)
+                   VALUES (?, ?, ?, ?, ?)""", (sid, g.user["id"], slug, ref, sha))
     flash(f"Du spielst {schema['game']} in „{row['name']}“.", "info")
     return redirect(url_for("session_view", sid=sid))
 
@@ -560,6 +561,12 @@ def session_lock(sid):
     row = get_session(sid)
     if not can_manage_session(row):
         abort(403)
+    # Closed generated lobbies cannot accept new players: clone to start a new seed.
+    has_build = db.query("SELECT 1 FROM seed_builds WHERE session_id=? AND status IN ('queued','running','succeeded') LIMIT 1",
+                         (sid,), one=True)
+    if row["locked"] and has_build:
+        flash("Diese Lobby hat bereits einen Seed. Bitte stattdessen die Lobby klonen.", "error")
+        return redirect(url_for("session_view", sid=sid))
     db.execute("UPDATE sessions SET locked = ? WHERE id = ?", (0 if row["locked"] else 1, sid))
     return redirect(url_for("session_view", sid=sid))
 
@@ -761,8 +768,11 @@ def create_app() -> Flask:
     config.ensure_dirs()
     db.init()
     mvp.migrate()
+    community.migrate()
     if "mvp" not in app.blueprints:
         app.register_blueprint(mvp.bp)
+    if "community" not in app.blueprints:
+        app.register_blueprint(community.bp)
     app.secret_key = config.secret_key()
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
     if ap_bridge.ap_ready() and not (config.SCHEMAS / "index.json").exists():

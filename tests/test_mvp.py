@@ -116,7 +116,8 @@ class MVPTests(unittest.TestCase):
         token = invitation.rsplit("/invite/", 1)[1].split()[0]
         other = self.app.test_client()
         self.post("/login", {"username": "Friend"}, client=other)
-        self.assertEqual(other.get(f"/sessions/{sid}").status_code, 403)
+        self.assertEqual(other.get(f"/sessions/{sid}").status_code, 200)  # open lobbies are visible
+        self.assertEqual(other.get(f"/sessions/{sid}/choose").status_code, 302)  # not joined yet
         invite = other.get(f"/invite/{token}")
         self.assertEqual(invite.status_code, 200)
         accepted = self.post(f"/invite/{token}", {}, client=other)
