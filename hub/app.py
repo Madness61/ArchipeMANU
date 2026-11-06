@@ -460,9 +460,12 @@ def session_view(sid):
     games = sorted(ap_bridge.index()["games"].items(), key=lambda kv: kv[1]["game"].casefold())
     history = mvp.builds(sid)
     guests = db.query("SELECT u.username FROM lobby_members m JOIN users u ON u.id=m.user_id WHERE m.session_id=? ORDER BY u.username", (sid,))
+    is_member = bool(db.query("SELECT 1 FROM lobby_members WHERE session_id=? AND user_id=?",
+                              (sid,g.user["id"]),one=True))
     return render_template("session.html", s=row, entries=entries, games=games,
                            manage=can_manage_session(row), build_history=history,
-                           lobby_guests=guests, world_versions=ap_bridge.list_apworld_versions())
+                           lobby_guests=guests, is_member=is_member,
+                           world_versions=ap_bridge.list_apworld_versions())
 
 
 @app.route("/games/<slug>/play", methods=["POST"])
