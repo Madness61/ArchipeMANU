@@ -35,14 +35,16 @@
         <code>{{ version.version or 'Unbekannt' }}</code>
         <span class="muted small">{{ version.sha256[:12] }}… · von {{ version.username }}</span>
         {% if version.approved %}<span class="chip ok">Freigegeben</span>{% else %}<span class="chip warn">Archiviert</span>{% endif %}
+        <a class="btn small" href="{{ url_for('community.download_apworld', sha256=version.sha256) }}">APWorld herunterladen</a>
         {% if version.yaml_file %}
           <a class="btn small" href="{{ url_for('community.download_yaml', sha256=version.sha256) }}">YAML herunterladen</a>
         {% endif %}
         {% if g.user.is_admin and not version.approved %}
-          <form method="post" action="{{ url_for('community.approve', sha256=version.sha256) }}" class="inline">
+          <form method="post" action="{{ url_for('community.approve', sha256=version.sha256) }}" class="inline"
+                data-confirm="Nur nach Prüfung des Python-Codes: APWorld aktivieren?">
             <input type="hidden" name="_csrf" value="{{ csrf_token }}">
             <input type="hidden" name="trust_apworlds" value="yes">
-            <button class="primary" data-confirm="Nur nach Prüfung des Python-Codes: APWorld aktivieren?">Freigeben & aktivieren</button>
+            <button class="primary">Freigeben & aktivieren</button>
           </form>
         {% endif %}
       </div>
