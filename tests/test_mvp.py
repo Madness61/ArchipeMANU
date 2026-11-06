@@ -107,9 +107,21 @@ class MVPTests(unittest.TestCase):
             sid = db.execute("INSERT INTO sessions(name,created_by) VALUES (?,?)", ("Friends", 1))
         with self.app.test_request_context():
             pass
-        # Confirm a newly created user does not gain host privileges.
+        # Create a protected invitation and join from a separate browser session.
+        created = self.post(f"/sessions/{sid}/invite", {})
+        self.assertEqual(created.status_code, 302)
+        with self.client.session_transaction() as sess:
+            notices = [msg for _kind, msg in sess.get("_flashes", [])]
+        invitation = next(msg for msg in notices if "/invite/" in msg)
+        token = invitation.rsplit("/invite/", 1)[1].split()[0]
         other = self.app.test_client()
         self.post("/login", {"username": "Friend"}, client=other)
+        self.assertEqual(other.get(f"/sessions/{sid}").status_code, 403)
+        invite = other.get(f"/invite/{token}")
+        self.assertEqual(invite.status_code, 200)
+        accepted = self.post(f"/invite/{token}", {}, client=other)
+        self.assertEqual(accepted.status_code, 302)
+        self.assertEqual(other.get(f"/sessions/{sid}").status_code, 200)
         with self.app.app_context():
             from hub import db
             user = db.query("SELECT is_admin FROM users WHERE username=?", ("Friend",), one=True)
