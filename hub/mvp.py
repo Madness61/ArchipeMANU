@@ -210,6 +210,10 @@ def entry_options(eid):
     schema = ap_bridge.schema(entry["game"])
     if schema is None:
         abort(404, "Diese APWorld ist nicht verfügbar.")
+    active = next((v["sha256"] for v in ap_bridge.list_apworld_versions()
+                   if v["active"] and v["module"] == entry["game"]), "")
+    if entry["selected_apworld_sha"] and entry["selected_apworld_sha"] != active:
+        abort(409, "Diese APWorld-Version ist nicht aktiv. Der Host muss sie im Adminbereich aktivieren.")
     from .app import resolve_template, user_values
     _, template_values, _ = resolve_template(schema, entry["template_ref"])
     overrides = db.loads(entry["option_overrides"])
@@ -219,7 +223,7 @@ def entry_options(eid):
         updated, errors = yamlgen.parse_form(schema, request.form, effective)
         errors.update(yamlgen.validate_values(schema, updated))
         if not errors:
-            db.execute("UPDATE entries SET option_overrides=?, ready=0 WHERE id=?",
+            db.execute("UPDATE entries SET option_overrides=?, ready=0, ready_hash='' WHERE id=?",
                        (db.dumps(updated), eid))
             flash("Deine Einstellungen wurden gespeichert; bitte erneut als bereit markieren.", "info")
             return redirect(url_for("session_view", sid=room["id"]))
