@@ -12,6 +12,7 @@
 <h2>APWorlds</h2>
 <p class="muted small">Neue Uploads aktivieren ihre Version automatisch; vorherige Uploads werden nicht gelöscht.</p>
 <form method="post" action="{{ url_for('admin_upload') }}" enctype="multipart/form-data" class="panel row">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <input type="file" name="files" accept=".apworld" multiple required>
   <label class="small"><input type="checkbox" name="trust_apworlds" value="yes" required> Ich habe die Herkunft dieser ausführbaren APWorlds geprüft.</label>
   <button class="primary">Hochladen</button>
@@ -36,7 +37,8 @@
       </td>
       <td>
         <form method="post" action="{{ url_for('admin_delete_apworld', module=a.module) }}" class="inline"
-              data-confirm="{{ a.file }} entfernen?"><button class="linkish small danger">Deaktivieren</button></form>
+              data-confirm="{{ a.file }} entfernen?">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish small danger">Deaktivieren</button></form>
       </td>
     </tr>
     {% endfor %}
@@ -61,6 +63,7 @@
         {% if v.active %}<span class="chip ok">Aktiv</span>{% else %}
           <form method="post" action="{{ url_for('admin_activate_apworld', sha256=v.sha256) }}" class="inline"
                 data-confirm="Diese APWorld-Version kann ausführbaren Python-Code enthalten. Nur geprüfte Quellen aktivieren. Fortfahren?">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
             <input type="hidden" name="trust_apworlds" value="yes">
             <button>Aktivieren</button>
           </form>
@@ -76,6 +79,7 @@
 {% endif %}
 
 <form method="post" action="{{ url_for('admin_extract') }}" style="margin-top:12px">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <button>Optionen neu einlesen</button>
 </form>
 
@@ -101,6 +105,7 @@
       <td>{{ u.username }}</td><td>{{ u.slot_name }}</td><td>{{ 'Admin' if u.is_admin else 'Spieler' }}</td>
       <td>{% if u.id != g.user.id %}
         <form method="post" action="{{ url_for('admin_toggle', uid=u.id) }}" class="inline">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
           <button class="linkish small">{{ 'Admin entziehen' if u.is_admin else 'Zum Admin machen' }}</button></form>
       {% endif %}</td>
     </tr>
