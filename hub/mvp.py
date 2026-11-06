@@ -44,6 +44,9 @@ def migrate() -> None:
         columns = {r["name"] for r in conn.execute("PRAGMA table_info(sessions)")}
         if "description" not in columns:
             conn.execute("ALTER TABLE sessions ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+        build_cols = {r["name"] for r in conn.execute("PRAGMA table_info(seed_builds)")}
+        if build_cols and "stats_json" not in build_cols:
+            conn.execute("ALTER TABLE seed_builds ADD COLUMN stats_json TEXT NOT NULL DEFAULT ''")
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS lobby_members(
             session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -80,6 +83,9 @@ def migrate() -> None:
             author INTEGER NOT NULL REFERENCES users(id)
         );
         """)
+        build_cols = {r["name"] for r in conn.execute("PRAGMA table_info(seed_builds)")}
+        if "stats_json" not in build_cols:
+            conn.execute("ALTER TABLE seed_builds ADD COLUMN stats_json TEXT NOT NULL DEFAULT ''")
         conn.execute("""UPDATE seed_builds SET status='failed',
             log='Generierung durch Neustart des Servers unterbrochen.',
             finished_at=? WHERE status IN ('running','queued')""", (utc_now(),))
@@ -396,10 +402,21 @@ def _generate_job(build_id: int, snapshot: dict, files: list[tuple[str, str]]):
             players, output, snapshot["spoiler"], snapshot["race"], expected_worlds=expected)
         if not ok or archive is None:
             raise ValueError(log[-12000:] or "Archipelago hat keine Seed-ZIP erzeugt.")
+        stats_path = output / "item_distribution.json"
+        stats_json = ""
+        if not snapshot["race"] and stats_path.is_file() and stats_path.stat().st_size <= 2 * 1024 * 1024:
+            try:
+                data = json.loads(stats_path.read_text(encoding="utf-8"))
+                if (data.get("source") == "archipelago_generated_multiworld"
+                        and isinstance(data.get("matrix"), dict)
+                        and isinstance(data.get("players"), list)):
+                    stats_json = json.dumps(data, ensure_ascii=False)
+            except (OSError, ValueError, TypeError):
+                pass
         with db.connect() as conn:
             conn.execute("""UPDATE seed_builds SET status='succeeded', log=?, zip_name=?,
-                seed_name=?, finished_at=? WHERE id=?""",
-                (log[-30000:], archive.name, archive.stem, utc_now(), build_id))
+                seed_name=?, stats_json=?, finished_at=? WHERE id=?""",
+                (log[-30000:], archive.name, archive.stem, stats_json, utc_now(), build_id))
     except Exception as exc:
         with db.connect() as conn:
             conn.execute("UPDATE seed_builds SET status='failed', log=?, finished_at=? WHERE id=?",
@@ -533,6 +550,27 @@ def save_hosting(sid, build_id):
                 g.user["id"], utc_now()))
     flash("Raumadresse diesem Seed zugeordnet. Alle Teilnehmer können sie unter „Jetzt spielen“ sehen.", "info")
     return redirect(url_for("mvp.play_page", sid=sid, build_id=build_id))
+
+
+@bp.route("/sessions/<int:sid>/builds/<int:build_id>/stats")
+def build_stats(sid, build_id):
+    room = _session(sid)
+    _assert_access(room)
+    build = db.query("SELECT * FROM seed_builds WHERE id=? AND session_id=?", (build_id,sid),one=True)
+    if not build:
+        abort(404)
+    metadata = json.loads(build["snapshot"])
+    # Race mode intentionally never presents spoiler-based distribution stats.
+    payload = None
+    if not metadata.get("race") and build["status"] == "succeeded" and build["stats_json"]:
+        try:
+            candidate = json.loads(build["stats_json"])
+            if candidate.get("source") == "archipelago_generated_multiworld":
+                payload = candidate
+        except (ValueError, TypeError):
+            pass
+    return render_template("seed_stats.html", room=room, build=build,
+                           stats=payload, race=bool(metadata.get("race")))
 
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/play")
