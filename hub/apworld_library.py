@@ -12,6 +12,7 @@ import io
 import json
 import os
 from pathlib import Path, PurePosixPath
+from urllib.parse import urlsplit
 import re
 import sqlite3
 import tempfile
@@ -122,6 +123,9 @@ def _db():
             added_at TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0
         )""")
         conn.execute("CREATE INDEX IF NOT EXISTS apworld_by_module ON apworld_versions(module,active)")
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(apworld_versions)")}
+        if "source_url" not in columns:
+            conn.execute("ALTER TABLE apworld_versions ADD COLUMN source_url TEXT NOT NULL DEFAULT ''")
         conn.commit()
         yield conn
         conn.commit()
@@ -160,8 +164,13 @@ def _bootstrap(conn) -> None:
             conn.execute("UPDATE apworld_versions SET active=1 WHERE sha256=?", (info["sha256"],))
 
 
-def store(data: bytes) -> dict:
+def store(data: bytes, source_url: str = "") -> dict:
     info = inspect_bytes(data)
+    source_url = source_url.strip()
+    if source_url:
+        parsed = urlsplit(source_url)
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or len(source_url) > 500:
+            raise ValueError("Quellenlink muss eine gültige HTTPS-URL sein.")
     with _LOCK, _db() as conn:
         _bootstrap(conn)
         archive = _versions() / f"{info['sha256']}.apworld"
@@ -169,6 +178,8 @@ def store(data: bytes) -> dict:
             _write_atomic(archive, data)
         _write_atomic(config.APWORLDS / info["file"], data)
         _register(conn, info)
+        if source_url:
+            conn.execute("UPDATE apworld_versions SET source_url=? WHERE sha256=?", (source_url,info["sha256"]))
         conn.execute("UPDATE apworld_versions SET active=0 WHERE module=?", (info["module"],))
         conn.execute("UPDATE apworld_versions SET active=1 WHERE sha256=?", (info["sha256"],))
     return {**info, "active": True}
