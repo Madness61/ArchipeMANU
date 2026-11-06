@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Alle Lobbys · ArchipeMANU{% endblock %}
+{% block content %}
+<div class="row spread"><div><h1>Alle Lobbys</h1><p class="muted">Alle angemeldeten Spieler sehen offene Runden und können ohne feste Teilnehmerzahl beitreten.</p></div></div>
+<form method="post" action="{{ url_for('session_create') }}" class="panel row" style="margin-top:16px">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <label>Neue Lobby<br><input name="name" placeholder="z. B. Freitags-Multiworld" maxlength="80" required></label>
+  <button class="primary">+ Lobby erstellen</button>
+</form>
+<h2>Verfügbare Lobbys</h2>
+{% if rooms %}
+<div class="grid">
+{% for s in rooms %}
+<div class="panel card">
+  <div class="row spread"><h3>{{ s.name }}</h3><span class="chip {{ 'ok' if not s.locked else '' }}">{{ 'Offen' if not s.locked else 'Geschlossen' }}</span></div>
+  <p class="muted small" style="margin:8px 0">Host: {{ s.host_name }} · {{ s.member_count }} Teilnehmer · {{ s.game_count }} ausgewählte Spiele</p>
+  <div class="row">
+    <a class="btn" href="{{ url_for('session_view', sid=s.id) }}">Lobby ansehen</a>
+    {% if not s.locked %}
+    <form method="post" action="{{ url_for('mvp.join_open_lobby', sid=s.id) }}" class="inline">
+      <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+      <button class="primary">Mitmachen →</button>
+    </form>
+    {% else %}
+    <span class="muted small">Kein Beitritt mehr möglich</span>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<p class="muted">Noch keine Lobbys. Erstelle die erste Runde – weitere Spieler können jederzeit dazukommen.</p>
+{% endif %}
+{% endblock %}
