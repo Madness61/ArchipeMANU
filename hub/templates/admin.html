@@ -14,6 +14,7 @@
 <form method="post" action="{{ url_for('admin_upload') }}" enctype="multipart/form-data" class="panel row">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <input type="file" name="files" accept=".apworld" multiple required>
+  <label class="small">Quell-URL (optional)<br><input type="url" name="source_url" placeholder="https://github.com/.../releases" style="min-width:260px"></label>
   <label class="small"><input type="checkbox" name="trust_apworlds" value="yes" required> Ich habe die Herkunft dieser ausführbaren APWorlds geprüft.</label>
   <button class="primary">Hochladen</button>
   <span class="small muted">APWorlds enthalten Python-Code, der auf diesem Server läuft – nur vertrauenswürdige hochladen.
@@ -51,13 +52,15 @@
 {% if apworld_versions %}
 <div class="panel table-wrap">
   <table>
-    <tr><th>Modul</th><th>Version</th><th>SHA-256</th><th>Größe</th><th>Hinzugefügt</th><th>Status / Aktionen</th></tr>
+    <tr><th>Modul</th><th>Version</th><th>SHA-256</th><th>Größe</th><th>Quelle</th><th>Hinzugefügt</th><th>Status / Aktionen</th></tr>
     {% for v in apworld_versions %}
     <tr>
       <td>{{ v.module }}</td>
       <td>{{ v.version or 'Unbekannt' }}</td>
       <td title="{{ v.sha256 }}"><code>{{ v.sha256[:12] }}…</code></td>
       <td>{{ (v.size / 1024)|round(1) }} KiB</td>
+      <td>{% if v.source_url %}<a href="{{ v.source_url }}" target="_blank" rel="noopener noreferrer">Quelllink</a>
+        {% else %}<span class="muted small">Nicht bestätigt</span>{% endif %}</td>
       <td class="small muted">{{ v.added_at[:16] }}</td>
       <td>
         {% if v.active %}<span class="chip ok">Aktiv</span>{% else %}
