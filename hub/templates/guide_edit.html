@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Guide · {{ schema.game }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('game', slug=schema.slug) }}">← Zum Spiel</a></p>
+<h1>Installationsanleitung · {{ schema.game }}</h1>
+<p class="muted">Nur überprüfte Fakten eintragen. Nicht bestätigte Spiel-/Mod-Versionen als unbekannt kennzeichnen.</p>
+<form class="panel stack" method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+ <label>Verifizierte APWorld-Version<br><input name="verified_version" value="{{ guide.verified_version if guide else '' }}"></label>
+ <label>Erforderliche Spielversion<br><input name="game_version" value="{{ guide.game_version if guide else '' }}"></label>
+ <label>Offizielle Quelle<br><input name="source_url" type="url" value="{{ guide.source_url if guide else '' }}" style="width:100%"></label>
+ <label>Mod- oder Client-Download<br><input name="mod_url" type="url" value="{{ guide.mod_url if guide else '' }}" style="width:100%"></label>
+ <label>Setup-Schritte (Text)<br><textarea name="steps" rows="8">{{ guide.steps if guide else '' }}</textarea></label>
+ <label>Typische Fehler<br><textarea name="trouble" rows="5">{{ guide.trouble if guide else '' }}</textarea></label>
+ <button class="primary">Guide speichern</button>
+</form>
+{% endblock %}

@@ -1,4 +1,5 @@
 """Everything that touches the Archipelago install: APWorld files, option extraction, generation."""
+import hashlib
 import json
 import os
 import shutil
@@ -12,6 +13,12 @@ from pathlib import Path
 from . import config, apworld_library
 
 RUNNER = config.ROOT / "ap_runner.py"
+
+
+def trusted_custom_execution() -> bool:
+    """Explicit local opt-in for trusted custom worlds; NOT a sandbox."""
+    return os.environ.get("HUB_TRUSTED_APWORLDS", "0") == "1"
+
 
 # Extraction and generation both rewrite AP's custom_worlds folder, so they never run in parallel.
 ap_lock = threading.Lock()
@@ -44,9 +51,9 @@ def apworld_info(path: Path) -> dict:
     }
 
 
-def store_apworld(data: bytes) -> dict:
+def store_apworld(data: bytes, source_url: str = "") -> dict:
     """Persist new versions without discarding previous APWorld releases."""
-    info = apworld_library.store(data)
+    info = apworld_library.store(data, source_url=source_url)
     return {**info, "mtime": (config.APWORLDS / info["file"]).stat().st_mtime}
 
 
@@ -80,13 +87,15 @@ def delete_apworld(module: str) -> None:
 
 
 def _sync_custom_worlds() -> None:
-    """Mirror data/apworlds into AP's custom_worlds folder."""
+    """Mirror trusted data/apworlds into AP's custom_worlds folder."""
+    if any(config.APWORLDS.glob("*.apworld")) and not trusted_custom_execution():
+        raise ValueError("Custom APWorld-Code ist nicht isoliert. Nur geprüfte Quellen und HUB_TRUSTED_APWORLDS=1 erlauben.")
     target = config.AP_SOURCE / "custom_worlds"
     target.mkdir(exist_ok=True)
     wanted = {p.name: p for p in config.APWORLDS.glob("*.apworld")}
-    for existing in target.glob("*.apworld"):
-        if existing.name not in wanted:
-            existing.unlink()
+    if any(target.glob("*.apworld")) and not trusted_custom_execution():
+        raise ValueError("Bereits installierte Custom APWorlds erfordern eine ausdrückliche Vertrauensfreigabe.")
+    # Never delete manually installed worlds from the user's Archipelago installation.
     for name, src in wanted.items():
         dst = target / name
         if not dst.exists() or dst.stat().st_size != src.stat().st_size or dst.stat().st_mtime < src.stat().st_mtime:
@@ -104,7 +113,12 @@ def ap_ready() -> bool:
 
 
 def _run(args: list[str], timeout: int) -> tuple[bool, str]:
-    env = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+    # Pass a minimal environment; HUB_PASSWORD and other host secrets must not be exposed.
+    safe_keys = ("PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR",
+                 "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "LANG",
+                 "LC_ALL", "LD_LIBRARY_PATH", "VIRTUAL_ENV")
+    env = {name: os.environ[name] for name in safe_keys if name in os.environ}
+    env.update(PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
     hide = ",".join(_hidden_builtins())
     cmd = [str(config.AP_PYTHON), str(RUNNER), *args] + (["--hide", hide] if hide else [])
     try:
@@ -136,7 +150,11 @@ def _write_status(**status) -> None:
 def extract() -> bool:
     with ap_lock:
         _write_status(status="running", started=time.time())
-        _sync_custom_worlds()
+        try:
+            _sync_custom_worlds()
+        except ValueError as exc:
+            _write_status(status="error", finished=time.time(), log=str(exc))
+            return False
         tmp = config.DATA / "schemas.new"
         shutil.rmtree(tmp, ignore_errors=True)
         ok, log = _run(["extract", "--out", str(tmp)], config.EXTRACT_TIMEOUT)
@@ -183,9 +201,19 @@ def schema(slug: str) -> dict | None:
 
 # --- Generation --------------------------------------------------------------------------------
 
-def generate(yaml_dir: Path, out_dir: Path, spoiler: int, race: bool) -> tuple[bool, str, Path | None]:
+def generate(yaml_dir: Path, out_dir: Path, spoiler: int, race: bool,
+             expected_worlds: dict[str, str] | None = None) -> tuple[bool, str, Path | None]:
     with ap_lock:
-        _sync_custom_worlds()
+        # Check the exact active archive bytes while holding the same lock used
+        # by upload/activation routes. Version switches cannot race a build.
+        for module, expected_sha in (expected_worlds or {}).items():
+            file = config.APWORLDS / (module + ".apworld")
+            if not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() != expected_sha:
+                return False, f"{module}: APWorld wurde seit dem Seed-Snapshot verändert.", None
+        try:
+            _sync_custom_worlds()
+        except ValueError as exc:
+            return False, str(exc), None
         out_dir.mkdir(parents=True, exist_ok=True)
         args = ["generate", "--players", str(yaml_dir), "--out", str(out_dir), "--spoiler", str(spoiler)]
         ok, log = _run(args + (["--race"] if race else []), config.GENERATE_TIMEOUT)

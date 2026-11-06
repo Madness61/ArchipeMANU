@@ -19,7 +19,8 @@
     </nav>
     <div class="me">
       <a href="{{ url_for('profile') }}" title="Profil">{{ g.user.username }} · Slot „{{ g.user.slot_name }}“</a>
-      <form class="inline" method="post" action="{{ url_for('logout') }}"><button class="linkish small">Abmelden</button></form>
+      <form class="inline" method="post" action="{{ url_for('logout') }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish small">Abmelden</button></form>
     </div>
     {% endif %}
   </div>

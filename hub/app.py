@@ -1,6 +1,7 @@
 import functools
 import hmac
 import io
+import secrets
 import shutil
 import threading
 import zipfile
@@ -8,7 +9,7 @@ import zipfile
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, session,
                    url_for)
 
-from . import ap_bridge, config, db, yamlgen
+from . import ap_bridge, config, db, yamlgen, mvp
 
 app = Flask(__name__)
 app.teardown_appcontext(db.close)
@@ -17,6 +18,23 @@ ITEM_LOC_GROUP = "Item & Location Options"
 
 
 # --- Auth --------------------------------------------------------------------------------------
+
+@app.before_request
+def check_csrf():
+    if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+        return
+    expected = session.get("_csrf", "")
+    provided = request.form.get("_csrf") or request.headers.get("X-CSRF-Token", "")
+    if not expected or not provided or not hmac.compare_digest(expected, provided):
+        abort(403, "Ungültiger Sicherheitstoken. Bitte die Seite aktualisieren und erneut versuchen.")
+
+
+@app.context_processor
+def csrf_context():
+    if "_csrf" not in session:
+        session["_csrf"] = secrets.token_urlsafe(32)
+    return {"csrf_token": session["_csrf"]}
+
 
 @app.before_request
 def load_user():
@@ -135,7 +153,11 @@ def templates_for(schema: dict) -> list[dict]:
 
 
 def open_sessions():
-    return db.query("SELECT * FROM sessions WHERE locked = 0 ORDER BY id DESC")
+    return db.query("""SELECT s.* FROM sessions s WHERE s.locked=0 AND
+        (? = 1 OR s.created_by=? OR EXISTS
+          (SELECT 1 FROM lobby_members m WHERE m.session_id=s.id AND m.user_id=?)
+          OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?))
+        ORDER BY s.id DESC""", (g.user["is_admin"], g.user["id"], g.user["id"], g.user["id"]))
 
 
 def user_values(schema: dict, template_values: dict, user) -> dict:
@@ -150,16 +172,23 @@ def session_entries(session_id: int) -> list[dict]:
     entries = [dict(r) for r in rows]
     slots = yamlgen.assign_slot_names(entries)
     games = ap_bridge.index()["games"]
+    active = {v["module"]:v["sha256"] for v in ap_bridge.list_apworld_versions() if v["active"]}
     for e in entries:
         e["slot"] = slots[e["id"]]
         e["installed"] = e["game"] in games
         e["game_name"] = games.get(e["game"], {}).get("game", e["game"])
+        e["game_version"] = (ap_bridge.schema(e["game"]) or {}).get("version", "") if e["installed"] else ""
+        e["active_world_sha"] = active.get(e["game"], "")
+        e["requested_world_sha"] = e["selected_apworld_sha"] or e["active_world_sha"]
         if e["installed"]:
             schema = ap_bridge.schema(e["game"])
             e["template_label"], tvalues, e["template_found"] = resolve_template(schema, e["template_ref"])
-            e["values"] = user_values(schema, tvalues, e)
+            e["values"] = user_values(schema, yamlgen.layer(schema, tvalues, db.loads(e["option_overrides"])), e)
         else:
             e["template_label"], e["values"], e["template_found"] = "–", {}, False
+        e["ready_valid"] = bool(e["ready"] and e["ready_hash"]
+            and e["ready_hash"] == mvp.slot_fingerprint(e)
+            and e["requested_world_sha"] == e["active_world_sha"])
     return entries
 
 
@@ -200,7 +229,12 @@ def inject_globals():
 def index():
     sessions = db.query(
         "SELECT s.*, u.username, (SELECT COUNT(*) FROM entries e WHERE e.session_id = s.id) AS n "
-        "FROM sessions s LEFT JOIN users u ON u.id = s.created_by ORDER BY s.id DESC LIMIT 10")
+        """FROM sessions s LEFT JOIN users u ON u.id = s.created_by
+        WHERE (? = 1 OR s.created_by=? OR EXISTS
+           (SELECT 1 FROM lobby_members m WHERE m.session_id=s.id AND m.user_id=?)
+           OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?))
+        ORDER BY s.id DESC LIMIT 10""",
+        (g.user["is_admin"], g.user["id"], g.user["id"], g.user["id"]))
     return render_template("index.html", sessions=sessions)
 
 
@@ -435,11 +469,16 @@ def session_create():
 @login_required
 def session_view(sid):
     row = get_session(sid)
+    mvp._assert_access(row)
     entries = session_entries(sid)
     for e in entries:
         e["summary"] = yamlgen.summarize(ap_bridge.schema(e["game"]), e["values"]) if e["installed"] else []
     games = sorted(ap_bridge.index()["games"].items(), key=lambda kv: kv[1]["game"].casefold())
-    return render_template("session.html", s=row, entries=entries, games=games, manage=can_manage_session(row))
+    history = mvp.builds(sid)
+    guests = db.query("SELECT u.username FROM lobby_members m JOIN users u ON u.id=m.user_id WHERE m.session_id=? ORDER BY u.username", (sid,))
+    return render_template("session.html", s=row, entries=entries, games=games,
+                           manage=can_manage_session(row), build_history=history,
+                           lobby_guests=guests, world_versions=ap_bridge.list_apworld_versions())
 
 
 @app.route("/games/<slug>/play", methods=["POST"])
@@ -460,6 +499,7 @@ def game_play(slug):
 @login_required
 def entry_add(sid):
     row = get_session(sid)
+    mvp._assert_access(row)
     if row["locked"]:
         flash("Die Session ist gesperrt.", "error")
         return redirect(url_for("session_view", sid=sid))
@@ -469,8 +509,13 @@ def entry_add(sid):
     _label, _values, found = resolve_template(schema, ref)
     if not found:
         abort(400)
-    db.execute("INSERT INTO entries (session_id, user_id, game, template_ref) VALUES (?, ?, ?, ?)",
-               (sid, g.user["id"], slug, ref))
+    sha = next((v["sha256"] for v in ap_bridge.list_apworld_versions()
+                if v["active"] and v["module"] == slug), "")
+    db.execute("""INSERT INTO entries
+               (session_id, user_id, game, template_ref, selected_apworld_sha)
+               VALUES (?, ?, ?, ?, ?)""", (sid, g.user["id"], slug, ref, sha))
+    db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
+               (sid, g.user["id"]))
     flash(f"Du spielst {schema['game']} in „{row['name']}“.", "info")
     return redirect(url_for("session_view", sid=sid))
 
@@ -505,7 +550,7 @@ def entry_template(eid):
         schema = get_schema(entry["game"])
         ref = request.form.get("ref", "default")
         if resolve_template(schema, ref)[2]:
-            db.execute("UPDATE entries SET template_ref = ? WHERE id = ?", (ref, eid))
+            db.execute("UPDATE entries SET template_ref = ?, ready=0, ready_hash='' WHERE id = ?", (ref, eid))
     return redirect(url_for("session_view", sid=entry["session_id"]))
 
 
@@ -526,8 +571,11 @@ def session_clone(sid):
     new_id = db.execute("INSERT INTO sessions (name, created_by, spoiler, race) VALUES (?, ?, ?, ?)",
                         (f"{row['name']} (neu)", g.user["id"], row["spoiler"], row["race"]))
     for e in db.query("SELECT * FROM entries WHERE session_id = ? ORDER BY id", (sid,)):
-        db.execute("INSERT INTO entries (session_id, user_id, game, template_ref) VALUES (?, ?, ?, ?)",
-                   (new_id, e["user_id"], e["game"], e["template_ref"]))
+        db.execute("""INSERT INTO entries
+                   (session_id,user_id,game,template_ref,selected_apworld_sha,option_overrides)
+                   VALUES (?,?,?,?,?,?)""",
+                   (new_id,e["user_id"],e["game"],e["template_ref"],
+                    e["selected_apworld_sha"],e["option_overrides"]))
     flash("Session mit denselben Spielern, Spielen und Vorlagen angelegt.", "info")
     return redirect(url_for("session_view", sid=new_id))
 
@@ -548,6 +596,7 @@ def session_delete(sid):
 @login_required
 def session_zip(sid):
     row = get_session(sid)
+    mvp._assert_access(row)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, text in session_yamls(session_entries(sid)):
@@ -574,23 +623,18 @@ def _run_generation(sid: int, files: list[tuple[str, str]], spoiler: int, race: 
 @app.route("/sessions/<int:sid>/generate", methods=["POST"])
 @login_required
 def session_generate(sid):
-    row = get_session(sid)
-    if not can_manage_session(row):
-        abort(403)
-    if row["gen_status"] == "running":
-        return redirect(url_for("session_view", sid=sid))
-    if not ap_bridge.ap_ready():
-        flash("Archipelago ist auf dem Server nicht eingerichtet (setup.ps1 ausführen).", "error")
-        return redirect(url_for("session_view", sid=sid))
-    entries = session_entries(sid)
-    if not entries or any(not e["installed"] for e in entries):
-        flash("Keine Spieler oder ein Spiel ist nicht mehr installiert.", "error")
-        return redirect(url_for("session_view", sid=sid))
-    spoiler = request.form.get("spoiler", type=int, default=1)
-    race = request.form.get("race") == "1"
-    db.execute("UPDATE sessions SET locked = 1, gen_status = 'running', gen_log = '', gen_file = '', spoiler = ?, "
-               "race = ? WHERE id = ?", (spoiler, int(race), sid))
-    threading.Thread(target=_run_generation, args=(sid, session_yamls(entries), spoiler, race), daemon=True).start()
+    try:
+        spoiler = int(request.form.get("spoiler", 1))
+    except ValueError:
+        spoiler = 1
+    if spoiler not in (0, 1, 2, 3):
+        abort(400)
+    build_id, errors = mvp.begin_build(sid, spoiler, request.form.get("race") == "1")
+    if errors:
+        for msg in errors[:12]:
+            flash(msg, "error")
+    else:
+        flash(f"Seed-Generierung #{build_id} gestartet; ursprüngliche Einstellungen eingefroren.", "info")
     return redirect(url_for("session_view", sid=sid))
 
 
@@ -598,6 +642,7 @@ def session_generate(sid):
 @login_required
 def session_status(sid):
     row = get_session(sid)
+    mvp._assert_access(row)
     return jsonify({"status": row["gen_status"]})
 
 
@@ -605,6 +650,7 @@ def session_status(sid):
 @login_required
 def session_download(sid):
     row = get_session(sid)
+    mvp._assert_access(row)
     if not row["gen_file"]:
         abort(404)
     return send_file(config.SESSIONS / str(sid) / "output" / row["gen_file"], as_attachment=True)
@@ -629,6 +675,7 @@ def admin_upload():
         flash("Bitte zuerst bestätigen, dass du den Python-Code der APWorld-Quelle geprüft hast.", "error")
         return redirect(url_for("admin"))
     uploaded = 0
+    source_url = request.form.get("source_url", "").strip()
     for f in request.files.getlist("files"):
         if not f.filename:
             continue
@@ -637,7 +684,8 @@ def admin_upload():
             continue
         try:
             payload = f.stream.read(ap_bridge.apworld_library.MAX_UPLOAD + 1)
-            info = ap_bridge.store_apworld(payload)
+            with ap_bridge.ap_lock:
+                info = ap_bridge.store_apworld(payload, source_url=source_url)
             uploaded += 1
             flash(f"{f.filename} gespeichert ({info['game'] or info['module']}).", "info")
         except ValueError as e:
@@ -650,7 +698,8 @@ def admin_upload():
 @app.route("/admin/apworlds/<module>/delete", methods=["POST"])
 @admin_required
 def admin_delete_apworld(module):
-    ap_bridge.delete_apworld(module)
+    with ap_bridge.ap_lock:
+        ap_bridge.delete_apworld(module)
     ap_bridge.start_extract()
     flash(f"{module}.apworld entfernt.", "info")
     return redirect(url_for("admin"))
@@ -663,7 +712,8 @@ def admin_activate_apworld(sha256):
         flash("Zum Aktivieren bitte die Vertrauensbestätigung auswählen.", "error")
         return redirect(url_for("admin"))
     try:
-        info = ap_bridge.activate_apworld(sha256)
+        with ap_bridge.ap_lock:
+            info = ap_bridge.activate_apworld(sha256)
         flash(f"{info['module']}: gewählte APWorld-Version aktiviert.", "info")
         ap_bridge.start_extract()
     except ValueError as exc:
@@ -710,6 +760,9 @@ def admin_status():
 def create_app() -> Flask:
     config.ensure_dirs()
     db.init()
+    mvp.migrate()
+    if "mvp" not in app.blueprints:
+        app.register_blueprint(mvp.bp)
     app.secret_key = config.secret_key()
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
     if ap_bridge.ap_ready() and not (config.SCHEMAS / "index.json").exists():

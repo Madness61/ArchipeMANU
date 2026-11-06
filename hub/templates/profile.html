@@ -3,6 +3,7 @@
 {% block content %}
 <h1>Profil</h1>
 <form method="post" class="panel stack" style="max-width:560px">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <label>Slot-Name (höchstens 16 Zeichen)<br>
     <input name="slot_name" value="{{ g.user.slot_name }}" maxlength="16" required></label>
   <p class="small muted" style="margin-top:2px">Wird in jede YAML eingesetzt. Spielst du mehrere Spiele in einer Session,

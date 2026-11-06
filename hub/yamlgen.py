@@ -168,9 +168,14 @@ def parse_field(opt: dict, form, schema: dict):
         if not text:
             return opt.get("default"), None
         try:
-            return yaml.safe_load(text), None
+            value = yaml.safe_load(text)
         except yaml.YAMLError as e:
             return None, f"Ungültiges YAML: {e}"
+        if kind in SCALAR_KINDS and isinstance(value, dict):
+            errors = validate_values({"options": [opt], "items": [], "locations": []}, {key: value})
+            if key in errors:
+                return None, errors[key]
+        return value, None
 
     if kind == "toggle":
         return form.get(field) == "1", None
@@ -251,6 +256,82 @@ def parse_form(schema: dict, form, previous: dict) -> tuple[dict, dict]:
         elif not _same(opts[key], value, opts[key].get("default")):
             values[key] = value
     return {k: v for k, v in values.items() if v is not None}, errors
+
+
+# --- Independent pre-flight validation -------------------------------------------------------
+
+def validate_values(schema: dict, values: dict) -> dict[str, str]:
+    """Validate all supplied options, including weighted scalar values.
+
+    Deep game-specific validation still belongs to Archipelago's own generator.
+    This check catches obvious input errors before starting that process.
+    """
+    opts = options_by_key(schema)
+    errors = {}
+    for key, value in (values or {}).items():
+        opt = opts.get(key)
+        if opt is None:
+            errors[key] = "Diese Option existiert in der aktuellen APWorld nicht."
+            continue
+        kind = opt["kind"]
+        if is_weighted(opt, value):
+            if not value:
+                errors[key] = "Mindestens ein Gewicht größer als 0 erforderlich."
+                continue
+            if any(isinstance(w, bool) or not isinstance(w, (int, float)) or w < 0
+                   for w in value.values()):
+                errors[key] = "Gewichte müssen nichtnegative Zahlen sein."
+                continue
+            if not any(w > 0 for w in value.values()):
+                errors[key] = "Alle Gewichte sind 0. Mindestens ein Wert muss positiv sein."
+                continue
+            if kind in ("choice", "textchoice"):
+                choices = set(dict(opt.get("choices") or []))
+                if any(str(choice) not in choices for choice in value):
+                    errors[key] = "Gewichtung enthält unbekannte Auswahlwerte."
+            elif kind == "toggle":
+                known = TRUE_WORDS | FALSE_WORDS
+                if any(str(choice).lower() not in known for choice in value):
+                    errors[key] = "Gewichtung enthält ungültige An/Aus-Werte."
+            elif kind == "range":
+                special = opt.get("special") or {}
+                for candidate in value:
+                    if str(candidate).lower() in ("random", "default") or str(candidate).lower() in special:
+                        continue
+                    try:
+                        number = int(candidate)
+                    except (ValueError, TypeError):
+                        errors[key] = "Gewichtung enthält einen ungültigen Zahlenwert."
+                        break
+                    if number < opt["min"] or number > opt["max"]:
+                        errors[key] = "Gewichteter Wert außerhalb des Bereichs."
+                        break
+            continue
+        if kind == "toggle" and not isinstance(value, bool):
+            errors[key] = "Bitte An oder Aus auswählen."
+        elif kind == "choice" and value not in dict(opt.get("choices") or []):
+            errors[key] = "Unbekannte Option."
+        elif kind == "range":
+            if isinstance(value, bool) or not isinstance(value, int):
+                errors[key] = "Ganze Zahl erforderlich."
+            elif not opt["min"] <= value <= opt["max"] and value not in (opt.get("special") or {}).values():
+                errors[key] = "Zahl außerhalb des erlaubten Bereichs."
+        elif kind in ("set", "list") and not isinstance(value, list):
+            errors[key] = "Liste erwartet."
+        elif kind in ("set", "list") and isinstance(value, list):
+            unknown = _check_names(opt, value, schema)
+            if unknown:
+                errors[key] = unknown[0]
+        elif kind == "counter" and not isinstance(value, dict):
+            errors[key] = "Wörterbuch mit Anzahlen erwartet."
+        elif kind == "counter" and isinstance(value, dict):
+            unknown = _check_names(opt, value, schema)
+            if unknown:
+                errors[key] = unknown[0]
+            elif any(not isinstance(v, int) or isinstance(v, bool) or v < (opt.get("min") or 0)
+                     or (opt.get("max") is not None and v > opt["max"]) for v in value.values()):
+                errors[key] = "Ungültige Anzahl."
+    return errors
 
 
 # --- YAML import -------------------------------------------------------------------------------

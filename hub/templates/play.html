@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Jetzt spielen · {{ room.name }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
+<h1>Jetzt spielen · {{ room.name }}</h1>
+<p>Seed #{{ build.id }} · <span class="chip {{ 'ok' if build.status == 'succeeded' else 'warn' }}">{{ build.status }}</span> · {{ build.created_at[:16] }}</p>
+{% if build.status == 'succeeded' %}
+<p><a class="btn primary" href="{{ url_for('mvp.build_download', sid=room.id, build_id=build.id) }}">Multiworld-ZIP herunterladen</a></p>
+{% endif %}
+{% if hosted %}
+<div class="panel stack">
+<h2>Verbindung</h2>
+<p><b>Adresse:</b> <code id="host-address">{{ hosted.host }}:{{ hosted.port }}</code>
+<button type="button" data-copy="#host-address">Kopieren</button></p>
+{% if hosted.room_url %}<p><a href="{{ hosted.room_url }}" target="_blank" rel="noopener noreferrer">Archipelago-Raum öffnen</a></p>{% endif %}
+<p><span class="chip {{ 'ok' if hosted.confirmed else 'warn' }}">{{ 'Host hat Hosting bestätigt' if hosted.confirmed else 'Host hat Verfügbarkeit noch nicht bestätigt' }}</span></p>
+</div>
+{% else %}
+<p class="muted">Der Host hat für diesen Seed noch keine Verbindungsdaten hinterlegt.</p>
+{% endif %}
+<h2>Deine Slots</h2>
+{% if own %}
+{% for slot in own %}
+<div class="panel stack">
+<h3>{{ slot.game_name }}</h3>
+<p><b>Slotname:</b> <code id="slot-{{ loop.index }}">{{ slot.slot }}</code>
+<button type="button" data-copy="#slot-{{ loop.index }}">Kopieren</button></p>
+<p class="muted small">APWorld-Version: {{ slot.game_version }}{% if slot.apworld_sha256 %} · SHA-256: {{ slot.apworld_sha256[:12] }}…{% endif %}</p>
+{% set guide = guides.get(slot.game) %}
+{% if guide and guide.steps %}
+<h4>Installation</h4><pre class="log">{{ guide.steps }}</pre>
+{% if guide.game_version %}<p>Spielversion: {{ guide.game_version }}</p>{% endif %}
+{% if guide.mod_url %}<p><a href="{{ guide.mod_url }}" target="_blank" rel="noopener noreferrer">Mod-/Client-Download</a></p>{% endif %}
+{% if guide.source_url %}<p><a href="{{ guide.source_url }}" target="_blank" rel="noopener noreferrer">Quellinformationen</a></p>{% endif %}
+{% if guide.trouble %}<details><summary>Häufige Probleme</summary><pre class="log">{{ guide.trouble }}</pre></details>{% endif %}
+{% else %}<p class="muted">Für dieses Spiel ist noch keine verifizierte Installationsanleitung hinterlegt.</p>{% endif %}
+</div>
+{% endfor %}
+{% else %}<p>Du hast in diesem Seed keinen eigenen Slot.</p>{% endif %}
+<h2>Tatsächlich erzeugte Dateien</h2>
+{% if assets %}
+<p class="small muted">Nur Dateien, die in der Multiworld-ZIP vorhanden sind. Die Zuordnung zu einem bestimmten Spielerslot kann je nach APWorld variieren; bitte die jeweilige Mod-Anleitung beachten.</p>
+<div class="panel stack">
+{% for asset in assets %}
+  <div class="row spread">
+    <span><code>{{ asset.name }}</code> <small class="muted">({{ (asset.size / 1024)|round(1) }} KiB)</small></span>
+    <a class="btn" href="{{ url_for('mvp.build_asset', sid=room.id, build_id=build.id, file_index=asset.index) }}">Herunterladen</a>
+  </div>
+{% endfor %}
+</div>
+{% else %}
+<p class="muted">Keine separaten Patchdateien im Seed-ZIP gefunden. Viele Spiele benötigen ihren eigenen Client oder ein anderes Patch-Verfahren.</p>
+{% endif %}
+<h2>Check-Analyse</h2>
+<p class="muted small">Exakte Check-Zahlen sind für diesen Seed derzeit nicht verifiziert aus Metadaten auslesbar. Deshalb wird keine geschätzte oder erfundene Verteilung angezeigt.</p>
+
+<h2>Mitspieler</h2>
+<div class="panel"><table><tr><th>Slot</th><th>Spiel</th></tr>{% for slot in slots %}<tr><td>{{ slot.slot }}</td><td>{{ slot.game_name }}</td></tr>{% endfor %}</table></div>
+{% endblock %}

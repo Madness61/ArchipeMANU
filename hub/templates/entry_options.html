@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "template_form.html" import field with context %}
+{% block title %}Slotoptionen · {{ schema.game }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
+<h1>Deine Optionen · {{ schema.game }}</h1>
+<p class="muted">Diese Einstellungen gelten nur für diesen Slot in „{{ room.name }}“. Sie überschreiben deine gewählte Vorlage; andere Spieler werden nicht verändert.</p>
+<p class="small">
+{% if expert %}<a href="{{ url_for('mvp.entry_options', eid=entry.id) }}">Einfacher Modus</a>
+{% else %}<a href="{{ url_for('mvp.entry_options', eid=entry.id, expert=1) }}">Alle Optionen anzeigen</a>{% endif %}
+</p>
+<form method="post" class="panel">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  {% for group, opts in groups.items() %}
+    <details class="group" open>
+      <summary>{{ group }} ({{ opts|length }})</summary>
+      {% for opt in opts %}{{ field(opt) }}{% endfor %}
+    </details>
+  {% endfor %}
+  <p class="row"><button class="primary">Einstellungen speichern</button><a href="{{ url_for('session_view', sid=room.id) }}">Zurück</a></p>
+</form>
+<details class="panel" style="margin-top:16px">
+  <summary>Technische YAML-Vorschau (aktueller Formularstand vor erneutem Speichern)</summary>
+  <pre class="log">{{ yaml_preview }}</pre>
+</details>
+{% endblock %}
+{% block scripts %}
+<script>window.HUB_NAMES_URL = {{ url_for('api_names', slug=schema.slug)|tojson }};</script>
+{% endblock %}

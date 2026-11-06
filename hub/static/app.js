@@ -2,6 +2,17 @@
 (function () {
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+  $("[data-copy]").forEach(button => button.addEventListener("click", () => {
+    const target = document.querySelector(button.dataset.copy);
+    if (!target) return;
+    const value = target.textContent.trim();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(value).then(() => { button.textContent = "Kopiert"; });
+    } else {
+      button.title = value;
+    }
+  }));
+
   // Confirm dialogs for destructive forms.
   $$("form[data-confirm]").forEach((form) =>
     form.addEventListener("submit", (e) => { if (!confirm(form.dataset.confirm)) e.preventDefault(); }));
@@ -67,6 +78,11 @@
     }), { once: true });
     sel.addEventListener("change", () => { if (sel.value !== sel.dataset.current) sel.form.submit(); });
   });
+
+  // New builds are recorded independently from previous generations.
+  if (document.querySelector('[data-build-status="queued"], [data-build-status="running"]')) {
+    setTimeout(() => location.reload(), 4000);
+  }
 
   // Poll while something runs on the server, then reload.
   const poll = (el, url) => {
