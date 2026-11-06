@@ -164,7 +164,7 @@ def _bootstrap(conn) -> None:
             conn.execute("UPDATE apworld_versions SET active=1 WHERE sha256=?", (info["sha256"],))
 
 
-def store(data: bytes, source_url: str = "") -> dict:
+def store(data: bytes, source_url: str = "", activate: bool = True) -> dict:
     info = inspect_bytes(data)
     source_url = source_url.strip()
     if source_url:
@@ -176,13 +176,16 @@ def store(data: bytes, source_url: str = "") -> dict:
         archive = _versions() / f"{info['sha256']}.apworld"
         if not archive.is_file():
             _write_atomic(archive, data)
-        _write_atomic(config.APWORLDS / info["file"], data)
+        if activate:
+            _write_atomic(config.APWORLDS / info["file"], data)
         _register(conn, info)
         if source_url:
             conn.execute("UPDATE apworld_versions SET source_url=? WHERE sha256=?", (source_url,info["sha256"]))
-        conn.execute("UPDATE apworld_versions SET active=0 WHERE module=?", (info["module"],))
-        conn.execute("UPDATE apworld_versions SET active=1 WHERE sha256=?", (info["sha256"],))
-    return {**info, "active": True}
+        if activate:
+            conn.execute("UPDATE apworld_versions SET active=0 WHERE module=?", (info["module"],))
+            conn.execute("UPDATE apworld_versions SET active=1 WHERE sha256=?", (info["sha256"],))
+        current = conn.execute("SELECT active FROM apworld_versions WHERE sha256=?", (info["sha256"],)).fetchone()
+    return {**info, "active": bool(current["active"])}
 
 
 def list_versions() -> list[dict]:
