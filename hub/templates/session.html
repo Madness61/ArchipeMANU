@@ -4,13 +4,25 @@
 <div class="row spread">
   <div>
     <h1>{{ s.name }}</h1>
-    <p class="muted small">Session #{{ s.id }} · Link zum Teilen: <code>{{ request.url }}</code></p>
+    <p class="muted small">Session #{{ s.id }} · Bitte den Einladungslink unten verwenden.</p>
   </div>
   <div class="row">
     {% if s.locked %}<span class="chip">gesperrt</span>{% else %}<span class="chip ok">offen</span>{% endif %}
   </div>
 </div>
 
+
+{% if manage and not s.locked %}
+<div class="panel row" style="margin:12px 0">
+  <form method="post" action="{{ url_for('mvp.invite_route', sid=s.id) }}" class="inline">
+    <button>Einladungslink (7 Tage) erstellen</button>
+  </form>
+  <span class="muted small">Neue Teilnehmer erhalten keine Hostrechte.</span>
+</div>
+{% endif %}
+{% if lobby_guests %}
+<p class="muted small">In der Lobby: {% for u in lobby_guests %}{{ u.username }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+{% endif %}
 {% if not s.locked %}
 <form method="post" action="{{ url_for('entry_add', sid=s.id) }}" class="panel row" id="add-entry">
   <b>Ich spiele:</b>
@@ -27,7 +39,7 @@
 {% if entries %}
 <div class="panel table-wrap">
   <table>
-    <tr><th>Slot</th><th>Spieler</th><th>Spiel</th><th>Vorlage</th><th></th></tr>
+    <tr><th>Slot</th><th>Spieler</th><th>Spiel</th><th>Vorlage</th><th>Bereit / Aktionen</th></tr>
     {% for e in entries %}
     <tr>
       <td><b>{{ e.slot }}</b></td>
@@ -46,7 +58,15 @@
         {% endif %}
       </td>
       <td style="white-space:nowrap">
+        <span class="chip {{ 'ok' if e.ready else 'warn' }}">{{ 'Bereit' if e.ready else 'Nicht bereit' }}</span>
+        {% if not s.locked and e.user_id == g.user.id and e.installed %}
+          <form method="post" action="{{ url_for('mvp.entry_ready', eid=e.id) }}" class="inline">
+            <input type="hidden" name="ready" value="{{ 0 if e.ready else 1 }}">
+            <button class="small">{{ 'Bereitschaft aufheben' if e.ready else 'Bereit' }}</button>
+          </form>
+        {% endif %}
         {% if not s.locked and (e.user_id == g.user.id or manage) and e.installed %}
+          <a class="btn" href="{{ url_for('mvp.entry_options', eid=e.id) }}">Slotoptionen</a>
           <form method="post" action="{{ url_for('entry_template', eid=e.id) }}" class="inline">
             <select name="ref" class="entry-ref" data-game="{{ e.game }}" data-current="{{ e.template_ref }}"
                     aria-label="Vorlage wechseln"><option value="{{ e.template_ref }}">Vorlage wechseln …</option></select>
@@ -65,6 +85,7 @@
 {% endif %}
 
 <h2>Fertig machen</h2>
+<p class="muted small">Vor der Generierung müssen alle Einträge gültig und von den jeweiligen Spielern als bereit markiert sein. Jede Generierung hat eine eigene, unveränderliche Konfigurationskopie.</p>
 <div class="panel stack">
   <div class="row">
     <a class="btn" href="{{ url_for('session_zip', sid=s.id) }}">Alle YAMLs als .zip</a>
@@ -101,6 +122,40 @@
     {% endif %}
   </div>
 
+
+  <h2>Seed-Historie & Hosting</h2>
+  {% if build_history %}
+  {% for b in build_history %}
+  <div class="panel stack" style="margin-top:8px" data-build-status="{{ b.status }}">
+    <div class="row">
+      <strong>Seed #{{ b.id }}</strong>
+      <span class="chip {{ 'ok' if b.status == 'succeeded' else 'warn' if b.status in ('queued','running') else 'err' }}">{{ b.status }}</span>
+      <span class="muted small">{{ b.created_at[:16] }}</span>
+    </div>
+    {% if b.status == 'succeeded' %}
+      <p><a class="btn primary" href="{{ url_for('mvp.build_download', sid=s.id, build_id=b.id) }}">Multiworld-ZIP herunterladen</a>
+      <a class="btn" href="{{ url_for('mvp.play_page', sid=s.id, build_id=b.id) }}">Jetzt spielen</a></p>
+      {% if manage %}
+      <details><summary>Hosting-Adresse für diesen Seed speichern</summary>
+        <p class="small">1. ZIP herunterladen. 2. <a href="https://archipelago.gg/uploads" target="_blank" rel="noopener">archipelago.gg/uploads öffnen</a>.
+        3. ZIP dort hochladen und „Create Room“ wählen. 4. Die echte Serveradresse aus dem Raum übernehmen.</p>
+        <form method="post" action="{{ url_for('mvp.save_hosting', sid=s.id, build_id=b.id) }}" class="stack">
+          <label>Raum-URL (optional)<br><input type="url" name="room_url" placeholder="https://archipelago.gg/room/..." style="width:100%"></label>
+          <div class="row"><label>Host<br><input name="host" required placeholder="archipelago.gg"></label>
+          <label>Port<br><input name="port" required type="number" min="1" max="65535" placeholder="38281"></label></div>
+          <label><input type="checkbox" name="confirmed" value="1"> Ich habe das Hosting manuell eingerichtet und geprüft.</label>
+          <button>Verbindung speichern</button>
+        </form>
+      </details>
+      {% endif %}
+    {% elif b.status == 'failed' %}
+      <details><summary>Fehlerprotokoll öffnen</summary><pre class="log">{{ b.log }}</pre></details>
+    {% else %}
+      <p class="muted small">Generierung läuft. Die Seite aktualisiert sich automatisch.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% else %}<p class="muted">Für diese Session wurde noch kein Seed gespeichert.</p>{% endif %}
   <div class="row">
     <form method="post" action="{{ url_for('session_clone', sid=s.id) }}" class="inline">
       <button>Wie letztes Mal: neue Session mit denselben Spielern</button>
