@@ -477,7 +477,8 @@ def session_view(sid):
     history = mvp.builds(sid)
     guests = db.query("SELECT u.username FROM lobby_members m JOIN users u ON u.id=m.user_id WHERE m.session_id=? ORDER BY u.username", (sid,))
     return render_template("session.html", s=row, entries=entries, games=games,
-                           manage=can_manage_session(row), build_history=history, lobby_guests=guests)
+                           manage=can_manage_session(row), build_history=history,
+                           lobby_guests=guests, world_versions=ap_bridge.list_apworld_versions())
 
 
 @app.route("/games/<slug>/play", methods=["POST"])
@@ -508,8 +509,11 @@ def entry_add(sid):
     _label, _values, found = resolve_template(schema, ref)
     if not found:
         abort(400)
-    db.execute("INSERT INTO entries (session_id, user_id, game, template_ref) VALUES (?, ?, ?, ?)",
-               (sid, g.user["id"], slug, ref))
+    sha = next((v["sha256"] for v in ap_bridge.list_apworld_versions()
+                if v["active"] and v["module"] == slug), "")
+    db.execute("""INSERT INTO entries
+               (session_id, user_id, game, template_ref, selected_apworld_sha)
+               VALUES (?, ?, ?, ?, ?)""", (sid, g.user["id"], slug, ref, sha))
     db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
                (sid, g.user["id"]))
     flash(f"Du spielst {schema['game']} in „{row['name']}“.", "info")
@@ -546,7 +550,7 @@ def entry_template(eid):
         schema = get_schema(entry["game"])
         ref = request.form.get("ref", "default")
         if resolve_template(schema, ref)[2]:
-            db.execute("UPDATE entries SET template_ref = ?, ready=0 WHERE id = ?", (ref, eid))
+            db.execute("UPDATE entries SET template_ref = ?, ready=0, ready_hash='' WHERE id = ?", (ref, eid))
     return redirect(url_for("session_view", sid=entry["session_id"]))
 
 
@@ -567,8 +571,11 @@ def session_clone(sid):
     new_id = db.execute("INSERT INTO sessions (name, created_by, spoiler, race) VALUES (?, ?, ?, ?)",
                         (f"{row['name']} (neu)", g.user["id"], row["spoiler"], row["race"]))
     for e in db.query("SELECT * FROM entries WHERE session_id = ? ORDER BY id", (sid,)):
-        db.execute("INSERT INTO entries (session_id, user_id, game, template_ref) VALUES (?, ?, ?, ?)",
-                   (new_id, e["user_id"], e["game"], e["template_ref"]))
+        db.execute("""INSERT INTO entries
+                   (session_id,user_id,game,template_ref,selected_apworld_sha,option_overrides)
+                   VALUES (?,?,?,?,?,?)""",
+                   (new_id,e["user_id"],e["game"],e["template_ref"],
+                    e["selected_apworld_sha"],e["option_overrides"]))
     flash("Session mit denselben Spielern, Spielen und Vorlagen angelegt.", "info")
     return redirect(url_for("session_view", sid=new_id))
 
