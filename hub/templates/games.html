@@ -4,6 +4,7 @@
 <div class="row spread">
   <h1>Spiele</h1>
   <form class="row" method="get">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
     <input name="q" value="{{ q }}" placeholder="Spiel suchen …" autofocus>
     <button>Suchen</button>
   </form>
