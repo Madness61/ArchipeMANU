@@ -270,7 +270,15 @@ def entry_ready(eid):
         if errors:
             flash("Optionen ungültig: " + "; ".join(f"{k}: {v}" for k,v in errors.items())[:700], "error")
             return redirect(url_for("mvp.entry_options", eid=eid))
-    db.execute("UPDATE entries SET ready=? WHERE id=?", (int(new), eid))
+    fingerprint = ""
+    if new:
+        from .app import session_entries
+        selected = next(e for e in session_entries(room["id"]) if e["id"] == eid)
+        if selected["requested_world_sha"] != selected["active_world_sha"]:
+            flash("Gewählte APWorld-Version ist nicht aktiv.", "error")
+            return redirect(url_for("session_view", sid=room["id"]))
+        fingerprint = slot_fingerprint(selected)
+    db.execute("UPDATE entries SET ready=?, ready_hash=? WHERE id=?", (int(new), fingerprint, eid))
     return redirect(url_for("session_view", sid=room["id"]))
 
 
