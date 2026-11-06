@@ -60,7 +60,7 @@
         {% endif %}
       </td>
       <td style="white-space:nowrap">
-        <span class="chip {{ 'ok' if e.ready else 'warn' }}">{{ 'Bereit' if e.ready else 'Nicht bereit' }}</span>
+        <span class="chip {{ 'ok' if e.ready_valid else 'warn' }}">{{ 'Bereit' if e.ready_valid else 'Bitte prüfen' if e.ready else 'Nicht bereit' }}</span>
         {% if not s.locked and e.user_id == g.user.id and e.installed %}
           <form method="post" action="{{ url_for('mvp.entry_ready', eid=e.id) }}" class="inline">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
@@ -70,6 +70,25 @@
         {% endif %}
         {% if not s.locked and (e.user_id == g.user.id or manage) and e.installed %}
           <a class="btn" href="{{ url_for('mvp.entry_options', eid=e.id) }}">Slotoptionen</a>
+          {% set versions = world_versions|selectattr('module', 'equalto', e.game)|list %}
+          {% if versions %}
+          <form method="post" action="{{ url_for('mvp.entry_world_version', eid=e.id) }}" class="inline">
+            <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+            <label class="small">APWorld-Version
+              <select name="sha256" aria-label="APWorld-Version">
+                {% for v in versions %}
+                  <option value="{{ v.sha256 }}" {% if v.sha256 == e.requested_world_sha %}selected{% endif %}>
+                    {{ v.version or 'Unbekannt' }} · {{ v.sha256[:8] }}{% if v.active %} (aktiv){% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+            </label>
+            <button class="small">Übernehmen</button>
+          </form>
+          {% if e.requested_world_sha != e.active_world_sha %}
+            <span class="chip warn">Host muss diese APWorld im Adminbereich aktivieren</span>
+          {% endif %}
+          {% endif %}
           <form method="post" action="{{ url_for('entry_template', eid=e.id) }}" class="inline">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
             <select name="ref" class="entry-ref" data-game="{{ e.game }}" data-current="{{ e.template_ref }}"
