@@ -1,6 +1,7 @@
 import functools
 import hmac
 import io
+import secrets
 import shutil
 import threading
 import zipfile
@@ -17,6 +18,23 @@ ITEM_LOC_GROUP = "Item & Location Options"
 
 
 # --- Auth --------------------------------------------------------------------------------------
+
+@app.before_request
+def check_csrf():
+    if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+        return
+    expected = session.get("_csrf", "")
+    provided = request.form.get("_csrf") or request.headers.get("X-CSRF-Token", "")
+    if not expected or not provided or not hmac.compare_digest(expected, provided):
+        abort(403, "Ungültiger Sicherheitstoken. Bitte die Seite aktualisieren und erneut versuchen.")
+
+
+@app.context_processor
+def csrf_context():
+    if "_csrf" not in session:
+        session["_csrf"] = secrets.token_urlsafe(32)
+    return {"csrf_token": session["_csrf"]}
+
 
 @app.before_request
 def load_user():
