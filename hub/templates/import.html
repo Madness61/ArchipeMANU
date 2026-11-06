@@ -20,6 +20,7 @@
 {% endif %}
 
 <form method="post" enctype="multipart/form-data" class="panel stack" style="margin-top:16px">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <label>YAML-Dateien<br><input type="file" name="files" accept=".yaml,.yml,.txt" multiple></label>
   <label>… oder Inhalt einfügen<br><textarea name="text" rows="8" placeholder="name: Max&#10;game: Dark Souls III&#10;Dark Souls III:&#10;  ..."></textarea></label>
   <label><input type="checkbox" name="shared" value="1" checked> Für die Gruppe freigeben</label>
