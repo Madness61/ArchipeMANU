@@ -37,6 +37,23 @@
 </div>
 {% endfor %}
 {% else %}<p>Du hast in diesem Seed keinen eigenen Slot.</p>{% endif %}
+<h2>Tatsächlich erzeugte Dateien</h2>
+{% if assets %}
+<p class="small muted">Nur Dateien, die in der Multiworld-ZIP vorhanden sind. Die Zuordnung zu einem bestimmten Spielerslot kann je nach APWorld variieren; bitte die jeweilige Mod-Anleitung beachten.</p>
+<div class="panel stack">
+{% for asset in assets %}
+  <div class="row spread">
+    <span><code>{{ asset.name }}</code> <small class="muted">({{ (asset.size / 1024)|round(1) }} KiB)</small></span>
+    <a class="btn" href="{{ url_for('mvp.build_asset', sid=room.id, build_id=build.id, file_index=asset.index) }}">Herunterladen</a>
+  </div>
+{% endfor %}
+</div>
+{% else %}
+<p class="muted">Keine separaten Patchdateien im Seed-ZIP gefunden. Viele Spiele benötigen ihren eigenen Client oder ein anderes Patch-Verfahren.</p>
+{% endif %}
+<h2>Check-Analyse</h2>
+<p class="muted small">Exakte Check-Zahlen sind für diesen Seed derzeit nicht verifiziert aus Metadaten auslesbar. Deshalb wird keine geschätzte oder erfundene Verteilung angezeigt.</p>
+
 <h2>Mitspieler</h2>
 <div class="panel"><table><tr><th>Slot</th><th>Spiel</th></tr>{% for slot in slots %}<tr><td>{{ slot.slot }}</td><td>{{ slot.game_name }}</td></tr>{% endfor %}</table></div>
 {% endblock %}
