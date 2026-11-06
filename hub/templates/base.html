@@ -14,6 +14,7 @@
     <nav>
       <a href="{{ url_for('games') }}">Spielebibliothek</a>
        <a href="{{ url_for('mvp.lobby_list') }}">Lobbys</a>
+       <a href="{{ url_for('mvp.seed_list') }}">Seed-Analyse</a>
       <a href="{{ url_for('index') }}">Übersicht</a>
       <a href="{{ url_for('import_view') }}">YAML importieren</a>
       {% if g.user.is_admin %}<a href="{{ url_for('admin') }}">Admin</a>{% endif %}
