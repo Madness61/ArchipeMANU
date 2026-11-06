@@ -103,6 +103,9 @@ def _manager(room) -> bool:
 
 
 def _allowed(room) -> bool:
+    # Every authenticated group member can view an open community lobby.
+    if not room["locked"] and g.user is not None:
+        return True
     if _manager(room):
         return True
     return bool(db.query(
@@ -152,6 +155,44 @@ def entry_world_version(eid):
                (chosen, eid))
     flash("Version gewählt. Prüfe danach Optionen und Bereitschaft.", "info")
     return redirect(url_for("session_view", sid=room["id"]))
+
+
+@bp.route("/lobbies")
+def lobby_list():
+    _user()
+    rows = db.query("""SELECT s.*, u.username AS host_name,
+        (SELECT COUNT(*) FROM lobby_members lm WHERE lm.session_id=s.id) AS member_count,
+        (SELECT COUNT(*) FROM entries e WHERE e.session_id=s.id) AS game_count
+        FROM sessions s LEFT JOIN users u ON u.id=s.created_by
+        ORDER BY s.locked, s.id DESC""")
+    return render_template("lobbies.html", rooms=rows)
+
+
+@bp.route("/sessions/<int:sid>/join", methods=["POST"])
+def join_open_lobby(sid):
+    _user()
+    room = _session(sid)
+    if room["locked"]:
+        abort(409, "Die Lobby ist bereits geschlossen.")
+    db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
+               (sid, g.user["id"]))
+    flash("Du bist der Lobby beigetreten. Wähle jetzt dein Spiel.", "info")
+    return redirect(url_for("mvp.choose_game", sid=sid))
+
+
+@bp.route("/sessions/<int:sid>/choose")
+def choose_game(sid):
+    _user()
+    room = _session(sid)
+    if room["locked"]:
+        return redirect(url_for("session_view", sid=sid))
+    if not _manager(room) and not db.query(
+        "SELECT 1 FROM lobby_members WHERE session_id=? AND user_id=?",
+        (sid, g.user["id"]), one=True):
+        return redirect(url_for("mvp.lobby_list"))
+    from .community import all_games
+    choices = [game for game in all_games() if game["installed"]]
+    return render_template("choose_game.html", room=room, games=choices)
 
 
 def _join_url(token: str):
