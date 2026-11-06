@@ -120,6 +120,35 @@ class CommunityTests(unittest.TestCase):
             self.assertEqual((config.APWORLDS/"test_world.apworld").read_bytes(),payload)
             self.assertEqual(db.query("SELECT approved FROM community_games LIMIT 1",one=True)["approved"],1)
 
+    def test_joined_player_without_game_blocks_seed_preflight(self):
+        from hub import mvp
+        self.login(self.host,"Host")
+        response=self.post(self.host,"/sessions",{"name":"No fixed player count"})
+        with self.app.app_context():
+            sid=db.query("SELECT id FROM sessions ORDER BY id DESC LIMIT 1",one=True)["id"]
+        self.login(self.friend,"Friend")
+        self.post(self.friend,f"/sessions/{sid}/join")
+        with self.app.app_context():
+            selected, files, problems = mvp.preflight(sid)
+            self.assertTrue(any("Friend" in problem and "kein Spiel" in problem for problem in problems))
+            self.assertTrue(any("Host" in problem and "kein Spiel" in problem for problem in problems))
+            self.assertFalse(files)
+
+    def test_generated_lobby_stays_closed(self):
+        self.login(self.host,"Host")
+        self.post(self.host,"/sessions",{"name":"Finished"})
+        with self.app.app_context():
+            sid=db.query("SELECT id FROM sessions ORDER BY id DESC LIMIT 1",one=True)["id"]
+            db.execute("UPDATE sessions SET locked=1 WHERE id=?", (sid,))
+            db.execute("""INSERT INTO seed_builds(session_id,status,snapshot,created_at)
+                       VALUES (?,?,?,?)""",(sid,"succeeded",json.dumps({"slots":[]}),"2026-11-06"))
+        unlock=self.post(self.host,f"/sessions/{sid}/lock")
+        self.assertEqual(unlock.status_code,302)
+        with self.app.app_context():
+            self.assertEqual(db.query("SELECT locked FROM sessions WHERE id=?", (sid,),one=True)["locked"],1)
+        self.login(self.friend,"Friend")
+        self.assertEqual(self.post(self.friend,f"/sessions/{sid}/join").status_code,409)
+
     def test_real_placement_aggregate_and_race_redaction(self):
         result=stats.aggregate_placements(
             [{"id":1,"name":"Host","game":"Game A"},{"id":2,"name":"Friend","game":"Game B"}],
