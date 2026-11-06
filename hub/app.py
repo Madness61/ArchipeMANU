@@ -558,6 +558,12 @@ def session_lock(sid):
     row = get_session(sid)
     if not can_manage_session(row):
         abort(403)
+    # Closed generated lobbies cannot accept new players: clone to start a new seed.
+    has_build = db.query("SELECT 1 FROM seed_builds WHERE session_id=? AND status IN ('queued','running','succeeded') LIMIT 1",
+                         (sid,), one=True)
+    if row["locked"] and has_build:
+        flash("Diese Lobby hat bereits einen Seed. Bitte stattdessen die Lobby klonen.", "error")
+        return redirect(url_for("session_view", sid=sid))
     db.execute("UPDATE sessions SET locked = ? WHERE id = ?", (0 if row["locked"] else 1, sid))
     return redirect(url_for("session_view", sid=sid))
 
