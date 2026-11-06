@@ -4,7 +4,8 @@
 <div class="panel stack">
   <h1>Einladung: {{ room.name }}</h1>
   <p>Du bist als <b>{{ g.user.username }}</b> angemeldet. Nach dem Beitritt kannst du dein Spiel und die Optionen wählen.</p>
-  <form method="post"><button class="primary">Der Runde beitreten</button></form>
+  <form method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="primary">Der Runde beitreten</button></form>
   <p class="muted small">Dieser Einladungslink läuft nach 7 Tagen ab. Er verleiht keine Administratorrechte.</p>
 </div>
 {% endblock %}
