@@ -8,7 +8,7 @@ import zipfile
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, session,
                    url_for)
 
-from . import ap_bridge, config, db, yamlgen
+from . import ap_bridge, config, db, yamlgen, mvp
 
 app = Flask(__name__)
 app.teardown_appcontext(db.close)
@@ -157,7 +157,7 @@ def session_entries(session_id: int) -> list[dict]:
         if e["installed"]:
             schema = ap_bridge.schema(e["game"])
             e["template_label"], tvalues, e["template_found"] = resolve_template(schema, e["template_ref"])
-            e["values"] = user_values(schema, tvalues, e)
+            e["values"] = user_values(schema, yamlgen.layer(schema, tvalues, db.loads(e["option_overrides"])), e)
         else:
             e["template_label"], e["values"], e["template_found"] = "–", {}, False
     return entries
@@ -439,7 +439,10 @@ def session_view(sid):
     for e in entries:
         e["summary"] = yamlgen.summarize(ap_bridge.schema(e["game"]), e["values"]) if e["installed"] else []
     games = sorted(ap_bridge.index()["games"].items(), key=lambda kv: kv[1]["game"].casefold())
-    return render_template("session.html", s=row, entries=entries, games=games, manage=can_manage_session(row))
+    history = mvp.builds(sid)
+    guests = db.query("SELECT u.username FROM lobby_members m JOIN users u ON u.id=m.user_id WHERE m.session_id=? ORDER BY u.username", (sid,))
+    return render_template("session.html", s=row, entries=entries, games=games,
+                           manage=can_manage_session(row), build_history=history, lobby_guests=guests)
 
 
 @app.route("/games/<slug>/play", methods=["POST"])
@@ -471,6 +474,8 @@ def entry_add(sid):
         abort(400)
     db.execute("INSERT INTO entries (session_id, user_id, game, template_ref) VALUES (?, ?, ?, ?)",
                (sid, g.user["id"], slug, ref))
+    db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
+               (sid, g.user["id"]))
     flash(f"Du spielst {schema['game']} in „{row['name']}“.", "info")
     return redirect(url_for("session_view", sid=sid))
 
@@ -505,7 +510,7 @@ def entry_template(eid):
         schema = get_schema(entry["game"])
         ref = request.form.get("ref", "default")
         if resolve_template(schema, ref)[2]:
-            db.execute("UPDATE entries SET template_ref = ? WHERE id = ?", (ref, eid))
+            db.execute("UPDATE entries SET template_ref = ?, ready=0 WHERE id = ?", (ref, eid))
     return redirect(url_for("session_view", sid=entry["session_id"]))
 
 
@@ -574,23 +579,18 @@ def _run_generation(sid: int, files: list[tuple[str, str]], spoiler: int, race: 
 @app.route("/sessions/<int:sid>/generate", methods=["POST"])
 @login_required
 def session_generate(sid):
-    row = get_session(sid)
-    if not can_manage_session(row):
-        abort(403)
-    if row["gen_status"] == "running":
-        return redirect(url_for("session_view", sid=sid))
-    if not ap_bridge.ap_ready():
-        flash("Archipelago ist auf dem Server nicht eingerichtet (setup.ps1 ausführen).", "error")
-        return redirect(url_for("session_view", sid=sid))
-    entries = session_entries(sid)
-    if not entries or any(not e["installed"] for e in entries):
-        flash("Keine Spieler oder ein Spiel ist nicht mehr installiert.", "error")
-        return redirect(url_for("session_view", sid=sid))
-    spoiler = request.form.get("spoiler", type=int, default=1)
-    race = request.form.get("race") == "1"
-    db.execute("UPDATE sessions SET locked = 1, gen_status = 'running', gen_log = '', gen_file = '', spoiler = ?, "
-               "race = ? WHERE id = ?", (spoiler, int(race), sid))
-    threading.Thread(target=_run_generation, args=(sid, session_yamls(entries), spoiler, race), daemon=True).start()
+    try:
+        spoiler = int(request.form.get("spoiler", 1))
+    except ValueError:
+        spoiler = 1
+    if spoiler not in (0, 1, 2, 3):
+        abort(400)
+    build_id, errors = mvp.begin_build(sid, spoiler, request.form.get("race") == "1")
+    if errors:
+        for msg in errors[:12]:
+            flash(msg, "error")
+    else:
+        flash(f"Seed-Generierung #{build_id} gestartet; ursprüngliche Einstellungen eingefroren.", "info")
     return redirect(url_for("session_view", sid=sid))
 
 
@@ -710,6 +710,9 @@ def admin_status():
 def create_app() -> Flask:
     config.ensure_dirs()
     db.init()
+    mvp.migrate()
+    if "mvp" not in app.blueprints:
+        app.register_blueprint(mvp.bp)
     app.secret_key = config.secret_key()
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
     if ap_bridge.ap_ready() and not (config.SCHEMAS / "index.json").exists():
