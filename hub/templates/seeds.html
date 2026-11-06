@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Seed-Historie · ArchipeMANU{% endblock %}
+{% block content %}
+<div class="row spread"><div><h1>Seed-Analysen</h1><p class="muted">Alle Seeds deiner Runden. Statistiken werden aus echten generierten Itemplatzierungen berechnet.</p></div></div>
+{% if builds %}
+<div class="panel table-wrap" style="margin-top:16px">
+<table><thead><tr><th>Seed</th><th>Lobby</th><th>Erstellt</th><th>Status</th><th>Aktionen</th></tr></thead>
+<tbody>
+{% for b in builds %}
+<tr>
+  <td><strong>#{{ b.id }}</strong></td>
+  <td>{{ b.session_name }}</td>
+  <td class="muted small">{{ b.created_at[:16] }}</td>
+  <td><span class="chip {{ 'ok' if b.status=='succeeded' else 'warn' }}">{{ b.status }}</span></td>
+  <td><a href="{{ url_for('mvp.build_stats', sid=b.session_id, build_id=b.id) }}" class="btn">Statistik ansehen</a>
+  {% if b.status=='succeeded' %}<a href="{{ url_for('mvp.play_page', sid=b.session_id, build_id=b.id) }}" class="btn">Jetzt spielen</a>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+{% else %}
+<div class="panel" style="margin-top:16px"><p class="muted">Noch kein Seed generiert. Erstelle zuerst eine Lobby und lass alle Spieler ihre Games auswählen.</p></div>
+{% endif %}
+{% endblock %}
