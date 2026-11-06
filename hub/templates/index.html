@@ -3,10 +3,11 @@
 <div class="row spread">
   <div>
     <h1>Hallo {{ g.user.username }}</h1>
-    <p class="muted">Spiel auswählen, Vorlage wählen, „Ich spiele das“ – fertig.</p>
+    <p class="muted">Gemeinsame Spielebibliothek, offene Lobbys und Multiworld-Statistiken.</p>
   </div>
   <div class="hero-actions">
-    <a class="btn primary" href="{{ url_for('games') }}">Spiel auswählen</a>
+    <a class="btn primary" href="{{ url_for('mvp.lobby_list') }}">Offene Lobbys ansehen →</a>
+    <a class="btn" href="{{ url_for('games') }}">Spielebibliothek</a>
     <form method="post" action="{{ url_for('session_create') }}" class="row">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
       <input name="name" placeholder="Name, z. B. Samstag" maxlength="80">
@@ -15,6 +16,11 @@
   </div>
 </div>
 
+<div class="metric-grid">
+  <div class="panel"><span class="muted small">Spiele in der Bibliothek</span><div class="metric">{{ games_total }}</div></div>
+  <div class="panel"><span class="muted small">Offene Lobbys</span><div class="metric">{{ open_total }}</div></div>
+  <div class="panel"><span class="muted small">Registrierte Spieler</span><div class="metric">{{ players_total }}</div></div>
+</div>
 <h2>Sessions</h2>
 {% if sessions %}
 <div class="panel table-wrap">
