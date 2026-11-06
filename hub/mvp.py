@@ -10,6 +10,8 @@ import json
 import re
 import secrets
 import threading
+import io
+import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -367,6 +369,45 @@ def build_download(sid, build_id):
     return send_file(path, as_attachment=True, download_name=row["zip_name"])
 
 
+def artifact_files(build_id: int, zip_name: str) -> list[dict]:
+    """List only files actually present in the generated Archipelago package."""
+    archive_path = config.SESSIONS / "_seeds" / str(build_id) / "output" / zip_name
+    if not archive_path.is_file():
+        return []
+    try:
+        with zipfile.ZipFile(archive_path) as archive:
+            result = []
+            for idx, info in enumerate(archive.infolist()):
+                if info.is_dir() or info.filename.endswith(".archipelago"):
+                    continue
+                if (info.file_size <= 0 or info.file_size > 64 * 1024 * 1024
+                        or "\\" in info.filename or info.filename.startswith("/")
+                        or ".." in Path(info.filename).parts
+                        or (info.compress_size and info.file_size / info.compress_size > 1000)):
+                    continue
+                result.append({"index": idx, "name": info.filename, "size": info.file_size})
+            return result
+    except (zipfile.BadZipFile, OSError):
+        return []
+
+
+@bp.route("/sessions/<int:sid>/builds/<int:build_id>/assets/<int:file_index>")
+def build_asset(sid, build_id, file_index):
+    _assert_access(_session(sid))
+    build = db.query("SELECT * FROM seed_builds WHERE id=? AND session_id=?", (build_id, sid), one=True)
+    if not build or build["status"] != "succeeded":
+        abort(404)
+    allowed = {entry["index"]: entry for entry in artifact_files(build_id, build["zip_name"])}
+    if file_index not in allowed:
+        abort(404)
+    archive_path = config.SESSIONS / "_seeds" / str(build_id) / "output" / build["zip_name"]
+    with zipfile.ZipFile(archive_path) as archive:
+        payload = archive.read(archive.infolist()[file_index])
+    safe_name = Path(allowed[file_index]["name"]).name[:150]
+    return send_file(io.BytesIO(payload), as_attachment=True, download_name=safe_name,
+                     mimetype="application/octet-stream")
+
+
 def parse_room_form(form) -> tuple[str, str, int]:
     """No scraping or external availability claims: only validate host-supplied connection data."""
     room_url = form.get("room_url", "").strip()
@@ -421,8 +462,9 @@ def play_page(sid, build_id):
     for slot in snapshot["slots"]:
         guide = db.query("SELECT * FROM game_guides WHERE slug=?", (slot["game"],), one=True)
         guides[slot["game"]] = dict(guide) if guide else None
+    assets = artifact_files(build_id, build["zip_name"]) if build["status"] == "succeeded" else []
     return render_template("play.html", room=room, build=build, hosted=hosted,
-                           slots=snapshot["slots"], own=own, guides=guides)
+                           slots=snapshot["slots"], own=own, guides=guides, assets=assets)
 
 
 @bp.route("/admin/guides/<slug>", methods=["GET", "POST"])
