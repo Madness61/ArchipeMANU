@@ -68,6 +68,11 @@
     sel.addEventListener("change", () => { if (sel.value !== sel.dataset.current) sel.form.submit(); });
   });
 
+  // New builds are recorded independently from previous generations.
+  if (document.querySelector('[data-build-status="queued"], [data-build-status="running"]')) {
+    setTimeout(() => location.reload(), 4000);
+  }
+
   // Poll while something runs on the server, then reload.
   const poll = (el, url) => {
     if (!el || el.dataset.status !== "running") return;
