@@ -15,6 +15,7 @@
 {% if manage and not s.locked %}
 <div class="panel row" style="margin:12px 0">
   <form method="post" action="{{ url_for('mvp.invite_route', sid=s.id) }}" class="inline">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
     <button>Einladungslink (7 Tage) erstellen</button>
   </form>
   <span class="muted small">Neue Teilnehmer erhalten keine Hostrechte.</span>
@@ -25,6 +26,7 @@
 {% endif %}
 {% if not s.locked %}
 <form method="post" action="{{ url_for('entry_add', sid=s.id) }}" class="panel row" id="add-entry">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <b>Ich spiele:</b>
   <select name="game" id="add-game" required>
     <option value="">Spiel wählen …</option>
@@ -61,6 +63,7 @@
         <span class="chip {{ 'ok' if e.ready else 'warn' }}">{{ 'Bereit' if e.ready else 'Nicht bereit' }}</span>
         {% if not s.locked and e.user_id == g.user.id and e.installed %}
           <form method="post" action="{{ url_for('mvp.entry_ready', eid=e.id) }}" class="inline">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
             <input type="hidden" name="ready" value="{{ 0 if e.ready else 1 }}">
             <button class="small">{{ 'Bereitschaft aufheben' if e.ready else 'Bereit' }}</button>
           </form>
@@ -68,10 +71,12 @@
         {% if not s.locked and (e.user_id == g.user.id or manage) and e.installed %}
           <a class="btn" href="{{ url_for('mvp.entry_options', eid=e.id) }}">Slotoptionen</a>
           <form method="post" action="{{ url_for('entry_template', eid=e.id) }}" class="inline">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
             <select name="ref" class="entry-ref" data-game="{{ e.game }}" data-current="{{ e.template_ref }}"
                     aria-label="Vorlage wechseln"><option value="{{ e.template_ref }}">Vorlage wechseln …</option></select>
           </form>
           <form method="post" action="{{ url_for('entry_delete', eid=e.id) }}" class="inline">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
             <button class="linkish small danger">Entfernen</button>
           </form>
         {% endif %}
@@ -94,6 +99,7 @@
 
   {% if manage %}
   <form method="post" action="{{ url_for('session_generate', sid=s.id) }}" class="row">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
     <button class="primary" {% if s.gen_status == 'running' or not entries %}disabled{% endif %}>Auf dem Server generieren</button>
     <label class="small">Spoiler-Log
       <select name="spoiler">
@@ -140,6 +146,7 @@
         <p class="small">1. ZIP herunterladen. 2. <a href="https://archipelago.gg/uploads" target="_blank" rel="noopener">archipelago.gg/uploads öffnen</a>.
         3. ZIP dort hochladen und „Create Room“ wählen. 4. Die echte Serveradresse aus dem Raum übernehmen.</p>
         <form method="post" action="{{ url_for('mvp.save_hosting', sid=s.id, build_id=b.id) }}" class="stack">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
           <label>Raum-URL (optional)<br><input type="url" name="room_url" placeholder="https://archipelago.gg/room/..." style="width:100%"></label>
           <div class="row"><label>Host<br><input name="host" required placeholder="archipelago.gg"></label>
           <label>Port<br><input name="port" required type="number" min="1" max="65535" placeholder="38281"></label></div>
@@ -158,13 +165,16 @@
   {% else %}<p class="muted">Für diese Session wurde noch kein Seed gespeichert.</p>{% endif %}
   <div class="row">
     <form method="post" action="{{ url_for('session_clone', sid=s.id) }}" class="inline">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
       <button>Wie letztes Mal: neue Session mit denselben Spielern</button>
     </form>
     {% if manage %}
       <form method="post" action="{{ url_for('session_lock', sid=s.id) }}" class="inline">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
         <button>{{ 'Entsperren' if s.locked else 'Sperren' }}</button>
       </form>
       <form method="post" action="{{ url_for('session_delete', sid=s.id) }}" class="inline" data-confirm="Session „{{ s.name }}“ löschen?">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
         <button class="danger">Löschen</button>
       </form>
     {% endif %}
