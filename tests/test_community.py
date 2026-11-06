@@ -134,6 +134,28 @@ class CommunityTests(unittest.TestCase):
             self.assertTrue(any("Host" in problem and "kein Spiel" in problem for problem in problems))
             self.assertFalse(files)
 
+    def test_player_can_leave_and_host_can_remove(self):
+        self.login(self.host,"Host")
+        self.post(self.host,"/sessions",{"name":"Flexible"})
+        with self.app.app_context():
+            sid=db.query("SELECT id FROM sessions ORDER BY id DESC LIMIT 1",one=True)["id"]
+        self.login(self.friend,"Friend")
+        self.post(self.friend,f"/sessions/{sid}/join")
+        self.post(self.friend,f"/sessions/{sid}/entries",{"game":"test_world"})
+        left=self.post(self.friend,f"/sessions/{sid}/leave")
+        self.assertEqual(left.status_code,302)
+        with self.app.app_context():
+            self.assertEqual(db.query("SELECT count(*) AS n FROM lobby_members WHERE session_id=?",(sid,),one=True)["n"],1)
+            self.assertEqual(db.query("SELECT count(*) AS n FROM entries WHERE session_id=?",(sid,),one=True)["n"],0)
+        self.post(self.friend,f"/sessions/{sid}/join")
+        with self.app.app_context():
+            uid=db.query("SELECT id FROM users WHERE username='Friend'",one=True)["id"]
+        removed=self.post(self.host,f"/sessions/{sid}/members/{uid}/remove")
+        self.assertEqual(removed.status_code,302)
+        with self.app.app_context():
+            self.assertFalse(db.query("SELECT 1 FROM lobby_members WHERE session_id=? AND user_id=?",
+                                      (sid,uid),one=True))
+
     def test_generated_lobby_stays_closed(self):
         self.login(self.host,"Host")
         self.post(self.host,"/sessions",{"name":"Finished"})
