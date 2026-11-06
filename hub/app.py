@@ -616,7 +616,8 @@ def session_download(sid):
 @admin_required
 def admin():
     users = db.query("SELECT * FROM users ORDER BY username")
-    return render_template("admin.html", apworlds=ap_bridge.list_apworlds(), users=users,
+    return render_template("admin.html", apworlds=ap_bridge.list_apworlds(),
+                           apworld_versions=ap_bridge.list_apworld_versions(), users=users,
                            failed=ap_bridge.index().get("failed", {}), status=ap_bridge.extract_status(),
                            ap_version=ap_bridge.index().get("ap_version"))
 
@@ -624,6 +625,9 @@ def admin():
 @app.route("/admin/apworlds", methods=["POST"])
 @admin_required
 def admin_upload():
+    if request.form.get("trust_apworlds") != "yes":
+        flash("Bitte zuerst bestätigen, dass du den Python-Code der APWorld-Quelle geprüft hast.", "error")
+        return redirect(url_for("admin"))
     uploaded = 0
     for f in request.files.getlist("files"):
         if not f.filename:
@@ -632,7 +636,8 @@ def admin_upload():
             flash(f"{f.filename}: nur .apworld-Dateien.", "error")
             continue
         try:
-            info = ap_bridge.store_apworld(f.read())
+            payload = f.stream.read(ap_bridge.apworld_library.MAX_UPLOAD + 1)
+            info = ap_bridge.store_apworld(payload)
             uploaded += 1
             flash(f"{f.filename} gespeichert ({info['game'] or info['module']}).", "info")
         except ValueError as e:
@@ -649,6 +654,33 @@ def admin_delete_apworld(module):
     ap_bridge.start_extract()
     flash(f"{module}.apworld entfernt.", "info")
     return redirect(url_for("admin"))
+
+
+@app.route("/admin/apworlds/versions/<sha256>/activate", methods=["POST"])
+@admin_required
+def admin_activate_apworld(sha256):
+    if request.form.get("trust_apworlds") != "yes":
+        flash("Zum Aktivieren bitte die Vertrauensbestätigung auswählen.", "error")
+        return redirect(url_for("admin"))
+    try:
+        info = ap_bridge.activate_apworld(sha256)
+        flash(f"{info['module']}: gewählte APWorld-Version aktiviert.", "info")
+        ap_bridge.start_extract()
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/apworlds/versions/<sha256>/download")
+@admin_required
+def admin_download_apworld(sha256):
+    try:
+        path = ap_bridge.archived_apworld(sha256)
+    except ValueError as exc:
+        abort(404, description=str(exc))
+    return send_file(path, as_attachment=True,
+                     download_name=f"{next((v['module'] for v in ap_bridge.list_apworld_versions() if v['sha256'] == sha256), 'world')}.apworld",
+                     mimetype="application/octet-stream")
 
 
 @app.route("/admin/extract", methods=["POST"])

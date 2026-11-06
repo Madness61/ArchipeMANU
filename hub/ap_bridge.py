@@ -9,7 +9,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from . import config
+from . import config, apworld_library
 
 RUNNER = config.ROOT / "ap_runner.py"
 
@@ -45,38 +45,38 @@ def apworld_info(path: Path) -> dict:
 
 
 def store_apworld(data: bytes) -> dict:
-    """Save an uploaded .apworld as <module>.apworld; an older file for the same module goes to _old/."""
-    with tempfile.NamedTemporaryFile(suffix=".apworld", delete=False, dir=config.DATA) as tmp:
-        tmp.write(data)
-        tmp_path = Path(tmp.name)
-    try:
-        info = apworld_info(tmp_path)
-    except Exception:
-        tmp_path.unlink(missing_ok=True)
-        raise
-    target = config.APWORLDS / f"{info['module']}.apworld"
-    if target.exists():
-        old_dir = config.APWORLDS / "_old"
-        old_dir.mkdir(exist_ok=True)
-        shutil.move(target, old_dir / f"{info['module']}-{time.strftime('%Y%m%d-%H%M%S')}.apworld")
-    shutil.move(tmp_path, target)
-    return apworld_info(target)
+    """Persist new versions without discarding previous APWorld releases."""
+    info = apworld_library.store(data)
+    return {**info, "mtime": (config.APWORLDS / info["file"]).stat().st_mtime}
 
 
 def list_apworlds() -> list[dict]:
-    result = []
-    for path in sorted(config.APWORLDS.glob("*.apworld")):
-        try:
-            result.append(apworld_info(path))
-        except ValueError as e:
-            result.append({"module": path.stem, "file": path.name, "error": str(e)})
-    return result
+    """Legacy active-file view used by older UI routes."""
+    return [dict(module=v["module"], game=v["game"], version=v["version"],
+                 file=v["module"] + ".apworld", sha256=v["sha256"],
+                 size=v["size"], active=True)
+            for v in apworld_library.list_versions() if v["active"]]
+
+
+def list_apworld_versions() -> list[dict]:
+    return apworld_library.list_versions()
+
+
+def activate_apworld(sha256: str) -> dict:
+    return apworld_library.activate(sha256)
+
+
+def deactivate_apworld(module: str) -> None:
+    apworld_library.deactivate(module)
+
+
+def archived_apworld(sha256: str) -> Path:
+    return apworld_library.archived_file(sha256)
 
 
 def delete_apworld(module: str) -> None:
-    path = config.APWORLDS / f"{module}.apworld"
-    if path.parent == config.APWORLDS and path.exists():
-        path.unlink()
+    # Retain the historical versions even when an APWorld is deactivated.
+    deactivate_apworld(module)
 
 
 def _sync_custom_worlds() -> None:

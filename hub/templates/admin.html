@@ -10,8 +10,10 @@
   {% else %}<span class="chip">noch nie</span>{% endif %}</span></p>
 
 <h2>APWorlds</h2>
+<p class="muted small">Neue Uploads aktivieren ihre Version automatisch; vorherige Uploads werden nicht gelöscht.</p>
 <form method="post" action="{{ url_for('admin_upload') }}" enctype="multipart/form-data" class="panel row">
   <input type="file" name="files" accept=".apworld" multiple required>
+  <label class="small"><input type="checkbox" name="trust_apworlds" value="yes" required> Ich habe die Herkunft dieser ausführbaren APWorlds geprüft.</label>
   <button class="primary">Hochladen</button>
   <span class="small muted">APWorlds enthalten Python-Code, der auf diesem Server läuft – nur vertrauenswürdige hochladen.
     Eine APWorld mit dem Namen eines eingebauten Spiels ersetzt dessen eingebaute Version.</span>
@@ -34,12 +36,43 @@
       </td>
       <td>
         <form method="post" action="{{ url_for('admin_delete_apworld', module=a.module) }}" class="inline"
-              data-confirm="{{ a.file }} entfernen?"><button class="linkish small danger">Entfernen</button></form>
+              data-confirm="{{ a.file }} entfernen?"><button class="linkish small danger">Deaktivieren</button></form>
       </td>
     </tr>
     {% endfor %}
   </table>
 </div>
+{% endif %}
+
+<h2>Gespeicherte APWorld-Versionen</h2>
+<p class="muted small">Alle Versionen bleiben archiviert. Pro Modul ist immer nur eine Version aktiv; alte Versionen können wiederhergestellt und heruntergeladen werden. Die Ausführung des Python-Codes ist derzeit noch nicht sandboxed.</p>
+{% if apworld_versions %}
+<div class="panel table-wrap">
+  <table>
+    <tr><th>Modul</th><th>Version</th><th>SHA-256</th><th>Größe</th><th>Hinzugefügt</th><th>Status / Aktionen</th></tr>
+    {% for v in apworld_versions %}
+    <tr>
+      <td>{{ v.module }}</td>
+      <td>{{ v.version or 'Unbekannt' }}</td>
+      <td title="{{ v.sha256 }}"><code>{{ v.sha256[:12] }}…</code></td>
+      <td>{{ (v.size / 1024)|round(1) }} KiB</td>
+      <td class="small muted">{{ v.added_at[:16] }}</td>
+      <td>
+        {% if v.active %}<span class="chip ok">Aktiv</span>{% else %}
+          <form method="post" action="{{ url_for('admin_activate_apworld', sha256=v.sha256) }}" class="inline"
+                data-confirm="Diese APWorld-Version kann ausführbaren Python-Code enthalten. Nur geprüfte Quellen aktivieren. Fortfahren?">
+            <input type="hidden" name="trust_apworlds" value="yes">
+            <button>Aktivieren</button>
+          </form>
+        {% endif %}
+        <a class="btn" href="{{ url_for('admin_download_apworld', sha256=v.sha256) }}">Download</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% else %}
+<p class="muted">Noch keine APWorld-Versionen gespeichert.</p>
 {% endif %}
 
 <form method="post" action="{{ url_for('admin_extract') }}" style="margin-top:12px">
