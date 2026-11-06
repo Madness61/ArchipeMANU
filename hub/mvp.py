@@ -298,6 +298,10 @@ def preflight(sid: int) -> tuple[list[dict], list[tuple[str, str]], list[str]]:
             failures.append(f"{entry['username']}: gespeicherte Vorlage ist nicht mehr vorhanden.")
         if not entry["ready"]:
             failures.append(f"{entry['username']} – {entry['game_name']}: noch nicht bereit.")
+        elif not entry.get("ready_valid"):
+            failures.append(f"{entry['username']}: Einstellungen seit der Bereitmeldung verändert.")
+        if entry.get("requested_world_sha") != entry.get("active_world_sha"):
+            failures.append(f"{entry['username']}: gewählte APWorld-Version ist nicht aktiv.")
         original = yamlgen.clean_slot_name(entry["slot_name"]).casefold()
         previous = known_slots.get(original)
         if previous is not None and previous != entry["user_id"]:
@@ -319,7 +323,7 @@ def preflight(sid: int) -> tuple[list[dict], list[tuple[str, str]], list[str]]:
         selected.append({
             "slot": entry["slot"], "player_id": entry["user_id"], "game": entry["game"],
             "game_name": entry["game_name"], "game_version": ap_bridge.schema(entry["game"])["version"],
-            "apworld_sha256": world["sha256"] if world else None,
+            "apworld_sha256": entry.get("requested_world_sha") or None,
             "ready": bool(entry["ready"]),
         })
     # Block custom world execution unless host explicitly opts into the trusted-only mode.
