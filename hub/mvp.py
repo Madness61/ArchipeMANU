@@ -163,6 +163,21 @@ def entry_world_version(eid):
     return redirect(url_for("session_view", sid=room["id"]))
 
 
+@bp.route("/seeds")
+def seed_list():
+    _user()
+    rows = db.query("""SELECT b.id, b.session_id, b.status, b.created_at,
+        s.name AS session_name FROM seed_builds b
+        JOIN sessions s ON s.id=b.session_id
+        WHERE (?=1 OR s.created_by=? OR EXISTS (
+            SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.id AND lm.user_id=?
+        ) OR EXISTS (
+            SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?
+        )) ORDER BY b.id DESC LIMIT 100""",
+        (g.user["is_admin"],g.user["id"],g.user["id"],g.user["id"]))
+    return render_template("seeds.html", builds=rows)
+
+
 @bp.route("/lobbies")
 def lobby_list():
     _user()
@@ -336,6 +351,13 @@ def preflight(sid: int) -> tuple[list[dict], list[tuple[str, str]], list[str]]:
     failures = []
     if not entries:
         failures.append("Keine Spieler-Spiele konfiguriert.")
+    # Joining a lobby is not enough: every joined member must choose a game.
+    selected_players = {entry["user_id"] for entry in entries}
+    joined = db.query("""SELECT lm.user_id, u.username FROM lobby_members lm
+        JOIN users u ON u.id=lm.user_id WHERE lm.session_id=?""", (sid,))
+    for member in joined:
+        if member["user_id"] not in selected_players:
+            failures.append(f"{member['username']} hat noch kein Spiel gewählt.")
     known_slots = {}
     for entry in entries:
         if not entry["installed"]:
