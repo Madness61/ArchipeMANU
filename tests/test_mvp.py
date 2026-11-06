@@ -121,7 +121,8 @@ class MVPTests(unittest.TestCase):
             from hub import db
             sid = db.execute("INSERT INTO sessions(name,created_by) VALUES (?,?)", ("Seed Test",1))
             db.execute("""INSERT INTO entries(session_id,user_id,game,template_ref,ready,option_overrides)
-                VALUES (?,?,?,?,?,?)""", (sid,1,"test_world","default",1,'{"goal":"collect"}'))
+                VALUES (?,?,?,?,?,?)""", (sid,1,"test_world","default",0,'{"goal":"collect"}'))
+        self.post("/entries/1/ready", {"ready":"1"})
         def fake_generate(players, out, spoiler, race, expected_worlds=None):
             out.mkdir(parents=True, exist_ok=True)
             result = out / "AP_TEST.zip"
