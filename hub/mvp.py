@@ -127,6 +127,33 @@ def _entry(eid: int):
     return row, room
 
 
+def slot_fingerprint(entry: dict) -> str:
+    record = {
+        "slot": entry["slot"], "game": entry["game"],
+        "values": entry.get("values", {}),
+        "game_version": entry.get("game_version", ""),
+        "world_sha256": entry.get("requested_world_sha") or "",
+    }
+    raw = json.dumps(record, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+@bp.route("/entries/<int:eid>/apworld", methods=["POST"])
+def entry_world_version(eid):
+    _user()
+    entry, room = _entry(eid)
+    if room["locked"]:
+        abort(409)
+    chosen = request.form.get("sha256", "").strip()
+    options = {v["sha256"] for v in ap_bridge.list_apworld_versions() if v["module"] == entry["game"]}
+    if chosen and chosen not in options:
+        abort(400, "APWorld-Version nicht vorhanden.")
+    db.execute("UPDATE entries SET selected_apworld_sha=?, ready=0, ready_hash='' WHERE id=?",
+               (chosen, eid))
+    flash("Version gewählt. Prüfe danach Optionen und Bereitschaft.", "info")
+    return redirect(url_for("session_view", sid=room["id"]))
+
+
 def _join_url(token: str):
     return url_for("mvp.invite_accept", token=token, _external=True)
 
