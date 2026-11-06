@@ -43,6 +43,7 @@ werden automatisch eingesetzt.</p>
     {% endif %}
     <div class="actions">
       <form method="post" action="{{ url_for('game_play', slug=schema.slug) }}" class="row">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
         <input type="hidden" name="ref" value="{{ t.ref }}">
         <select name="session" aria-label="Session">
           {% for s in sessions %}
@@ -59,6 +60,7 @@ werden automatisch eingesetzt.</p>
       <a class="btn" href="{{ url_for('template_new', slug=schema.slug, **{'from': t.ref}) }}">Anpassen (Kopie)</a>
       {% if g.user.is_admin and not t.is_default and t.source != 'Persönlich' %}
         <form method="post" action="{{ url_for('set_game_default', slug=schema.slug) }}" class="inline">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
           <input type="hidden" name="ref" value="{{ t.ref }}">
           <button class="linkish small">Als Gruppen-Standard</button>
         </form>
@@ -66,6 +68,7 @@ werden automatisch eingesetzt.</p>
       {% if t.editable %}
         <form method="post" action="{{ url_for('template_delete', tid=t.id) }}" class="inline"
               data-confirm="Vorlage „{{ t.name }}“ löschen?">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
           <button class="linkish small danger">Löschen</button>
         </form>
       {% endif %}
