@@ -625,6 +625,9 @@ def admin():
 @app.route("/admin/apworlds", methods=["POST"])
 @admin_required
 def admin_upload():
+    if request.form.get("trust_apworlds") != "yes":
+        flash("Bitte zuerst bestätigen, dass du den Python-Code der APWorld-Quelle geprüft hast.", "error")
+        return redirect(url_for("admin"))
     uploaded = 0
     for f in request.files.getlist("files"):
         if not f.filename:
@@ -656,6 +659,9 @@ def admin_delete_apworld(module):
 @app.route("/admin/apworlds/versions/<sha256>/activate", methods=["POST"])
 @admin_required
 def admin_activate_apworld(sha256):
+    if request.form.get("trust_apworlds") != "yes":
+        flash("Zum Aktivieren bitte die Vertrauensbestätigung auswählen.", "error")
+        return redirect(url_for("admin"))
     try:
         info = ap_bridge.activate_apworld(sha256)
         flash(f"{info['module']}: gewählte APWorld-Version aktiviert.", "info")
