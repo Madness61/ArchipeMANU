@@ -172,16 +172,23 @@ def session_entries(session_id: int) -> list[dict]:
     entries = [dict(r) for r in rows]
     slots = yamlgen.assign_slot_names(entries)
     games = ap_bridge.index()["games"]
+    active = {v["module"]:v["sha256"] for v in ap_bridge.list_apworld_versions() if v["active"]}
     for e in entries:
         e["slot"] = slots[e["id"]]
         e["installed"] = e["game"] in games
         e["game_name"] = games.get(e["game"], {}).get("game", e["game"])
+        e["game_version"] = (ap_bridge.schema(e["game"]) or {}).get("version", "") if e["installed"] else ""
+        e["active_world_sha"] = active.get(e["game"], "")
+        e["requested_world_sha"] = e["selected_apworld_sha"] or e["active_world_sha"]
         if e["installed"]:
             schema = ap_bridge.schema(e["game"])
             e["template_label"], tvalues, e["template_found"] = resolve_template(schema, e["template_ref"])
             e["values"] = user_values(schema, yamlgen.layer(schema, tvalues, db.loads(e["option_overrides"])), e)
         else:
             e["template_label"], e["values"], e["template_found"] = "–", {}, False
+        e["ready_valid"] = bool(e["ready"] and e["ready_hash"]
+            and e["ready_hash"] == mvp.slot_fingerprint(e)
+            and e["requested_world_sha"] == e["active_world_sha"])
     return entries
 
 
