@@ -22,7 +22,15 @@
 </div>
 {% endif %}
 {% if lobby_guests %}
-<p class="muted small">In der Lobby: {% for u in lobby_guests %}{{ u.username }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+<div class="panel" style="margin:10px 0">
+  <h3>Teilnehmer ({{ lobby_guests|length }})</h3>
+  <p class="muted small">Der Seed startet erst, wenn jeder beigetretene Spieler ein Spiel gewählt und als bereit markiert hat.</p>
+  <div class="row" style="margin-top:9px">
+  {% for u in lobby_guests %}
+    <span class="chip {{ 'ok' if u.entry_id else 'warn' }}">{{ u.username }} · {{ 'Spiel gewählt' if u.entry_id else 'Spiel fehlt' }}</span>
+  {% endfor %}
+  </div>
+</div>
 {% endif %}
 {% if not s.locked %}
 {% if not is_member %}
