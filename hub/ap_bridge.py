@@ -13,6 +13,12 @@ from . import config, apworld_library
 
 RUNNER = config.ROOT / "ap_runner.py"
 
+
+def trusted_custom_execution() -> bool:
+    """Explicit local opt-in for trusted custom worlds; NOT a sandbox."""
+    return os.environ.get("HUB_TRUSTED_APWORLDS", "0") == "1"
+
+
 # Extraction and generation both rewrite AP's custom_worlds folder, so they never run in parallel.
 ap_lock = threading.Lock()
 
@@ -80,7 +86,9 @@ def delete_apworld(module: str) -> None:
 
 
 def _sync_custom_worlds() -> None:
-    """Mirror data/apworlds into AP's custom_worlds folder."""
+    """Mirror trusted data/apworlds into AP's custom_worlds folder."""
+    if any(config.APWORLDS.glob("*.apworld")) and not trusted_custom_execution():
+        raise ValueError("Custom APWorld-Code ist nicht isoliert. Nur geprüfte Quellen und HUB_TRUSTED_APWORLDS=1 erlauben.")
     target = config.AP_SOURCE / "custom_worlds"
     target.mkdir(exist_ok=True)
     wanted = {p.name: p for p in config.APWORLDS.glob("*.apworld")}
@@ -136,7 +144,11 @@ def _write_status(**status) -> None:
 def extract() -> bool:
     with ap_lock:
         _write_status(status="running", started=time.time())
-        _sync_custom_worlds()
+        try:
+            _sync_custom_worlds()
+        except ValueError as exc:
+            _write_status(status="error", finished=time.time(), log=str(exc))
+            return False
         tmp = config.DATA / "schemas.new"
         shutil.rmtree(tmp, ignore_errors=True)
         ok, log = _run(["extract", "--out", str(tmp)], config.EXTRACT_TIMEOUT)
@@ -185,7 +197,10 @@ def schema(slug: str) -> dict | None:
 
 def generate(yaml_dir: Path, out_dir: Path, spoiler: int, race: bool) -> tuple[bool, str, Path | None]:
     with ap_lock:
-        _sync_custom_worlds()
+        try:
+            _sync_custom_worlds()
+        except ValueError as exc:
+            return False, str(exc), None
         out_dir.mkdir(parents=True, exist_ok=True)
         args = ["generate", "--players", str(yaml_dir), "--out", str(out_dir), "--spoiler", str(spoiler)]
         ok, log = _run(args + (["--race"] if race else []), config.GENERATE_TIMEOUT)
