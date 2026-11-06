@@ -669,7 +669,8 @@ def admin_upload():
             continue
         try:
             payload = f.stream.read(ap_bridge.apworld_library.MAX_UPLOAD + 1)
-            info = ap_bridge.store_apworld(payload)
+            with ap_bridge.ap_lock:
+                info = ap_bridge.store_apworld(payload)
             uploaded += 1
             flash(f"{f.filename} gespeichert ({info['game'] or info['module']}).", "info")
         except ValueError as e:
@@ -682,7 +683,8 @@ def admin_upload():
 @app.route("/admin/apworlds/<module>/delete", methods=["POST"])
 @admin_required
 def admin_delete_apworld(module):
-    ap_bridge.delete_apworld(module)
+    with ap_bridge.ap_lock:
+        ap_bridge.delete_apworld(module)
     ap_bridge.start_extract()
     flash(f"{module}.apworld entfernt.", "info")
     return redirect(url_for("admin"))
@@ -695,7 +697,8 @@ def admin_activate_apworld(sha256):
         flash("Zum Aktivieren bitte die Vertrauensbestätigung auswählen.", "error")
         return redirect(url_for("admin"))
     try:
-        info = ap_bridge.activate_apworld(sha256)
+        with ap_bridge.ap_lock:
+            info = ap_bridge.activate_apworld(sha256)
         flash(f"{info['module']}: gewählte APWorld-Version aktiviert.", "info")
         ap_bridge.start_extract()
     except ValueError as exc:
