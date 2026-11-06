@@ -80,6 +80,7 @@
 </p>
 
 <form method="post" class="panel">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <div class="row" style="align-items:flex-start">
     <label style="flex:1;min-width:220px">Name der Vorlage<br>
       <input name="name" value="{{ name }}" maxlength="80" required style="width:100%"></label>
