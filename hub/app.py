@@ -135,7 +135,11 @@ def templates_for(schema: dict) -> list[dict]:
 
 
 def open_sessions():
-    return db.query("SELECT * FROM sessions WHERE locked = 0 ORDER BY id DESC")
+    return db.query("""SELECT s.* FROM sessions s WHERE s.locked=0 AND
+        (? = 1 OR s.created_by=? OR EXISTS
+          (SELECT 1 FROM lobby_members m WHERE m.session_id=s.id AND m.user_id=?)
+          OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?))
+        ORDER BY s.id DESC""", (g.user["is_admin"], g.user["id"], g.user["id"], g.user["id"]))
 
 
 def user_values(schema: dict, template_values: dict, user) -> dict:
@@ -200,7 +204,12 @@ def inject_globals():
 def index():
     sessions = db.query(
         "SELECT s.*, u.username, (SELECT COUNT(*) FROM entries e WHERE e.session_id = s.id) AS n "
-        "FROM sessions s LEFT JOIN users u ON u.id = s.created_by ORDER BY s.id DESC LIMIT 10")
+        """FROM sessions s LEFT JOIN users u ON u.id = s.created_by
+        WHERE (? = 1 OR s.created_by=? OR EXISTS
+           (SELECT 1 FROM lobby_members m WHERE m.session_id=s.id AND m.user_id=?)
+           OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?))
+        ORDER BY s.id DESC LIMIT 10""",
+        (g.user["is_admin"], g.user["id"], g.user["id"], g.user["id"]))
     return render_template("index.html", sessions=sessions)
 
 
@@ -435,6 +444,7 @@ def session_create():
 @login_required
 def session_view(sid):
     row = get_session(sid)
+    mvp._assert_access(row)
     entries = session_entries(sid)
     for e in entries:
         e["summary"] = yamlgen.summarize(ap_bridge.schema(e["game"]), e["values"]) if e["installed"] else []
@@ -463,6 +473,7 @@ def game_play(slug):
 @login_required
 def entry_add(sid):
     row = get_session(sid)
+    mvp._assert_access(row)
     if row["locked"]:
         flash("Die Session ist gesperrt.", "error")
         return redirect(url_for("session_view", sid=sid))
@@ -553,6 +564,7 @@ def session_delete(sid):
 @login_required
 def session_zip(sid):
     row = get_session(sid)
+    mvp._assert_access(row)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, text in session_yamls(session_entries(sid)):
@@ -598,6 +610,7 @@ def session_generate(sid):
 @login_required
 def session_status(sid):
     row = get_session(sid)
+    mvp._assert_access(row)
     return jsonify({"status": row["gen_status"]})
 
 
@@ -605,6 +618,7 @@ def session_status(sid):
 @login_required
 def session_download(sid):
     row = get_session(sid)
+    mvp._assert_access(row)
     if not row["gen_file"]:
         abort(404)
     return send_file(config.SESSIONS / str(sid) / "output" / row["gen_file"], as_attachment=True)
