@@ -14,13 +14,48 @@
   <p class="muted">Für diesen Seed liegen keine vom Archipelago-Generator bestätigten Itemplatzierungen vor. Das gilt auch für ältere Seeds und bei fehlgeschlagener Statistik-Erfassung. Es werden keine Werte geschätzt.</p>
 </div>
 {% else %}
-<p class="muted small" style="margin:12px 0">Quelle: tatsächlich generierte Itemplatzierungen aus der Archipelago-Multiworld. Keine Demo-Zahlen.</p>
+<p class="muted" style="margin:12px 0">Deine Runde in Zahlen. Verteilungen und Fundorte bleiben verborgen, bis du die Spoiler öffnest.</p>
 <div class="grid metric-grid" style="margin:18px 0">
+  <div class="panel"><span class="muted small">Spiele</span><div class="metric">{{ overview|length }}</div></div>
   <div class="panel"><span class="muted small">Spieler</span><div class="metric">{{ stats.players|length }}</div></div>
-  <div class="panel"><span class="muted small">Itemplatzierungen</span><div class="metric">{{ stats.total_placements }}</div></div>
-  <div class="panel"><span class="muted small">Crossworld-Items</span><div class="metric">{{ stats.crossworld_placements }}</div></div>
-  <div class="panel"><span class="muted small">Crossworld-Anteil</span><div class="metric">{{ stats.crossworld_percent }} %</div></div>
+  <div class="panel"><span class="muted small">Platzierte Items insgesamt</span><div class="metric">{{ stats.total_placements }}</div></div>
 </div>
+<h2>Wie viele Items hat jedes Spiel?</h2>
+<p class="muted small">„Items für das Spiel“ zählt die Items für seine Spieler, unabhängig vom Fundort. „Items in seinen Welten“ zählt die dort platzierten Items für alle Spieler. Mehrere Slots desselben Spiels werden zusammengefasst.</p>
+<div class="panel table-wrap">
+  <table>
+    <thead><tr><th>Spiel</th><th>Slots</th><th>Items für das Spiel</th><th>Anteil aller Items</th><th>Items in seinen Welten</th></tr></thead>
+    <tbody>{% for game in overview %}
+    <tr><td><strong>{{ game.name }}</strong></td><td>{{ game.players|length }}</td><td><b>{{ game['items'] }}</b></td>
+      <td><div class="overview-share"><span style="width:{{ game.share }}%"></span></div>{{ game.share }} %</td><td>{{ game.locations }}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+</div>
+{% if stats.total_placements %}
+<p class="muted small">{{ overview[0].name }} gehört mit {{ overview[0]['items'] }} Items zu den Spielen mit dem größten Itempool dieser Runde.
+  Pro Slot sind im Durchschnitt {{ (stats.total_placements / (stats.players|length))|round(1) }} Items platziert.</p>
+{% endif %}
+<details class="panel analysis-section">
+  <summary>Nach Spielern aufschlüsseln</summary>
+  <table><thead><tr><th>Spieler</th><th>Spiel</th><th>Items für diesen Spieler</th><th>Items in seiner Welt</th></tr></thead>
+  <tbody>{% for game in overview %}{% for p in game.players %}
+    <tr><td>{{ p.name }}</td><td>{{ game.name }}</td><td>{{ p['items'] }}</td><td>{{ p.locations }}</td></tr>
+  {% endfor %}{% endfor %}</tbody></table>
+</details>
+<div class="panel analysis-section" id="spoilers">
+  <h2 style="margin-top:0">Genauer hinschauen</h2>
+  <p class="muted">Hier erfährst du, wer Items für wen findet. Die Itemlisten können konkrete Items und ihre Fundorte verraten.</p>
+  {% if reveal %}
+  <a class="btn" href="{{ url_for('mvp.build_stats', sid=room.id, build_id=build.id) }}#spoilers">Spoiler wieder ausblenden</a>
+  {% else %}
+  <a class="btn primary" href="{{ url_for('mvp.build_stats', sid=room.id, build_id=build.id, spoilers=1) }}#spoilers">Spoiler anzeigen & Details erkunden</a>
+  {% endif %}
+</div>
+{% if reveal %}
+<div class="row analysis-section"><span class="chip warn">Spoiler eingeblendet</span>
+  <span>{{ stats.crossworld_placements }} Crossworld-Items · {{ stats.crossworld_percent }} % aller Platzierungen</span></div>
+<details class="panel analysis-section">
+<summary>Itemverteilung zwischen den Spielern</summary>
 <h2>Items: Wo liegen sie, für wen sind sie?</h2>
 <p class="muted small">Zeile: Welt, in der das Item gefunden wird. Spalte: Spieler, dem das Item gehört. Die Diagonale zeigt die eigene Welt.</p>
 <div class="panel table-wrap" style="margin-top:12px">
@@ -38,6 +73,9 @@
   {% endfor %}
   </tbody></table>
 </div>
+</details>
+<details class="panel analysis-section">
+<summary>Itemklassen: Progression, Nützlich, Filler und Trap</summary>
 <h2>Itemklassen nach Empfänger</h2>
 <div class="panel" style="margin-top:12px">
 {% for p in stats.players %}
@@ -59,6 +97,20 @@
 {% endfor %}
 <div class="row legend small"><span>■ Progression</span><span>■ Nützlich</span><span>■ Filler</span><span>■ Trap</span></div>
 </div>
+</details>
+<h2>Konkrete Items und Fundorte</h2>
+<div class="grid">
+{% for p in stats.players %}
+  <div class="panel">
+    <h3>{{ p.name }}</h3><p class="muted small">{{ p.game }}</p>
+    <div class="row">
+      <a class="btn" href="{{ url_for('mvp.build_item_details', sid=room.id, build_id=build.id, player_id=p.id) }}">Items für {{ p.name }}</a>
+      <a class="btn" href="{{ url_for('mvp.build_item_details', sid=room.id, build_id=build.id, player_id=p.id, direction='finder') }}">Fundorte in dieser Welt</a>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endif %}
 <p class="muted small" style="margin-top:14px">{{ stats.limitation }}</p>
 {% endif %}
 <div class="row" style="margin-top:19px">

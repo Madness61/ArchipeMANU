@@ -1,5 +1,40 @@
 # AP YAML Hub
 
+### Seed-Analyse: Übersicht und Spoiler
+
+Die Analyse zeigt zunächst die Anzahl der Spiele, Spieler und platzierten Items.
+Pro Spiel erscheinen die Items für seine Spieler, ihr Anteil an der Runde und
+die Itemplatzierungen in seinen Welten. Mehrere Slots desselben Spiels werden
+zusammengefasst; eine Aufschlüsselung nach Spielern ist aufklappbar.
+
+Erst **„Spoiler anzeigen & Details erkunden“** blendet die Verteilung zwischen
+Spielern, Itemklassen und Links zu konkreten Itemlisten ein. Diese lassen sich
+nach Empfänger oder Fundwelt durchsuchen, mit höchstens 50 Einträgen pro Seite.
+Die Startansicht liefert diese Spoiler nicht im HTML mit.
+
+Neu erzeugte Seeds speichern neben `item_distribution.json` auch
+`item_placements.json` mit Itemnamen, Fundorten und Empfängern. Die Detailansicht
+prüft die Einträge gegen die aggregierten Zahlen. Für ältere Seeds ohne diese
+Datei bleibt die Zusammenfassung nutzbar; konkrete Fundorte werden nicht
+nachträglich rekonstruiert. Bestehende Seeds bleiben unverändert. Im Race-Modus
+werden weiterhin keine Analysedateien erzeugt und keine Spoiler angezeigt.
+
+**Start mit Custom-APWorlds:** `start.ps1` gibt die Ausführung aktivierter
+Custom-APWorlds jetzt automatisch frei. Ein manuelles Setzen von
+`HUB_TRUSTED_APWORLDS=1` ist bei diesem Startweg nicht mehr nötig.
+Jeder Upload eines angemeldeten Mitspielers aktiviert und lädt die World
+automatisch, ohne zusätzliche Vertrauensabfrage oder Admin-Freigabe pro Spiel.
+Das gilt im Adminbereich und in der gemeinsamen Spielebibliothek.
+Archivierte ältere Versionen können angemeldete Mitspieler direkt aktivieren.
+Die Adminseite aktualisiert den Ladestatus automatisch. Bei Ladefehlern zeigt sie
+das Protokoll an; ein Serverneustart ist für neue APWorlds nicht erforderlich.
+Aktivierte APWorlds führen Python-Code mit den Rechten des Servers aus.
+Mit `.\start.ps1 -NoCustomWorlds` bleibt diese Ausführung gesperrt.
+Auch beim direkten Start über `python -m hub` sind aktivierte Custom-Worlds
+standardmäßig freigegeben; `HUB_TRUSTED_APWORLDS=0` sperrt ihre Ausführung.
+Dieser Ablauf ersetzt die älteren Hinweise zur Standardsperre und zur
+Admin-Freigabe weiter unten.
+
 Eine kleine Website für eure Archipelago-Gruppe:
 
 - **APWorlds** liegen zentral auf dem Server. Aus jeder APWorld wird automatisch ein Optionen-Formular erzeugt.

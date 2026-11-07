@@ -16,8 +16,8 @@ RUNNER = config.ROOT / "ap_runner.py"
 
 
 def trusted_custom_execution() -> bool:
-    """Explicit local opt-in for trusted custom worlds; NOT a sandbox."""
-    return os.environ.get("HUB_TRUSTED_APWORLDS", "0") == "1"
+    """Private hub default; set HUB_TRUSTED_APWORLDS=0 to disable execution."""
+    return os.environ.get("HUB_TRUSTED_APWORLDS", "1") == "1"
 
 
 # Extraction and generation both rewrite AP's custom_worlds folder, so they never run in parallel.
@@ -95,11 +95,36 @@ def _sync_custom_worlds() -> None:
     wanted = {p.name: p for p in config.APWORLDS.glob("*.apworld")}
     if any(target.glob("*.apworld")) and not trusted_custom_execution():
         raise ValueError("Bereits installierte Custom APWorlds erfordern eine ausdrückliche Vertrauensfreigabe.")
-    # Never delete manually installed worlds from the user's Archipelago installation.
+    manifest_path = target / ".hub-managed.json"
+    try:
+        managed = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+        if (not isinstance(managed, dict) or any(
+                not isinstance(name, str) or Path(name).name != name or "\\" in name
+                or not name.endswith(".apworld") or not isinstance(sha, str)
+                or len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha)
+                for name, sha in managed.items())):
+            raise ValueError("Ungültiges APWorld-Synchronisationsverzeichnis.")
+    except (OSError, ValueError) as exc:
+        raise ValueError("APWorld-Synchronisationsverzeichnis kann nicht gelesen werden.") from exc
+    # Retire only copies previously written by the hub; preserve manual worlds.
+    for name, sha in managed.items():
+        if name in wanted:
+            continue
+        dst = target / name
+        if dst.is_file():
+            if hashlib.sha256(dst.read_bytes()).hexdigest() != sha:
+                raise ValueError(f"{name}: deaktivierte Hub-Kopie wurde manuell verändert.")
+            retired = target / ".hub-inactive" / sha
+            retired.parent.mkdir(exist_ok=True)
+            dst.replace(retired)
+    current = {}
     for name, src in wanted.items():
         dst = target / name
-        if not dst.exists() or dst.stat().st_size != src.stat().st_size or dst.stat().st_mtime < src.stat().st_mtime:
+        digest = hashlib.sha256(src.read_bytes()).hexdigest()
+        if not dst.exists() or hashlib.sha256(dst.read_bytes()).hexdigest() != digest:
             shutil.copy2(src, dst)
+        current[name] = digest
+    apworld_library._write_atomic(manifest_path, json.dumps(current).encode("utf-8"))
 
 
 def _hidden_builtins() -> list[str]:
@@ -167,8 +192,40 @@ def extract() -> bool:
 
 
 def start_extract() -> None:
-    if extract_status().get("status") != "running" or not ap_lock.locked():
-        threading.Thread(target=extract, daemon=True).start()
+    global _extract_thread, _extract_pending
+    with _extract_requests:
+        _extract_pending = True
+        if _extract_thread is not None:
+            return
+        # Publish before returning the HTTP redirect so the page starts polling.
+        _write_status(status="queued", started=time.time())
+        _extract_thread = threading.Thread(target=_extract_worker, daemon=True)
+        try:
+            _extract_thread.start()
+        except Exception:
+            _extract_thread = None
+            _write_status(status="error", finished=time.time(), log="Einlesen konnte nicht gestartet werden.")
+            raise
+
+
+_extract_requests = threading.Lock()
+_extract_thread = None
+_extract_pending = False
+
+
+def _extract_worker():
+    global _extract_thread, _extract_pending
+    while True:
+        with _extract_requests:
+            _extract_pending = False
+        try:
+            extract()
+        except Exception as exc:
+            _write_status(status="error", finished=time.time(), log=str(exc)[-20000:])
+        with _extract_requests:
+            if not _extract_pending:
+                _extract_thread = None
+                return
 
 
 # --- Schema access (cached per file mtime) -----------------------------------------------------

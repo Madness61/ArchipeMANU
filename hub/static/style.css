@@ -120,3 +120,9 @@ main.inner {max-width:1180px;padding-top:29px}
  .matrix-own {background:#1d443c;color:#8de5bc}
 }
 @media(max-width:650px){.metric-grid{grid-template-columns:1fr}header.top .brand small{display:none}}
+
+.analysis-section {margin-top:18px}
+details.analysis-section > summary {cursor:pointer;font-weight:650;padding:4px 0}
+details.analysis-section[open] > summary {margin-bottom:14px}
+.overview-share {width:110px;max-width:100%;height:6px;border-radius:4px;background:var(--line);overflow:hidden;margin:5px 0}
+.overview-share > span {display:block;height:100%;background:var(--accent)}

@@ -184,6 +184,8 @@ def generate(players: str, out: str, spoiler: int, race: bool) -> None:
         players = [{"id": p, "name": multiworld.get_player_name(p),
                     "game": multiworld.game[p]} for p in player_ids]
         placements = []
+        details = []
+        player_set = set(player_ids)
         for loc in multiworld.get_filled_locations():
             if type(loc.address) is not int or not loc.item or type(loc.item.code) is not int:
                 continue
@@ -198,10 +200,18 @@ def generate(players: str, out: str, spoiler: int, race: bool) -> None:
             else:
                 kind = "filler"
             placements.append((loc.player, item.player, kind))
+            if loc.player in player_set and item.player in player_set:
+                details.append({
+                    "finder": loc.player, "recipient": item.player, "category": kind,
+                    "location_id": loc.address, "item_id": item.code,
+                    "location": loc.name, "item": item.name,
+                })
         result = aggregate_placements(players, placements)
         with open(os.path.join(out, "item_distribution.json"), "w", encoding="utf-8") as fp:
             json.dump(result, fp, ensure_ascii=False, indent=2)
         print("Real item distribution statistics written.")
+        with open(os.path.join(out, "item_placements.json"), "w", encoding="utf-8") as fp:
+            json.dump({"source": result["source"], "placements": details}, fp, ensure_ascii=False)
     except Exception:
         # Successful seed generation must not be discarded for analytics errors.
         logging.exception("Item distribution analytics unavailable for this seed.")

@@ -163,6 +163,7 @@ class MVPTests(unittest.TestCase):
             zip_download = self.client.get(f"/sessions/{sid}/builds/{build['id']}/download")
             self.assertEqual(zip_download.status_code, 200)
             self.assertIn(b"PK", zip_download.data[:2])
+            zip_download.close()
             hosting = self.post(f"/sessions/{sid}/builds/{build['id']}/hosting", {
                 "room_url": "https://archipelago.gg/room/example",
                 "host": "archipelago.gg", "port": "38281", "confirmed":"1"
@@ -198,6 +199,25 @@ class MVPTests(unittest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 mvp.parse_room_form(bad)
+
+    def test_host_slot_editor_uses_owner_profile_and_slot_name(self):
+        self.post("/login", {"username": "Host"})
+        friend = self.app.test_client()
+        self.post("/login", {"username": "Friend"}, client=friend)
+        from hub import db
+        with self.app.app_context():
+            sid = db.execute("INSERT INTO sessions(name,created_by) VALUES ('Owner',1)")
+            eid = db.execute("INSERT INTO entries(session_id,user_id,game) VALUES (?,2,'test_world')", (sid,))
+            db.execute("UPDATE users SET overrides=? WHERE id=1", ('{"progression_balancing":1}',))
+            db.execute("UPDATE users SET overrides=? WHERE id=2", ('{"progression_balancing":9}',))
+        option = {"key":"progression_balancing", "kind":"range", "name":"Balance", "default":5,
+                  "min":0, "max":10, "group":"Game Options", "simple":True, "doc":"", "special":{}}
+        schema = {**SCHEMA, "options": SCHEMA["options"] + [option]}
+        with patch.object(ap_bridge, "schema", return_value=schema):
+            response = self.client.get(f"/entries/{eid}/options")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b"name: Friend", response.data)
+            self.assertIn(b"progression_balancing: 9", response.data)
 
 
 if __name__ == "__main__":

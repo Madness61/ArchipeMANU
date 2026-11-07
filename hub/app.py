@@ -575,9 +575,16 @@ def session_lock(sid):
 @login_required
 def session_clone(sid):
     row = get_session(sid)
+    mvp._assert_access(row)
     new_id = db.execute("INSERT INTO sessions (name, created_by, spoiler, race) VALUES (?, ?, ?, ?)",
                         (f"{row['name']} (neu)", g.user["id"], row["spoiler"], row["race"]))
+    db.execute("INSERT INTO lobby_members(session_id,user_id) VALUES (?,?)", (new_id,g.user["id"]))
+    for member in db.query("SELECT user_id FROM lobby_members WHERE session_id=?", (sid,)):
+        db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
+                   (new_id,member["user_id"]))
     for e in db.query("SELECT * FROM entries WHERE session_id = ? ORDER BY id", (sid,)):
+        db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
+                   (new_id,e["user_id"]))
         db.execute("""INSERT INTO entries
                    (session_id,user_id,game,template_ref,selected_apworld_sha,option_overrides)
                    VALUES (?,?,?,?,?,?)""",
@@ -593,6 +600,9 @@ def session_delete(sid):
     row = get_session(sid)
     if not can_manage_session(row):
         abort(403)
+    if db.query("SELECT 1 FROM seed_builds WHERE session_id=? LIMIT 1", (sid,), one=True):
+        flash("Sessions mit Seed-Historie bleiben erhalten und können nicht gelöscht werden.", "error")
+        return redirect(url_for("session_view", sid=sid))
     db.execute("DELETE FROM sessions WHERE id = ?", (sid,))
     shutil.rmtree(config.SESSIONS / str(sid), ignore_errors=True)
     flash(f"Session „{row['name']}“ gelöscht.", "info")
@@ -622,7 +632,7 @@ def _run_generation(sid: int, files: list[tuple[str, str]], spoiler: int, race: 
     for name, text in files:
         (players / name).write_text(text, encoding="utf-8")
     ok, log, zip_path = ap_bridge.generate(players, output, spoiler, race)
-    with db.connect() as conn:
+    with db.transaction() as conn:
         conn.execute("UPDATE sessions SET gen_status = ?, gen_log = ?, gen_file = ? WHERE id = ?",
                      ("done" if ok else "error", log[-30000:], zip_path.name if zip_path else "", sid))
 
@@ -678,9 +688,6 @@ def admin():
 @app.route("/admin/apworlds", methods=["POST"])
 @admin_required
 def admin_upload():
-    if request.form.get("trust_apworlds") != "yes":
-        flash("Bitte zuerst bestätigen, dass du den Python-Code der APWorld-Quelle geprüft hast.", "error")
-        return redirect(url_for("admin"))
     uploaded = 0
     source_url = request.form.get("source_url", "").strip()
     for f in request.files.getlist("files"):
@@ -715,9 +722,6 @@ def admin_delete_apworld(module):
 @app.route("/admin/apworlds/versions/<sha256>/activate", methods=["POST"])
 @admin_required
 def admin_activate_apworld(sha256):
-    if request.form.get("trust_apworlds") != "yes":
-        flash("Zum Aktivieren bitte die Vertrauensbestätigung auswählen.", "error")
-        return redirect(url_for("admin"))
     try:
         with ap_bridge.ap_lock:
             info = ap_bridge.activate_apworld(sha256)

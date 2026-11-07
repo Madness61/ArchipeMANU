@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, send_file, url_for
 
-from . import ap_bridge, config, db, yamlgen
+from . import ap_bridge, config, db, stats, yamlgen
 
 bp = Blueprint("mvp", __name__)
 _LOCK = threading.RLock()
@@ -31,7 +31,7 @@ def utc_now() -> str:
 def migrate() -> None:
     """Additive migrations only, never rewrite the existing tables or user data."""
     config.ensure_dirs()
-    with db.connect() as conn:
+    with db.transaction() as conn:
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(entries)")}
         if "option_overrides" not in cols:
             conn.execute("ALTER TABLE entries ADD COLUMN option_overrides TEXT NOT NULL DEFAULT '{}'")
@@ -309,7 +309,8 @@ def entry_options(eid):
     from .app import resolve_template, user_values
     _, template_values, _ = resolve_template(schema, entry["template_ref"])
     overrides = db.loads(entry["option_overrides"])
-    effective = user_values(schema, yamlgen.layer(schema, template_values, overrides), g.user)
+    owner = db.query("SELECT * FROM users WHERE id=?", (entry["user_id"],), one=True)
+    effective = user_values(schema, yamlgen.layer(schema, template_values, overrides), owner)
     errors = {}
     if request.method == "POST":
         updated, errors = yamlgen.parse_form(schema, request.form, effective)
@@ -330,7 +331,7 @@ def entry_options(eid):
         ):
             groups.setdefault(option["group"], []).append(option)
     yaml_preview = yamlgen.player_yaml(
-        yamlgen.clean_slot_name(g.user["slot_name"]), schema, effective,
+        yamlgen.clean_slot_name(owner["slot_name"]), schema, effective,
         "Konfigurationsvorschau", ap_bridge.index().get("ap_version", "0.0.0"))
     return render_template("entry_options.html", entry=entry, room=room, schema=schema,
                            groups=groups, values=effective, errors=errors, yg=yamlgen,
@@ -440,7 +441,7 @@ def _generate_job(build_id: int, snapshot: dict, files: list[tuple[str, str]]):
         output.mkdir(parents=True, exist_ok=False)
         for filename, contents in files:
             (players / filename).write_text(contents, encoding="utf-8")
-        with db.connect() as conn:
+        with db.transaction() as conn:
             conn.execute("UPDATE seed_builds SET status='running' WHERE id=?", (build_id,))
         # Never re-read user options or templates while generating a snapshot.
         active = {v["module"]: v["sha256"] for v in ap_bridge.list_apworld_versions() if v["active"]}
@@ -459,18 +460,16 @@ def _generate_job(build_id: int, snapshot: dict, files: list[tuple[str, str]]):
         if not snapshot["race"] and stats_path.is_file() and stats_path.stat().st_size <= 2 * 1024 * 1024:
             try:
                 data = json.loads(stats_path.read_text(encoding="utf-8"))
-                if (data.get("source") == "archipelago_generated_multiworld"
-                        and isinstance(data.get("matrix"), dict)
-                        and isinstance(data.get("players"), list)):
+                if stats.valid_distribution(data):
                     stats_json = json.dumps(data, ensure_ascii=False)
             except (OSError, ValueError, TypeError):
                 pass
-        with db.connect() as conn:
+        with db.transaction() as conn:
             conn.execute("""UPDATE seed_builds SET status='succeeded', log=?, zip_name=?,
                 seed_name=?, stats_json=?, finished_at=? WHERE id=?""",
                 (log[-30000:], archive.name, archive.stem, stats_json, utc_now(), build_id))
     except Exception as exc:
-        with db.connect() as conn:
+        with db.transaction() as conn:
             conn.execute("UPDATE seed_builds SET status='failed', log=?, finished_at=? WHERE id=?",
                          (str(exc)[-15000:], utc_now(), build_id))
 
@@ -617,12 +616,63 @@ def build_stats(sid, build_id):
     if not metadata.get("race") and build["status"] == "succeeded" and build["stats_json"]:
         try:
             candidate = json.loads(build["stats_json"])
-            if candidate.get("source") == "archipelago_generated_multiworld":
+            if stats.valid_distribution(candidate):
                 payload = candidate
         except (ValueError, TypeError):
             pass
     return render_template("seed_stats.html", room=room, build=build,
-                           stats=payload, race=bool(metadata.get("race")))
+                           stats=payload, race=bool(metadata.get("race")),
+                           overview=stats.game_overview(payload) if payload else [],
+                           reveal=request.args.get("spoilers") == "1")
+
+
+@bp.route("/sessions/<int:sid>/builds/<int:build_id>/stats/items/<int:player_id>")
+def build_item_details(sid, build_id, player_id):
+    room = _session(sid)
+    _assert_access(room)
+    build = db.query("SELECT * FROM seed_builds WHERE id=? AND session_id=?", (build_id, sid), one=True)
+    if not build:
+        abort(404)
+    metadata = json.loads(build["snapshot"])
+    if metadata.get("race"):
+        abort(403, "Im Race-Modus sind Spoiler gesperrt.")
+    if build["status"] != "succeeded":
+        abort(404)
+    try:
+        distribution = json.loads(build["stats_json"])
+    except (ValueError, TypeError):
+        abort(404)
+    if not stats.valid_distribution(distribution):
+        abort(404)
+    players = {p["id"]: p for p in distribution["players"]}
+    if player_id not in players:
+        abort(404)
+    direction = request.args.get("direction", "recipient")
+    if direction not in ("recipient", "finder"):
+        abort(400)
+    search = request.args.get("q", "").strip()[:100]
+    try:
+        page = max(1, int(request.args.get("page", "1")))
+    except ValueError:
+        abort(400)
+    path = config.SESSIONS / "_seeds" / str(build_id) / "output" / "item_placements.json"
+    placements = None
+    try:
+        if path.is_file() and path.stat().st_size <= 32 * 1024 * 1024:
+            candidate = json.loads(path.read_text(encoding="utf-8"))
+            if stats.valid_item_details(candidate, distribution):
+                placements = candidate["placements"]
+    except (OSError, ValueError, TypeError):
+        pass
+    matches = [p for p in (placements or []) if p[direction] == player_id
+               and search.casefold() in (p["item"] + " " + p["location"] + " "
+                   + players[p["finder"]]["name"] + " " + players[p["recipient"]]["name"]).casefold()]
+    pages = max(1, (len(matches) + 49) // 50)
+    page = min(page, pages)
+    return render_template("seed_items.html", room=room, build=build, player=players[player_id],
+                           players=players, available=placements is not None,
+                           rows=matches[(page-1)*50:page*50], total=len(matches),
+                           page=page, pages=pages, direction=direction, q=search)
 
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/play")

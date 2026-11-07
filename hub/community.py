@@ -1,7 +1,7 @@
 """Shared game library for all logged-in group members.
 
-Uploaded APWorld archives are stored INACTIVE. Uploading never imports Python
-code. Only the host may approve and activate after checking the source.
+Uploads from authenticated group members are activated automatically. Archive
+validation never imports code; option extraction runs in the background.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ YAML_LIMIT = 512 * 1024
 
 
 def migrate():
-    with db.connect() as conn:
+    with db.transaction() as conn:
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS community_games(
             sha256 TEXT PRIMARY KEY,
@@ -61,8 +61,13 @@ def all_games(search=""):
             library[key]["added_by"] = row["username"]
     # Include legacy Admin uploads and older versions in the same shared library.
     tracked = {v["sha256"] for info in library.values() for v in info["versions"]}
+    active_modules = set()
+    active_hashes = set()
     for version in ap_bridge.list_apworld_versions():
         module = version["module"]
+        if version["active"]:
+            active_modules.add(module)
+            active_hashes.add(version["sha256"])
         if module not in library:
             library[module] = {"slug": module, "name": version["game"] or module,
                                "version": version["version"], "installed": False,
@@ -74,6 +79,10 @@ def all_games(search=""):
                 "username": "Legacy/Admin", "approved": bool(version["active"]),
                 "yaml_file": "", "source_url": version.get("source_url", ""),
             })
+    for module, item in library.items():
+        item["active"] = module in active_modules
+        for version in item["versions"]:
+            version["active"] = version["sha256"] in active_hashes
     return sorted([v for v in library.values() if
                    search.casefold() in (v["name"] + " " + v["slug"] + " " + v["added_by"]).casefold()],
                   key=lambda v: v["name"].casefold())
@@ -122,30 +131,34 @@ def game_add():
             if u.scheme != "https" or not u.hostname or u.username or u.password or len(source) > 500:
                 raise ValueError("Die Quelle muss eine gültige HTTPS-URL sein.")
         yaml_upload = request.files.get("yaml")
-        yaml_text = ""
+        yaml_data = b""
         if yaml_upload and yaml_upload.filename:
             if not yaml_upload.filename.lower().endswith((".yaml", ".yml")):
                 raise ValueError("YAML-Datei muss auf .yaml oder .yml enden.")
-            yaml_text = valid_yaml(yaml_upload.stream.read(YAML_LIMIT + 1),
-                                   info["game"] or label)
+            yaml_data = yaml_upload.stream.read(YAML_LIMIT + 1)
+            valid_yaml(yaml_data, info["game"] or label)
         # Save only after all inputs pass validation.
         with ap_bridge.ap_lock:
-            apworld_library.store(data, source_url=source, activate=False)
-        yaml_relative = ""
-        if yaml_text:
-            folder = config.DATA / "community" / info["sha256"]
-            folder.mkdir(parents=True, exist_ok=True)
-            (folder / "options.yaml").write_text(yaml_text, encoding="utf-8")
-            yaml_relative = info["sha256"]
-        db.execute("""INSERT OR IGNORE INTO community_games
-                     (sha256,module,display_name,version,created_by,yaml_file,source_url)
-                     VALUES (?,?,?,?,?,?,?)""",
-                   (info["sha256"], info["module"], label, info["version"],
-                    g.user["id"], yaml_relative, source))
+            if db.query("SELECT 1 FROM community_games WHERE sha256=?", (info["sha256"],), one=True):
+                raise ValueError("Diese APWorld-Version ist bereits in der Bibliothek vorhanden.")
+            apworld_library.store(data, source_url=source, activate=True)
+            yaml_relative = ""
+            if yaml_data:
+                folder = config.DATA / "community" / info["sha256"]
+                folder.mkdir(parents=True, exist_ok=True)
+                with (folder / "options.yaml").open("xb") as original:
+                    original.write(yaml_data)
+                yaml_relative = info["sha256"]
+            db.execute("""INSERT INTO community_games
+                     (sha256,module,display_name,version,created_by,yaml_file,source_url,approved)
+                     VALUES (?,?,?,?,?,?,?,1)""",
+                       (info["sha256"], info["module"], label, info["version"],
+                        g.user["id"], yaml_relative, source))
     except (ValueError, OSError) as exc:
         flash(str(exc), "error")
         return render_template("community_add.html"), 400
-    flash(f"{label} gespeichert. Die APWorld ist archiviert; der Host muss sie vor der Nutzung freigeben.", "info")
+    ap_bridge.start_extract()
+    flash(f"{label} aktiviert. Die Spieloptionen werden automatisch eingelesen.", "info")
     return redirect(url_for("games"))
 
 
@@ -180,14 +193,12 @@ def download_apworld(sha256):
 
 @bp.route("/games/community/<sha256>/approve", methods=["POST"])
 def approve(sha256):
-    if not g.user or not g.user["is_admin"]:
-        abort(403)
+    # Keep the old URL compatible; activation no longer requires admin approval.
+    if not g.user:
+        abort(401)
     row = db.query("SELECT * FROM community_games WHERE sha256=?", (sha256,), one=True)
     if row is None:
         abort(404)
-    if request.form.get("trust_apworlds") != "yes":
-        flash("Bitte die vertrauenswürdige APWorld-Quelle bestätigen.", "error")
-        return redirect(url_for("games"))
     if not ap_bridge.trusted_custom_execution():
         flash("Aktivierung benötigt HUB_TRUSTED_APWORLDS=1. Eine Python-Sandbox ist nicht vorhanden.", "error")
         return redirect(url_for("games"))

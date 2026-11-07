@@ -2,7 +2,7 @@
 (function () {
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  $("[data-copy]").forEach(button => button.addEventListener("click", () => {
+  $$("[data-copy]").forEach(button => button.addEventListener("click", () => {
     const target = document.querySelector(button.dataset.copy);
     if (!target) return;
     const value = target.textContent.trim();
@@ -86,9 +86,9 @@
 
   // Poll while something runs on the server, then reload.
   const poll = (el, url) => {
-    if (!el || el.dataset.status !== "running") return;
+    if (!el || !["queued", "running"].includes(el.dataset.status)) return;
     const tick = () => fetch(url).then((r) => r.json()).then((d) => {
-      if (d.status !== "running") location.reload(); else setTimeout(tick, 3000);
+      if (!["queued", "running"].includes(d.status)) location.reload(); else setTimeout(tick, 3000);
     }).catch(() => setTimeout(tick, 5000));
     setTimeout(tick, 3000);
   };

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Item-Details · {{ player.name }}{% endblock %}
+{% block content %}
+<p class="small"><a href="{{ url_for('mvp.build_stats', sid=room.id, build_id=build.id, spoilers=1) }}#spoilers">← Zur Seed-Analyse</a></p>
+<span class="chip warn">Spoiler: konkrete Items und Fundorte</span>
+<h1 style="margin-top:12px">{{ 'Items für ' if direction == 'recipient' else 'Fundorte bei ' }}{{ player.name }}</h1>
+<p class="muted">{{ player.game }} · Seed #{{ build.id }} · {{ room.name }}</p>
+<div class="row analysis-section">
+  <a class="btn {{ 'primary' if direction == 'recipient' else '' }}" href="{{ url_for('mvp.build_item_details', sid=room.id, build_id=build.id, player_id=player.id) }}">Items für diesen Spieler</a>
+  <a class="btn {{ 'primary' if direction == 'finder' else '' }}" href="{{ url_for('mvp.build_item_details', sid=room.id, build_id=build.id, player_id=player.id, direction='finder') }}">Fundorte in seiner Welt</a>
+</div>
+{% if not available %}
+<div class="panel analysis-section">
+  <h2 style="margin-top:0">Keine konkreten Itemdaten verfügbar</h2>
+  <p class="muted">Dieser Seed enthält keine vollständige, zur Statistik passende Itemliste. Die Erfassung steht für neu generierte Seeds zur Verfügung. Bestehende Seeds werden nicht verändert.</p>
+</div>
+{% else %}
+<form method="get" class="panel row analysis-section">
+  <input type="hidden" name="direction" value="{{ direction }}">
+  <label>Items, Fundorte oder Spieler suchen <input name="q" value="{{ q }}" maxlength="100" placeholder="z. B. Schlüssel"></label>
+  <button>Suchen</button><span class="muted small">{{ total }} Treffer</span>
+</form>
+<div class="panel table-wrap analysis-section">
+  <table><thead><tr><th>Item</th><th>Klasse</th><th>Fundort</th><th>Welt / Finder</th><th>Empfänger</th></tr></thead>
+  <tbody>{% for item in rows %}
+    <tr><td>{{ item.item }}</td><td>{{ {'progression':'Progression', 'useful':'Nützlich', 'trap':'Trap', 'filler':'Filler'}[item.category] }}</td>
+      <td>{{ item.location }}</td>
+      <td><a href="{{ url_for('mvp.build_item_details', sid=room.id, build_id=build.id, player_id=item.finder, direction='finder') }}">{{ players[item.finder].name }}</a><div class="muted small">{{ players[item.finder].game }}</div></td>
+      <td><a href="{{ url_for('mvp.build_item_details', sid=room.id, build_id=build.id, player_id=item.recipient) }}">{{ players[item.recipient].name }}</a><div class="muted small">{{ players[item.recipient].game }}</div></td></tr>
+  {% else %}<tr><td colspan="5">Keine passenden Items gefunden.</td></tr>{% endfor %}</tbody></table>
+</div>
+<nav class="row spread analysis-section" aria-label="Seiten der Itemliste">
+  {% if page > 1 %}<a class="btn" href="{{ url_for('mvp.build_item_details', sid=room.id, build_id=build.id, player_id=player.id, direction=direction, q=q, page=page-1) }}">← Zurück</a>{% endif %}
+  <span class="muted small">Seite {{ page }} von {{ pages }} · höchstens 50 Items pro Seite</span>
+  {% if page < pages %}<a class="btn" href="{{ url_for('mvp.build_item_details', sid=room.id, build_id=build.id, player_id=player.id, direction=direction, q=q, page=page+1) }}">Weiter →</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

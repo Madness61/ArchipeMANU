@@ -5,7 +5,7 @@
 <p class="muted small">Archipelago {{ ap_version }} ·
   Optionen eingelesen: <span id="extract-status" data-url="{{ url_for('admin_status') }}" data-status="{{ status.status }}">
   {% if status.status == 'ok' %}<span class="chip ok">ok</span>
-  {% elif status.status == 'running' %}<span class="chip warn">läuft …</span>
+  {% elif status.status in ('queued', 'running') %}<span class="chip warn">läuft …</span>
   {% elif status.status == 'error' %}<span class="chip err">Fehler</span>
   {% else %}<span class="chip">noch nie</span>{% endif %}</span></p>
 
@@ -15,7 +15,6 @@
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <input type="file" name="files" accept=".apworld" multiple required>
   <label class="small">Quell-URL (optional)<br><input type="url" name="source_url" placeholder="https://github.com/.../releases" style="min-width:260px"></label>
-  <label class="small"><input type="checkbox" name="trust_apworlds" value="yes" required> Ich habe die Herkunft dieser ausführbaren APWorlds geprüft.</label>
   <button class="primary">Hochladen</button>
   <span class="small muted">APWorlds enthalten Python-Code, der auf diesem Server läuft – nur vertrauenswürdige hochladen.
     Eine APWorld mit dem Namen eines eingebauten Spiels ersetzt dessen eingebaute Version.</span>
@@ -64,10 +63,8 @@
       <td class="small muted">{{ v.added_at[:16] }}</td>
       <td>
         {% if v.active %}<span class="chip ok">Aktiv</span>{% else %}
-          <form method="post" action="{{ url_for('admin_activate_apworld', sha256=v.sha256) }}" class="inline"
-                data-confirm="Diese APWorld-Version kann ausführbaren Python-Code enthalten. Nur geprüfte Quellen aktivieren. Fortfahren?">
+          <form method="post" action="{{ url_for('admin_activate_apworld', sha256=v.sha256) }}" class="inline">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-            <input type="hidden" name="trust_apworlds" value="yes">
             <button>Aktivieren</button>
           </form>
         {% endif %}

@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from contextlib import contextmanager
 
 from flask import g
 
@@ -70,6 +71,17 @@ def get() -> sqlite3.Connection:
     return g.db
 
 
+@contextmanager
+def transaction():
+    """Commit/roll back a standalone transaction and always close its connection."""
+    conn = connect()
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
+
 def close(_exc=None) -> None:
     conn = g.pop("db", None)
     if conn is not None:
@@ -77,7 +89,7 @@ def close(_exc=None) -> None:
 
 
 def init() -> None:
-    with connect() as conn:
+    with transaction() as conn:
         conn.executescript(SCHEMA)
 
 
