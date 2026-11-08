@@ -8,6 +8,8 @@
   {% elif connection_manager %}<p class="muted">Du bist Host dieser Runde. Trage hier den Archipelago-Raum-Link, die Serveradresse und den Port ein, damit deine Mitspieler die Verbindung finden.</p>
   {% else %}<p class="muted">Der Host hat für diese Runde noch keine Serveradresse hinterlegt. Sobald die Verbindung eingerichtet ist, findest du sie hier.</p>{% endif %}
   {% if connection_manager and build.status == 'succeeded' and not build.completed_at %}
+    {% include "live_connect.html" %}
     {% with hosting_build=build, hosting_sid=room.id, hosting_data=hosted %}{% include "hosting_form.html" %}{% endwith %}
   {% endif %}
+  {% if live_connection %}<p><a class="btn primary" href="{{ url_for('live.dashboard', sid=room.id, build_id=build.id) }}">Live-Dashboard öffnen</a></p>{% endif %}
 </section>

@@ -6,7 +6,7 @@
 <div class="grid">
 {% for connection in connections %}<article class="panel card">
   <h2>{{ connection.session_name }}</h2><p class="muted small">Seed #{{ connection.build_id }}</p>
-  <p><strong>Server:</strong> <code>{{ connection.host }}</code><br><strong>Port:</strong> {{ connection.port }}</p>
+  <p><strong>Server:</strong> <code>{{ connection.host }}</code><br><strong>Port:</strong> {{ connection.port if connection.port else 'Wird ermittelt' }}</p>
   <p><span class="chip {{ 'ok' if connection.confirmed else 'warn' }}">{{ 'Vom Host bestätigt' if connection.confirmed else 'Noch nicht bestätigt' }}</span></p>
   {% if connection.room_url %}<p><a href="{{ connection.room_url }}" target="_blank" rel="noopener noreferrer">Archipelago-Raum öffnen ↗</a></p>{% endif %}
   <a class="btn primary" href="{{ url_for('mvp.play_page', sid=connection.session_id, build_id=connection.build_id) }}">Zur aktiven Lobby</a>

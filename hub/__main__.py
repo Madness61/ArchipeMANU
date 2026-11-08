@@ -13,6 +13,8 @@ def main() -> None:
     args = parser.parse_args()
 
     app = create_app()
+    from .live_store import start_collector
+    start_collector()
     if args.debug:
         app.run(host=args.host, port=args.port, debug=True)
         return

@@ -120,6 +120,7 @@ code{font-family:ui-monospace,Consolas,monospace;font-size:.9em;overflow-wrap:an
 .hosting-setup>summary::before{content:"▸";color:var(--accent)}
 .hosting-setup[open]>summary::before{content:"▾"}
 .hosting-fields{align-items:flex-start}.hosting-fields label{flex:1;min-width:min(180px,100%)}
+.live-connect{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin:18px 0}.live-connect>label{flex:1;min-width:min(300px,100%);font-weight:650}.live-connect input{display:block;width:100%;margin-top:6px}.live-connect>p{flex-basis:100%;margin:0}
 #participants-section,#generated-rounds,.hosting-setup{scroll-margin-top:20px}
 .matrix th,.matrix td{text-align:center;min-width:65px}.matrix th:first-child,.matrix td:first-child{text-align:left;min-width:140px}
 .matrix-cell{display:inline-block;padding:6px 10px;border-radius:7px;background:#efeffb;color:#504bc9;font-weight:750}.matrix-own{background:#e6f7ef;color:#087954}

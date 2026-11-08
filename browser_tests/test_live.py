@@ -1,0 +1,88 @@
+"""Live dashboard against the isolated API-shaped WebHost stub."""
+import json
+import re
+from playwright.sync_api import expect
+
+from .test_players import register, upload_world, create_lobby, join_lobby, select_game, mark_ready, nav
+
+
+def test_dashboard_room_link_polling_two_players_charts_and_mobile(actors, live_server, artifact_dir):
+    alice, bob = actors.alice, actors.bob
+    register(alice, "Alice"); register(bob, "Bob")
+    upload_world(alice)
+    lobby = create_lobby(alice, "Unser Live-Abend")
+    join_lobby(bob, "Unser Live-Abend")
+    select_game(alice); select_game(bob)
+    mark_ready(alice, "Alice"); mark_ready(bob, "Bob")
+    alice.reload()
+    alice.get_by_role("button", name="Runde generieren", exact=True).click()
+    build = alice.locator('[data-build-status="succeeded"]')
+    expect(build).to_be_visible(timeout=15000)
+    build.get_by_label("Archipelago-Raum für Live-Statistiken", exact=True).fill(
+        "https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw")
+    build.get_by_role("button", name="Raum verbinden", exact=True).click()
+    expect(alice.get_by_role("heading", level=1)).to_have_text("Unser Live-Abend")
+    expect(alice.locator("#kpi-checks")).to_have_text("2", timeout=15000)
+    expect(alice.locator("#kpi-progress")).to_have_text("20 %")
+    expect(alice.locator("#kpi-players")).to_have_text("2")
+    expect(alice.locator("#kpi-received")).to_have_text("2")
+    expect(alice.locator("#live-port")).to_have_text("38281")
+    expect(nav(alice, "Aktive Lobby")).to_have_attribute("aria-current", "page")
+    assert "SECRET FUTURE LOCATION" not in alice.content()
+    alice.screenshot(path=str(artifact_dir / "live-overview-desktop.png"), full_page=True)
+    # All browser reads share one backend cache.
+    dashboard_url = alice.url
+    bob.goto(dashboard_url)
+    expect(bob.locator("#kpi-checks")).to_have_text("2")
+    bob.get_by_role("button", name="Jetzt aktualisieren", exact=True).click()
+    expect(bob.locator("#live-refresh")).to_have_text("Jetzt aktualisieren")
+    calls = (live_server.root / "live-api-calls.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(calls) == 3
+    alice.get_by_role("tab", name="Spieler", exact=True).click()
+    expect(alice.locator(".live-player-card")).to_have_count(2)
+    alice.locator(".live-player-card").get_by_role("button", name="Alice", exact=True).click()
+    expect(alice.locator("#live-player-detail")).to_be_visible()
+    expect(alice.locator("#live-player-title")).to_contain_text("Alice")
+    alice.get_by_role("button", name="Details schließen", exact=True).click()
+    alice.get_by_role("tab", name="Interaktionen", exact=True).click()
+    expect(alice.get_by_role("button", name="Alice → Bob: 1 zugeordnete Empfangsmeldungen", exact=True)).to_be_visible()
+    expect(alice.locator("#live-foreign")).to_have_text("2")
+    alice.get_by_role("tab", name="Verlauf", exact=True).click()
+    expect(alice.locator("#history-chart svg")).to_be_visible()
+    alice.get_by_role("tab", name="Ereignisse", exact=True).click()
+    expect(alice.locator("#live-events-list")).to_contain_text("Live-Aufzeichnung hat begonnen")
+    # Advance only the fake API clock; the collector still uses production TTLs.
+    (live_server.root / "live-stage.json").write_text(json.dumps({"offset": 61, "advance": True}), encoding="utf-8")
+    alice.get_by_role("button", name="Jetzt aktualisieren", exact=True).click()
+    expect(alice.locator("#live-events-list")).to_contain_text("Ziel vom Spielclient", timeout=15000)
+    alice.get_by_role("tab", name="Übersicht", exact=True).click()
+    expect(alice.locator("#kpi-checks")).to_have_text("3")
+    expect(alice.locator("#kpi-goals")).to_have_text("1 / 2")
+    bob.get_by_role("button", name="Jetzt aktualisieren", exact=True).click()
+    expect(bob.locator("#kpi-checks")).to_have_text("3")
+    alice.get_by_role("tab", name="Verlauf", exact=True).click()
+    expect(alice.locator("#history-chart .chart-line")).to_have_count(2)
+    alice.locator("#history-chart").get_by_label("Zeitpunkt im Diagramm", exact=True).fill("1")
+    expect(alice.locator("#history-chart .chart-tooltip")).to_contain_text("Alice: 40 %")
+    alice.get_by_role("tab", name="Vergleiche", exact=True).click()
+    expect(alice.locator("#live-check-ranking")).to_contain_text("Alice")
+    alice.screenshot(path=str(artifact_dir / "live-comparisons-desktop.png"), full_page=True)
+    alice.get_by_role("button", name="Präsentationsmodus", exact=True).click()
+    expect(alice.locator("body")).to_have_class(re.compile("live-presenting"))
+    expect(alice.locator("#live-overview")).to_be_visible()
+    alice.get_by_role("button", name="Präsentation beenden", exact=True).click()
+    alice.set_viewport_size({"width": 390, "height": 844})
+    expect(alice.get_by_role("tablist", name="Live-Statistiken")).to_be_visible()
+    assert alice.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+    alice.screenshot(path=str(artifact_dir / "live-overview-mobile.png"), full_page=True)
+    alice.get_by_role("tab", name="Interaktionen", exact=True).click()
+    assert alice.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+    alice.screenshot(path=str(artifact_dir / "live-interactions-mobile.png"), full_page=True)
+    # A temporary upstream outage keeps the last successful values and history.
+    (live_server.root / "live-stage.json").write_text(json.dumps({"offset": 122, "advance": True, "fail": True}), encoding="utf-8")
+    alice.get_by_role("button", name="Jetzt aktualisieren", exact=True).click()
+    expect(alice.locator("#live-warning")).to_contain_text("letzte erfolgreiche Datenstand", timeout=15000)
+    alice.get_by_role("tab", name="Übersicht", exact=True).click()
+    expect(alice.locator("#kpi-checks")).to_have_text("3")
+    assert "SECRET FUTURE LOCATION" not in alice.content()
+    alice.screenshot(path=str(artifact_dir / "live-stale-mobile.png"), full_page=True)

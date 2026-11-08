@@ -1,5 +1,10 @@
 # Multiworld Hub
 
+Das neue [Live-Dashboard](LIVE_DASHBOARD.md) begleitet laufende Runden mit
+gemeinsam gecachten Archipelago-Daten, Spielerkarten, Empfangsmatrix, Verlauf,
+Ereignissen und Vergleichen. Nach dem Upload des Seeds genügt der Raumlink
+unter „Generierte Runden“ oder „Jetzt spielen / Verbindung“.
+
 ### Überarbeitete Oberfläche
 
 Dunkle Navigation, helle Karten und ein klarer Ablauf für die gemeinsame Runde:

@@ -1,4 +1,4 @@
-<details class="hosting-setup" id="hosting-{{ hosting_build.id }}" aria-label="Verbindung für Seed {{ hosting_build.id }} einrichten" {% if not hosting_data %}open{% endif %}>
+<details class="hosting-setup" id="hosting-{{ hosting_build.id }}" aria-label="Verbindung für Seed {{ hosting_build.id }} einrichten" {% if not hosting_data and not live_connection %}open{% endif %}>
   <summary><h3>Raum-Link, Server & Port eintragen · Host</h3><span class="chip {{ 'ok' if hosting_data else 'warn' }}">{{ 'Verbindung hinterlegt' if hosting_data else 'Verbindung fehlt noch' }}</span></summary>
   <ol class="small">
     <li>Die Multiworld-ZIP dieses Seeds herunterladen und bei <a href="https://archipelago.gg/uploads" target="_blank" rel="noopener noreferrer">Archipelago hochladen</a>. Dort einen Raum erstellen. Alternativ den Seed selbst mit Archipelago hosten.</li>

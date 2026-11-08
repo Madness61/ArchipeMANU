@@ -11,7 +11,7 @@ import zipfile
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, session,
                    url_for)
 
-from . import ap_bridge, config, db, yamlgen, mvp, community, auth
+from . import ap_bridge, config, db, yamlgen, mvp, community, auth, live_store, live_routes
 
 app = Flask(__name__)
 app.teardown_appcontext(db.close)
@@ -643,6 +643,7 @@ def session_view(sid, selection=None):
         AND h.id=(SELECT MAX(latest.id) FROM hosted_rooms latest WHERE latest.build_id=h.build_id)""", (sid,))}
     for build in history:
         build["hosting"] = hosting.get(build["id"])
+        build["live_connection"] = live_store.current(build["id"])
     check_build = next((b for b in history if b["status"] == "succeeded"), None)
     check_data = mvp._build_distribution(check_build) if check_build else None
     check_snapshot = db.loads(check_build["snapshot"]) if check_data else {}
@@ -1076,12 +1077,15 @@ def create_app() -> Flask:
     auth.migrate()
     mvp.migrate()
     community.migrate()
+    live_store.migrate()
     if "mvp" not in app.blueprints:
         app.register_blueprint(mvp.bp)
     if "community" not in app.blueprints:
         app.register_blueprint(community.bp)
     if "auth" not in app.blueprints:
         app.register_blueprint(auth.bp)
+    if "live" not in app.blueprints:
+        app.register_blueprint(live_routes.bp)
     app.secret_key = config.secret_key()
     auth.configure(app)
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024

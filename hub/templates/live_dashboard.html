@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Live-Dashboard · {{ room.name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='live.css') }}">
+<p class="small"><a href="{{ url_for('mvp.play_page', sid=room.id, build_id=build.id) }}">← Zur Runde & Verbindung</a></p>
+<div id="live-dashboard" data-url="{{ url_for('live.data', sid=room.id, build_id=build.id) }}" data-refresh-url="{{ url_for('live.refresh', sid=room.id, build_id=build.id) }}" data-csrf="{{ csrf_token }}" data-linked="{{ '1' if linked else '0' }}">
+  <section class="live-hero">
+    <div><p class="eyebrow"><span class="live-dot" aria-hidden="true"></span> Multiworld live</p><h1>{{ room.name }}</h1><p>Ein gemeinsamer Abend. Jede Welt zählt.</p><div class="live-hero-meta"><span>Seed #{{ build.id }}</span><span id="live-room-code">{{ linked.room_id if linked else 'Noch kein Raum verbunden' }}</span><span id="live-status-chip">Verbindung wird vorbereitet</span></div></div>
+    <div class="live-hero-actions"><button type="button" id="live-refresh" {% if not linked %}disabled{% endif %}>Jetzt aktualisieren</button><button type="button" id="live-present" aria-pressed="false">Präsentationsmodus</button></div>
+  </section>
+  {% if not linked %}
+  <section class="panel live-empty"><h2>Eure Runde wartet auf den ersten Live-Stand</h2><p>Lade die Multiworld-ZIP bei Archipelago hoch und erstelle dort einen Raum. Verbinde dann hier den Raumlink.</p>
+  {% set live_connection = none %}{% include "live_connect.html" %}
+  {% if not manager %}<p class="muted">Der Host kann den Raumlink hier hinterlegen.</p>{% endif %}</section>
+  {% else %}
+  <div class="live-update-bar"><p id="live-update" role="status" aria-live="polite">Der erste Datenstand wird geladen …</p><p id="live-next" class="small muted"></p></div>
+  <div class="live-notice" id="live-warning" role="status" hidden></div>
+  <div class="live-notice" id="live-seed-warning" hidden>Die Spieler und Spiele des Raums weichen vom lokalen Seed ab. Bitte den Raumlink prüfen. Hier werden ausschließlich die Daten des verknüpften Archipelago-Raums angezeigt.</div>
+  <div class="live-tabs" role="tablist" aria-label="Live-Statistiken">
+    {% for id, label in [('overview','Übersicht'),('players','Spieler'),('interactions','Interaktionen'),('history','Verlauf'),('events','Ereignisse'),('comparisons','Vergleiche')] %}
+    <button type="button" role="tab" id="tab-{{ id }}" aria-controls="live-{{ id }}" aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}" data-tab="{{ id }}">{{ label }}</button>
+    {% endfor %}
+  </div>
+  <section role="tabpanel" id="live-overview" aria-labelledby="tab-overview" class="live-view">
+    <div class="live-kpis">
+      {% for id, label, detail in [('checks','Checks erledigt','Nur vom Tracker gemeldete Checks'),('progress','Gesamtfortschritt','Erledigte Checks / Gesamtchecks'),('players','Spieler in der Runde','Individuelle Spielerslots, keine Gruppen'),('received','Empfangene Items','Vom Server gemeldete Empfangsliste'),('goals','Spielziele erreicht','Vom Spielclient gemeldeter Zielstatus'),('games','Unterschiedliche Spiele','Spiele der verknüpften Multiworld')] %}
+      <article class="panel live-kpi"><span class="muted small">{{ label }}</span><strong id="kpi-{{ id }}">—</strong><span class="small muted" id="kpi-{{ id }}-detail">{{ detail }}</span></article>
+      {% endfor %}
+    </div>
+    <div class="live-cockpit">
+      <article class="panel live-progress-panel"><div><p class="eyebrow">Gemeinsam vorwärts</p><h2>Eure Multiworld</h2><p id="live-progress-caption" class="muted">Der Fortschritt erscheint nach dem ersten erfolgreichen Tracker-Abruf.</p></div><div class="live-ring" id="live-ring"><span id="live-ring-label">—</span></div><div class="live-progress-track"><span id="live-total-bar"></span></div></article>
+      <article class="panel live-connection-panel"><p class="eyebrow">Verbindung & Datenstand</p><h2>Die laufende Runde</h2><dl><dt>Raumstatus</dt><dd id="live-server-state">Wird ermittelt</dd><dt>Letzter gemeldeter Port</dt><dd id="live-port">Nicht verfügbar</dd><dt>Letzte Raumaktivität</dt><dd id="live-room-activity">Nicht verfügbar</dd><dt>Aufzeichnung seit</dt><dd id="live-recording">Noch kein erfolgreicher Abruf</dd></dl><p class="small muted">Ein gemeldeter Port bestätigt keine aktuelle Erreichbarkeit. Empfangslisten belegen keine lokale Itemzustellung im Spiel.</p><div class="row"><a href="{{ 'https://archipelago.gg/room/' ~ linked.room_id }}" target="_blank" rel="noopener noreferrer">Archipelago-Raum ↗</a><a id="live-tracker-link" hidden target="_blank" rel="noopener noreferrer">Offizieller Tracker ↗</a></div></article>
+    </div>
+    <article class="panel live-chart-panel"><div class="row spread"><div><p class="eyebrow">Der Abend im Verlauf</p><h2>Gemeinsamer Fortschritt</h2></div><a href="#live-history" data-switch="history">Verlauf im Detail →</a></div><div id="overview-chart" class="live-chart"></div></article>
+    <div class="live-bottom-grid"><article class="panel"><h2>Zuletzt beobachtet</h2><ol id="live-recent" class="live-timeline"><li class="muted">Ereignisse erscheinen ab der ersten Beobachtung.</li></ol></article><article class="panel"><h2>Gerade in Bewegung</h2><p class="small muted">Check-Zuwachs seit dem vorherigen erfolgreichen Abruf.</p><ol id="live-active-ranking" class="live-rankings"></ol></article></div>
+  </section>
+  <section role="tabpanel" id="live-players" aria-labelledby="tab-players" class="live-view" hidden>
+    <div class="section-head"><div><h2>Jede Welt im Blick</h2><p class="muted">Klicke auf eine Karte für Fortschritt, Empfangsstatistik und Verlauf.</p></div><label class="small">Spieler sortieren<select id="live-player-sort"><option value="slot">Nach Slot</option><option value="progress">Nach Fortschritt</option><option value="checks">Nach Checks</option></select></label></div>
+    <div id="live-player-cards" class="live-player-grid"><p class="panel muted">Noch keine Spielerdaten verfügbar.</p></div>
+    <article class="panel live-player-detail" id="live-player-detail" hidden tabindex="-1"><div class="row spread"><div><p class="eyebrow">Spielerdetails</p><h2 id="live-player-title"></h2></div><button type="button" id="live-player-close">Details schließen</button></div><p id="live-player-info"></p><div id="player-chart" class="live-chart"></div><div id="live-player-categories" class="live-category-grid"></div><p class="small muted">Es werden keine zukünftigen Fundorte oder Itemnamen offengelegt. „Empfangen“ bezeichnet die Liste des Servers; Item-Link-Gruppen und Startinventar lassen sich nicht immer einzelnen Findern zuordnen.</p></article>
+  </section>
+  <section role="tabpanel" id="live-interactions" aria-labelledby="tab-interactions" class="live-view" hidden>
+    <div class="section-head"><div><h2>Welten helfen Welten</h2><p class="muted">Bereits gemeldete Item-Empfänge mit einem passenden erledigten Check beim Finder.</p></div></div>
+    <div id="live-interaction-notice" class="live-notice" hidden></div>
+    <div class="live-kpis compact"><article class="panel live-kpi"><span>Für andere gefunden</span><strong id="live-foreign">—</strong></article><article class="panel live-kpi"><span>Aus der eigenen Welt</span><strong id="live-own">—</strong></article><article class="panel live-kpi"><span>Nicht eindeutig zugeordnet</span><strong id="live-unattributed">—</strong></article></div>
+    <article class="panel"><h2>Wer findet für wen?</h2><p class="small muted">Zeile = Finder · Spalte = Empfänger. Ein Item-Link kann mehrere Empfangsmeldungen aus einem Check erzeugen. Diese Matrix zählt zugeordnete Meldungen pro Empfänger, keine einzigartige Seed-Verteilung.</p><div id="live-matrix" class="table-wrap live-matrix" tabindex="0" aria-label="Item-Empfangsmatrix, horizontal scrollbar"></div><p class="small muted">Startinventar, Cheats, nicht zugeordnete Gruppen und nicht bestätigte Finder-Checks sind aus der Matrix ausgeschlossen. Die vollständige Seed-Verteilung wird hier nicht verwendet.</p></article>
+    <article class="panel"><h2>Helfer der Multiworld</h2><ol id="live-help-ranking" class="live-rankings"></ol></article>
+  </section>
+  <section role="tabpanel" id="live-history" aria-labelledby="tab-history" class="live-view" hidden>
+    <div class="section-head"><div><h2>So entwickelt sich euer Abend</h2><p class="muted" id="live-history-caption">Der Verlauf beginnt mit dem ersten erfolgreichen Abruf.</p></div><label>Zeitraum<select id="live-window"><option value="1h">Letzte Stunde</option><option value="6h" selected>Letzte 6 Stunden</option><option value="24h">Letzte 24 Stunden</option><option value="all">Gesamte Aufzeichnung</option></select></label></div>
+    <article class="panel live-chart-panel"><h2>Fortschritt je Spieler</h2><div id="history-chart" class="live-chart"></div></article>
+    <div class="live-bottom-grid"><article class="panel live-chart-panel"><h2>Neue Checks je Beobachtungsintervall</h2><p class="small muted">Intervalle können unterschiedlich lang sein. Keine geschätzten Spielzeitpunkte.</p><div id="activity-chart" class="live-chart"></div></article><article class="panel live-chart-panel"><h2>Erreichte Ziele im Verlauf</h2><div id="goals-chart" class="live-chart"></div></article></div>
+    <details class="panel"><summary>Gemessene Datenpunkte ansehen</summary><div class="table-wrap"><table><thead><tr><th>Beobachtet</th><th>Abschnitt</th><th>Checks</th><th>Fortschritt</th><th>Ziele</th></tr></thead><tbody id="live-history-table"></tbody></table></div></details>
+  </section>
+  <section role="tabpanel" id="live-events" aria-labelledby="tab-events" class="live-view" hidden>
+    <div class="section-head"><div><h2>Was sich gerade verändert hat</h2><p class="muted">Beobachtungen aus dem Vergleich zweier Abrufe. Die tatsächliche Spielaktion kann früher stattgefunden haben.</p></div><label>Ereignisse filtern<select id="live-event-filter"><option value="all">Alle Ereignisse</option><option value="checks">Checks</option><option value="goal">Ziele</option><option value="milestone">Meilensteine</option><option value="items">Item-Empfänge</option><option value="status">Clientstatus</option></select></label></div>
+    <article class="panel"><ol id="live-events-list" class="live-timeline"><li class="muted">Noch keine Ereignisse aufgezeichnet.</li></ol><p class="small muted">Die letzten 100 Beobachtungen bleiben hier sichtbar. Unveränderte Daten erzeugen keine doppelten Meldungen.</p></article>
+  </section>
+  <section role="tabpanel" id="live-comparisons" aria-labelledby="tab-comparisons" class="live-view" hidden>
+    <div class="section-head"><div><h2>Euer Abend in Zahlen</h2><p class="muted">Verschiedene Spiele haben unterschiedlich viele und unterschiedlich aufwendige Checks. Die Vergleiche sind keine Leistungsbewertung.</p></div></div>
+    <div class="live-kpis compact"><article class="panel live-kpi"><span>Durchschnittlicher Slot-Fortschritt</span><strong id="live-average">—</strong></article><article class="panel live-kpi"><span>Abstand höchster / niedrigster Fortschritt</span><strong id="live-spread">—</strong></article><article class="panel live-kpi"><span>Anteil erreichter Ziele</span><strong id="live-goal-share">—</strong></article></div>
+    <div class="live-bottom-grid"><article class="panel"><h2>Die meisten Checks</h2><ol id="live-check-ranking" class="live-rankings"></ol></article><article class="panel"><h2>Höchster Fortschritt</h2><ol id="live-progress-ranking" class="live-rankings"></ol></article><article class="panel"><h2>Check-Zuwachs</h2><p id="live-gain-caption" class="small muted">Letzte Stunde, soweit aufgezeichnet.</p><ol id="live-gain-ranking" class="live-rankings"></ol></article><article class="panel"><h2>Check-Verteilung nach Spiel</h2><ol id="live-game-ranking" class="live-rankings"></ol></article></div>
+  </section>
+  <details class="panel live-methods"><summary>Datenquellen, Grenzen & Raumlink verwalten</summary><p>Automatische Abrufe erfolgen alle 60 Sekunden gemeinsam für alle Spieler. Statische Gesamtzahlen werden mindestens 5 Minuten zwischengespeichert. „Jetzt aktualisieren“ liest den gemeinsamen Datenstand und umgeht diese Grenzen nicht.</p><p>Clientstatus und Zeitangaben stammen vom Tracker und sind keine Live-Verbindungsprüfung. Ziele werden vom Spielclient gemeldet; persönliche „Ich bin fertig“-Bestätigungen in der Lobby bleiben davon getrennt. Historische Werte stammen ausschließlich aus gespeicherten Beobachtungen. Bei einem Tracker-Reset beginnt ein neuer Verlaufabschnitt.</p><p><a href="https://github.com/ArchipelagoMW/Archipelago/blob/main/docs/webhost%20api.md" target="_blank" rel="noopener noreferrer">Offizielle API-Dokumentation ↗</a></p>{% set live_connection = linked %}{% include "live_connect.html" %}</details>
+  {% endif %}
+  <noscript><p class="status-note warn">Für die automatische Live-Anzeige bitte JavaScript aktivieren. Raum und Seed bleiben über die Rundenseite erreichbar.</p></noscript>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='live.js') }}" defer></script>{% endblock %}

@@ -115,6 +115,42 @@ def main():
     ap_bridge.generate = mock_generate
     # Empty schema cache already exists, so startup cannot launch extraction.
     ap_bridge.ap_ready = lambda: True
+    # Read-only WebHost fixtures: external network access is never used.
+    from types import SimpleNamespace
+    from hub import live_api, live_store
+    def live_stage():
+        path = root / "live-stage.json"
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    live_store.time = SimpleNamespace(time=lambda: time.time() + live_stage().get("offset", 0))
+    def mock_webhost(endpoint, identifier):
+        stage = live_stage()
+        if stage.get("fail"):
+            raise live_api.APIError("Archipelago ist vorübergehend nicht erreichbar.")
+        if identifier not in ("AAECAwQFBgcICQoLDA0ODw", "EBESExQVFhcYGRobHB0eHw"):
+            raise live_api.APIError("Unbekannter Testraum.", "not_found")
+        with (root / "live-api-calls.jsonl").open("a", encoding="utf-8") as log:
+            log.write(json.dumps({"endpoint": endpoint, "identifier": identifier}) + "\n")
+        advanced = bool(stage.get("advance"))
+        payloads = {
+            "room_status": {"tracker": "EBESExQVFhcYGRobHB0eHw", "players": [["Alice", GAME], ["Bob", GAME]],
+                            "last_port": 38281, "last_activity": "Sun, 08 Nov 2026 13:00:00 GMT", "timeout": 7200},
+            "static_tracker": {
+                "groups": [], "player_game": [{"team": 0, "player": p, "game": GAME} for p in (1, 2)],
+                "player_locations_total": [{"team": 0, "player": p, "total_locations": 5} for p in (1, 2)]},
+            "tracker": {
+                "aliases": [{"team": 0, "player": p, "alias": None} for p in (1, 2)],
+                "player_checks_done": [{"team": 0, "player": 1, "locations": [1001, 1002] if advanced else [1001]},
+                                       {"team": 0, "player": 2, "locations": [2001]}],
+                "player_items_received": [
+                    {"team": 0, "player": 1, "items": [[501, 2001, 2, 1]]},
+                    {"team": 0, "player": 2, "items": [[502, 1001, 1, 2], [503, 1002, 1, 0]] if advanced else [[502, 1001, 1, 2]]}],
+                "player_status": [{"team": 0, "player": 1, "status": 20},
+                                  {"team": 0, "player": 2, "status": 30 if advanced else 20}],
+                "activity_timers": [], "connection_timers": [],
+                "hints": [{"spoiler": "SECRET FUTURE LOCATION"}]},
+        }
+        return live_api.sanitize(endpoint, payloads[endpoint])
+    live_api.fetch = mock_webhost
     app = create_app()
     with app.app_context():
         db.execute("INSERT INTO users(username,slot_name,is_admin,password_hash) VALUES ('TestAdmin','TestAdmin',1,?)",

@@ -14,7 +14,7 @@
     {% if g.user %}
     <nav aria-label="Hauptnavigation" id="main-navigation">
       {% set current = request.endpoint or '' %}
-      {% set active_play = current == 'mvp.play_page' and active_connections|selectattr('build_id', 'equalto', request.view_args.get('build_id'))|list %}
+      {% set active_play = current in ('mvp.play_page','live.dashboard') and active_connections|selectattr('build_id', 'equalto', request.view_args.get('build_id'))|list %}
       <a href="{{ url_for('index') }}" {% if current == 'index' %}aria-current="page"{% endif %}>Übersicht</a>
       <a href="{{ url_for('games') }}" {% if current in ('games','game','template_new','template_edit','import_view') or current.startswith('community.') %}aria-current="page"{% endif %}>Spielebibliothek</a>
       <a href="{{ url_for('mvp.lobby_list') }}" {% if current in ('mvp.lobby_list','session_view','mvp.entry_options','mvp.lobby_selection_submit') %}aria-current="page"{% endif %}>Lobbys</a>

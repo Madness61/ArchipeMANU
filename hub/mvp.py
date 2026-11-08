@@ -597,16 +597,25 @@ def active_connections():
     """
     if g.user is None:
         return []
-    return db.query("""SELECT h.*,b.id AS build_id,b.session_id,s.name AS session_name
-        FROM hosted_rooms h JOIN seed_builds b ON b.id=h.build_id
-        JOIN sessions s ON s.id=b.session_id
-        WHERE b.status='succeeded' AND b.completed_at IS NULL AND h.id IN (
-            SELECT MAX(hr.id) FROM hosted_rooms hr JOIN seed_builds sb ON sb.id=hr.build_id
-            WHERE sb.status='succeeded' GROUP BY sb.session_id)
+    return db.query("""WITH sources AS (
+        SELECT h.id,h.build_id,h.room_url,h.host,h.port,h.confirmed,h.created_at,
+            CAST(strftime('%s',h.created_at) AS REAL) AS stamp FROM hosted_rooms h
+        UNION ALL
+        SELECT l.id,l.build_id,'https://archipelago.gg/room/' || l.room_id,
+            COALESCE(h.host,'archipelago.gg'),h.port,COALESCE(h.confirmed,0),l.created_at,l.created_at
+            FROM live_rooms l LEFT JOIN hosted_rooms h ON h.id=(
+                SELECT MAX(h2.id) FROM hosted_rooms h2 WHERE h2.build_id=l.build_id)
+            WHERE l.active=1),
+        ranked AS (
+          SELECT src.*,b.session_id,b.completed_at,s.name AS session_name,s.created_by,
+            ROW_NUMBER() OVER (PARTITION BY b.session_id ORDER BY src.stamp DESC,src.id DESC) AS position
+          FROM sources src JOIN seed_builds b ON b.id=src.build_id JOIN sessions s ON s.id=b.session_id
+          WHERE b.status='succeeded')
+        SELECT * FROM ranked s WHERE position=1 AND completed_at IS NULL
         AND (? OR s.created_by=?
-            OR EXISTS (SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.id AND lm.user_id=?)
-            OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?))
-        ORDER BY h.id DESC""", (g.user["is_admin"], g.user["id"], g.user["id"], g.user["id"]))
+            OR EXISTS (SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.session_id AND lm.user_id=?)
+            OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.session_id AND e.user_id=?))
+        ORDER BY stamp DESC""", (g.user["is_admin"], g.user["id"], g.user["id"], g.user["id"]))
 
 
 @bp.route("/active-lobby")
@@ -796,6 +805,14 @@ def save_hosting(sid, build_id):
             conn.rollback()
             raise
     flash("Verbindung gespeichert. Alle Teilnehmer finden diese Runde jetzt oben unter „Aktive Lobby“.", "info")
+    if link:
+        from . import live_api, live_store
+        try:
+            live_api.room_id(link)
+        except ValueError:
+            pass  # Legacy manual tracker/connect links are never fetched.
+        else:
+            live_store.attach(build_id, link, g.user["id"], auto_host=False)
     return redirect(url_for("mvp.play_page", sid=sid, build_id=build_id))
 
 
@@ -826,6 +843,7 @@ def _build_placements(build, distribution):
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/stats")
 def build_stats(sid, build_id):
+    from . import live_store
     room = _session(sid)
     _assert_access(room)
     build = db.query("SELECT * FROM seed_builds WHERE id=? AND session_id=?", (build_id,sid),one=True)
@@ -837,6 +855,7 @@ def build_stats(sid, build_id):
     placements = _build_placements(build, payload)
     return render_template("seed_stats.html", room=room, build=build,
                            hosted=db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1",(build_id,),one=True),
+                           live_connection=live_store.current(build_id),
                            stats=payload, race=bool(metadata.get("race")),
                            overview=stats.game_overview(payload) if payload else [],
                            progression=stats.progression_items(payload, placements) if placements is not None else [],
@@ -906,6 +925,7 @@ def build_item_details(sid, build_id, player_id):
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/play")
 def play_page(sid, build_id):
     from . import game_catalog
+    from . import live_store
     room = _session(sid)
     _assert_access(room)
     build = db.query("SELECT * FROM seed_builds WHERE id=? AND session_id=?", (build_id, sid), one=True)
@@ -922,6 +942,7 @@ def play_page(sid, build_id):
     assets = artifact_files(build_id, build["zip_name"]) if build["status"] == "succeeded" else []
     distribution = _build_distribution(build, snapshot)
     return render_template("play.html", room=room, build=build, hosted=hosted,
+                           live_connection=live_store.current(build_id),
                            completion=completion_state(build),
                            can_manage_session=_manager(room),
                            setup_infos={slot["game"]: game_catalog.details(slot["game"], slot["game_name"]) for slot in own},
