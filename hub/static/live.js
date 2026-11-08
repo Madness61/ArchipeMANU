@@ -69,7 +69,7 @@
       if (!points.length) return;
       this.range.max = String(points.length - 1);
       this.range.disabled = points.length === 1;
-      const signature = series.map(s => s.key).join("|");
+      const signature = series.map(s => s.key + ":" + s.label).join("|");
       if (this.signature !== signature) {
         this.legend.replaceChildren();
         series.forEach(series => {
@@ -302,8 +302,29 @@
     rankings("live-help-ranking", data.players.map((p, i) => ({ name: p.name, value: p.sent_to_others, color: colors[i % colors.length] })));
   }
   function render(payload) {
+    if (state && state.connection_id !== payload.connection_id) {
+      ["checks", "progress", "players", "received", "goals", "games"].forEach(id => {
+        kpi(id, "—"); set("kpi-" + id + "-detail", "Warte auf den neuen Raum.");
+      });
+      set("live-ring-label", "—"); $("live-ring").style.setProperty("--progress", "0%");
+      $("live-total-bar").style.width = "0%";
+      set("live-progress-caption", "Für den neu verbundenen Raum liegen noch keine Daten vor.");
+      playerNodes.clear(); selectedPlayer = null;
+      $("live-player-cards").replaceChildren(el("p", "Warte auf die Spieler des neuen Raums.", "panel muted"));
+      $("live-player-detail").hidden = true;
+      charts.forEach(instance => { instance.hidden.clear(); instance.signature = null; instance.update([], []); });
+      ["live-active-ranking", "live-help-ranking", "live-check-ranking", "live-progress-ranking", "live-gain-ranking", "live-game-ranking", "live-history-table"].forEach(id => $(id).replaceChildren());
+      ["live-recent", "live-events-list"].forEach(id => timeline($(id), []));
+      ["live-foreign", "live-own", "live-unattributed", "live-average", "live-spread", "live-goal-share"].forEach(id => set(id, "—"));
+      $("live-matrix").replaceChildren(el("p", "Für den neuen Raum noch nicht verfügbar.", "muted"));
+      set("live-history-caption", "Die Aufzeichnung dieses Raums beginnt mit seinem ersten erfolgreichen Abruf.");
+      set("live-gain-caption", "Für den neuen Raum noch kein Vergleich verfügbar.");
+      lastChartStamp = "";
+    }
     state = payload;
     const data = payload.metrics;
+    set("live-room-code", payload.room_id);
+    $("live-room-link").href = payload.room_url;
     set("live-status-chip", payload.completed ? "Runde abgeschlossen" : payload.stale ? "Warte auf aktuellen Stand"
       : data && data.player_count > 0 && data.goals === data.player_count ? "Alle Spielziele gemeldet" : "Tracker verbunden");
     set("live-update", payload.updated_at ? "Letzter erfolgreicher Datenstand: " + date(payload.updated_at, true) : "Warte auf den ersten erfolgreichen Abruf …");
@@ -318,15 +339,20 @@
     set("live-room-activity", date(payload.room.last_activity, true));
     set("live-server-state", payload.room.port ? "Port gemeldet · Erreichbarkeit ungeprüft" : "Noch kein gültiger Port gemeldet");
     set("live-recording", payload.recording_since ? date(payload.recording_since, true) : "Noch kein erfolgreicher Abruf");
+    $("live-tracker-link").hidden = !payload.tracker_id;
     if (payload.tracker_id) {
-      $("live-tracker-link").hidden = false;
       $("live-tracker-link").href = "https://archipelago.gg/tracker/" + encodeURIComponent(payload.tracker_id);
+    } else {
+      $("live-tracker-link").removeAttribute("href");
     }
     if (!data) return;
     kpi("checks", data.checks == null ? "—" : value(data.checks));
     set("kpi-checks-detail", value(data.total) + " Gesamtchecks laut Tracker");
     kpi("progress", data.progress == null ? "—" : pct(data.progress));
     kpi("players", value(data.player_count)); kpi("games", value(data.games));
+    set("kpi-progress-detail", "Erledigte Checks / Gesamtchecks");
+    set("kpi-players-detail", "Individuelle Spielerslots, keine Gruppen");
+    set("kpi-games-detail", "Spiele der verknüpften Multiworld");
     kpi("received", data.received == null ? "—" : value(data.received));
     set("kpi-received-detail", payload.race ? "Im Race-Modus ausgeblendet" : data.received == null ? "Nicht verfügbar" : "Empfangsliste des Servers, kein Spielinventar");
     kpi("goals", data.known_goals ? value(data.goals) + " / " + value(data.known_goals) : "—");

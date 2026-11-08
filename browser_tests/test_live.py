@@ -86,3 +86,15 @@ def test_dashboard_room_link_polling_two_players_charts_and_mobile(actors, live_
     expect(alice.locator("#kpi-checks")).to_have_text("3")
     assert "SECRET FUTURE LOCATION" not in alice.content()
     alice.screenshot(path=str(artifact_dir / "live-stale-mobile.png"), full_page=True)
+    # A host changes rooms while another player keeps the old dashboard open.
+    # Pending/error data for the new identity must never carry old-room KPIs.
+    alice.get_by_text("Datenquellen, Grenzen & Raumlink verwalten", exact=True).click()
+    alice.get_by_label("Archipelago-Raum für Live-Statistiken", exact=True).fill(
+        "https://archipelago.gg/room/EBESExQVFhcYGRobHB0eHw")
+    alice.get_by_role("button", name="Raumlink ändern", exact=True).click()
+    expect(alice.locator("#kpi-checks")).to_have_text("—")
+    bob.get_by_role("button", name="Jetzt aktualisieren", exact=True).click()
+    expect(bob.locator("#live-room-code")).to_have_text("EBESExQVFhcYGRobHB0eHw")
+    expect(bob.locator("#kpi-checks")).to_have_text("—")
+    expect(bob.locator("#live-tracker-link")).not_to_be_visible()
+    expect(bob.locator("#live-events-list")).not_to_contain_text("Ziel vom Spielclient")
