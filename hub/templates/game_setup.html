@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ item.name }} · Einrichtung{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('games') }}">← Spielebibliothek</a></p>
+<h1>{{ item.name }}</h1>
+<p class="muted">{{ support_label }} · Du kannst die Voraussetzungen bereits prüfen, bevor die Spieloptionen verfügbar sind.</p>
+{% include "game_setup_panel.html" %}
+{% endblock %}

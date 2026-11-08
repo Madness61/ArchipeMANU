@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Fundorte · {{ item.item }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('mvp.build_stats', sid=room.id, build_id=build.id) }}#progression">← Zur Seed-Analyse</a></p>
+<h1>{{ item.item }}</h1>
+<p class="muted">Konkrete Fundorte · Seed #{{ build.id }} · {{ room.name }}</p>
+<div class="panel">
+  <ul>{% for world in worlds %}{% for location in world.locations %}
+    <li><strong>{{ location.name }}</strong> — {{ world.name }} · {{ world.game }}</li>
+  {% endfor %}{% endfor %}</ul>
+</div>
+{% endblock %}

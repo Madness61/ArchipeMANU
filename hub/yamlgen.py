@@ -1,5 +1,7 @@
 """Option values: form parsing, layering, YAML export and import. No Flask, no database."""
 import re
+import math
+from copy import deepcopy
 
 import yaml
 
@@ -10,6 +12,53 @@ TRUE_WORDS = {"on", "1", "true", "yes", "enabled"}
 FALSE_WORDS = {"off", "0", "false", "none", "null", "no", "disabled"}
 # Options a player may pin for every game they play (profile page).
 GLOBAL_OVERRIDE_KEYS = {"death_link": "toggle", "progression_balancing": "range"}
+
+
+class _Loader(yaml.SafeLoader):
+    def construct_mapping(self, node, deep=False):
+        seen = set()
+        for key_node, _ in node.value:
+            if key_node.tag == "tag:yaml.org,2002:merge":
+                continue
+            key = self.construct_object(key_node, deep=deep)
+            try:
+                if key in seen:
+                    raise ValueError(f"Doppelter YAML-Schlüssel: {key}")
+                seen.add(key)
+            except TypeError as exc:
+                raise ValueError("YAML-Schlüssel müssen einfache Werte sein.") from exc
+        return super().construct_mapping(node, deep=deep)
+
+
+def json_value(value, ancestors=None, budget=None):
+    """Preserve supported YAML values across JSON storage, rejecting lossy conversions."""
+    ancestors = set() if ancestors is None else ancestors
+    budget = [0] if budget is None else budget
+    budget[0] += 1
+    if budget[0] > 100000 or len(ancestors) > 100:
+        raise ValueError("Die YAML-Struktur ist zu groß oder zu tief verschachtelt.")
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, float):
+        if math.isfinite(value):
+            return value
+        raise ValueError("NaN und unendliche Zahlen sind nicht erlaubt.")
+    if not isinstance(value, (list, dict)):
+        raise ValueError("Nicht unterstützter YAML-Wert. Listen, Zuordnungen und einfache Werte verwenden.")
+    if id(value) in ancestors:
+        raise ValueError("Rekursive YAML-Verweise sind nicht erlaubt.")
+    parents = ancestors | {id(value)}
+    if isinstance(value, list):
+        return [json_value(v, parents,budget) for v in value]
+    result = {}
+    for key, item in value.items():
+        if not isinstance(key, (str, int, bool)):
+            raise ValueError("YAML-Schlüssel müssen Text, ganze Zahlen oder An/Aus-Werte sein.")
+        name = str(key).lower() if isinstance(key, bool) else str(key)
+        if name in result:
+            raise ValueError(f"Mehrdeutiger YAML-Schlüssel: {name}")
+        result[name] = json_value(item, parents,budget)
+    return result
 
 
 def options_by_key(schema: dict) -> dict:
@@ -24,34 +73,46 @@ def _same(opt: dict, a, b) -> bool:
 
 def is_weighted(opt: dict, value) -> bool:
     """A dict for a single-value option is AP's weight syntax ({easy: 30, hard: 70})."""
-    return opt["kind"] in SCALAR_KINDS and isinstance(value, dict)
+    return opt["kind"] in SCALAR_KINDS and isinstance(value, (dict,list)) and opt.get("supports_weighting",True)
+
+
+def raw_mode(opt,value):
+    return (opt["kind"] == "raw" or is_weighted(opt,value)
+            or (opt["kind"] == "range" and isinstance(value,str))
+            or (opt["kind"] == "toggle" and not isinstance(value,bool))
+            or (opt["kind"] == "choice" and (not isinstance(value,str) or value not in dict(opt.get("choices") or [])))
+            or (opt["kind"] == "list" and isinstance(value,list) and any(isinstance(v,(list,dict)) for v in value)))
 
 
 # --- Layering ----------------------------------------------------------------------------------
 
 def layer(schema: dict, *layers: dict) -> dict:
-    """APWorld default < template < personal overrides. Returns only values that differ from default."""
-    opts = options_by_key(schema)
-    result = {}
+    """Resolve layers in order, preserving explicit defaults and unknown keys for validation."""
+    return effective_values(schema,*layers)
+
+
+def effective_values(schema, *layers):
+    """AP defaults < template < profile < lobby; never silently discard unknown keys."""
+    result = {opt["key"]: deepcopy(opt.get("default")) for opt in schema["options"]}
     for values in layers:
-        for key, value in (values or {}).items():
-            if key in opts:
-                result[key] = value
-    return {k: v for k, v in result.items() if not _same(opts[k], v, opts[k].get("default"))}
+        result.update(deepcopy(values or {}))
+    return result
 
 
 def global_overrides_for(schema: dict, overrides: dict) -> dict:
     opts = options_by_key(schema)
     return {k: v for k, v in (overrides or {}).items()
             if k in opts and opts[k]["kind"] == GLOBAL_OVERRIDE_KEYS.get(k)
-            and (opts[k]["kind"] != "range" or opts[k]["min"] <= v <= opts[k]["max"])}
+            }
 
 
 # --- Slot names --------------------------------------------------------------------------------
 
 def clean_slot_name(name: str) -> str:
-    name = re.sub(r"[{}\[\]:,#&*!|>'\"%@`]", "", name).strip()
-    return name[:SLOT_NAME_MAX] or "Player"
+    name = re.sub(r"[{}\[\]:,#&*!|<>'\"%@`/\\?\x00-\x1f\x7f]", "", name).strip().rstrip(". ")
+    if re.fullmatch(r"(?i:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?",name):
+        name = "_" + name
+    return name[:SLOT_NAME_MAX].rstrip(". ") or "Player"
 
 
 def assign_slot_names(entries: list[dict]) -> dict[int, str]:
@@ -88,10 +149,18 @@ def dump(data) -> str:
     return yaml.dump(data, Dumper=_Dumper, sort_keys=False, allow_unicode=True, default_flow_style=False)
 
 
-def player_yaml(slot: str, schema: dict, values: dict, description: str, ap_version: str) -> str:
-    requires = {"version": ap_version}
+def player_yaml(slot: str, schema: dict, values: dict, description: str, ap_version: str, requirements=None) -> str:
+    values = effective_values(schema, values)
+    errors = validate_values(schema, values)
+    if errors:
+        raise ValueError("; ".join(f"{key}: {error}" for key, error in errors.items()))
+    errors.update(validate_requirements(schema,requirements or {},ap_version))
+    if errors:
+        raise ValueError("; ".join(f"{key}: {error}" for key,error in errors.items()))
+    requires = deepcopy(requirements or {})
+    requires["version"] = ap_version
     if schema.get("version") and schema["version"] != "0.0.0":
-        requires["game"] = {schema["game"]: schema["version"]}
+        requires.setdefault("game",{})[schema["game"]] = {"min":schema["version"],"max":schema["version"]}
     doc = {
         "name": slot,
         "description": description,
@@ -106,15 +175,15 @@ def player_yaml(slot: str, schema: dict, values: dict, description: str, ap_vers
 
 def display_value(opt: dict, value) -> str:
     if is_weighted(opt, value):
-        return "gewichtet: " + ", ".join(f"{k} {w}" for k, w in value.items())
+        return "gewichtet: " + (", ".join(f"{k} {w}" for k, w in value.items()) if isinstance(value,dict) else ", ".join(map(str,value)))
     kind = opt["kind"]
     if kind == "toggle":
         return "an" if value is True else "aus" if value is False else str(value)
     if kind in ("choice", "textchoice"):
-        return dict(opt["choices"]).get(value, str(value))
+        return dict(opt["choices"]).get(value, str(value)) if isinstance(value, (str,int,bool)) else dump(value).strip()
     if kind == "range":
         names = {v: k for k, v in (opt.get("special") or {}).items()}
-        return f"{value} ({names[value]})" if value in names else str(value)
+        return f"{value} ({names[value]})" if isinstance(value,(str,int)) and value in names else str(value)
     if kind in ("set", "list"):
         return ", ".join(map(str, value)) if value else "–"
     if kind == "counter" and isinstance(value, dict):
@@ -124,7 +193,8 @@ def display_value(opt: dict, value) -> str:
 
 def summarize(schema: dict, values: dict) -> list[tuple[str, str]]:
     opts = options_by_key(schema)
-    return [(opts[k]["name"], display_value(opts[k], v)) for k, v in values.items() if k in opts]
+    return [(opts[k]["name"], display_value(opts[k], v)) for k, v in values.items()
+            if k in opts and not _same(opts[k],v,opts[k].get("default"))]
 
 
 # --- Form parsing ------------------------------------------------------------------------------
@@ -164,12 +234,12 @@ def parse_field(opt: dict, form, schema: dict):
     field = f"o.{key}"
 
     if form.get(f"m.{key}") == "raw" or kind == "raw":
-        text = form.get(field, "").strip()
+        text = form.get(f"y.{key}", form.get(field, "")).strip()
         if not text:
             return opt.get("default"), None
         try:
-            value = yaml.safe_load(text)
-        except yaml.YAMLError as e:
+            value = json_value(yaml.load(text, Loader=_Loader))
+        except (yaml.YAMLError, ValueError, RecursionError) as e:
             return None, f"Ungültiges YAML: {e}"
         if kind in SCALAR_KINDS and isinstance(value, dict):
             errors = validate_values({"options": [opt], "items": [], "locations": []}, {key: value})
@@ -240,22 +310,46 @@ def parse_field(opt: dict, form, schema: dict):
     return None, f"Unbekannter Optionstyp {kind}"
 
 
-def parse_form(schema: dict, form, previous: dict) -> tuple[dict, dict]:
+def parse_form(schema: dict, form, previous: dict, *, keep_defaults=False) -> tuple[dict, dict]:
     """Only fields listed in _r (rendered) are read; hidden ones keep their previous value."""
     opts = options_by_key(schema)
     rendered = set(form.getlist("_r"))
-    values = {k: v for k, v in (previous or {}).items() if k in opts and k not in rendered}
+    values = {k: v for k, v in (previous or {}).items() if k not in rendered}
     errors = {}
     for key in rendered:
         if key not in opts:
+            errors[key] = "Diese Option existiert in der aktuellen APWorld nicht."
             continue
         value, error = parse_field(opts[key], form, schema)
         if error:
             errors[key] = error
             values[key] = previous.get(key) if previous else None
-        elif not _same(opts[key], value, opts[key].get("default")):
+        elif keep_defaults or not _same(opts[key], value, opts[key].get("default")):
             values[key] = value
-    return {k: v for k, v in values.items() if v is not None}, errors
+    errors.update(validate_values(schema, values))
+    return values, errors
+
+
+def parse_lobby_form(schema, form, previous, baseline):
+    inherited = set(form.getlist("_inherit")) & set(form.getlist("_r"))
+    submitted = form.copy()
+    submitted.setlist("_r",[key for key in form.getlist("_r") if key not in inherited])
+    before = effective_values(schema,baseline,previous)
+    for key in inherited:
+        if key in baseline:
+            before[key] = deepcopy(baseline[key])
+    desired, errors = parse_form(schema, submitted, before, keep_defaults=True)
+    values = deepcopy(previous)
+    opts = options_by_key(schema)
+    for key in set(form.getlist("_r")):
+        if key in errors or key not in opts:
+            continue
+        if key in inherited or _same(opts[key], desired[key], baseline.get(key)):
+            values.pop(key, None)
+        else:
+            values[key] = desired[key]
+    errors.update(validate_values(schema, effective_values(schema, baseline, values)))
+    return values, errors
 
 
 # --- Independent pre-flight validation -------------------------------------------------------
@@ -274,48 +368,36 @@ def validate_values(schema: dict, values: dict) -> dict[str, str]:
             errors[key] = "Diese Option existiert in der aktuellen APWorld nicht."
             continue
         kind = opt["kind"]
+        try:
+            json_value(value)
+        except (ValueError,RecursionError) as exc:
+            errors[key] = str(exc)
+            continue
         if is_weighted(opt, value):
             if not value:
                 errors[key] = "Mindestens ein Gewicht größer als 0 erforderlich."
                 continue
-            if any(isinstance(w, bool) or not isinstance(w, (int, float)) or w < 0
-                   for w in value.values()):
-                errors[key] = "Gewichte müssen nichtnegative Zahlen sein."
+            if isinstance(value,list):
+                for candidate in value:
+                    error = scalar_error(opt,candidate)
+                    if error:
+                        errors[key] = error
+                continue
+            if any(type(w) is not int or w < 0 for w in value.values()):
+                errors[key] = "Gewichte müssen nichtnegative ganze Zahlen sein."
                 continue
             if not any(w > 0 for w in value.values()):
                 errors[key] = "Alle Gewichte sind 0. Mindestens ein Wert muss positiv sein."
                 continue
-            if kind in ("choice", "textchoice"):
-                choices = set(dict(opt.get("choices") or []))
-                if any(str(choice) not in choices for choice in value):
-                    errors[key] = "Gewichtung enthält unbekannte Auswahlwerte."
-            elif kind == "toggle":
-                known = TRUE_WORDS | FALSE_WORDS
-                if any(str(choice).lower() not in known for choice in value):
-                    errors[key] = "Gewichtung enthält ungültige An/Aus-Werte."
-            elif kind == "range":
-                special = opt.get("special") or {}
-                for candidate in value:
-                    if str(candidate).lower() in ("random", "default") or str(candidate).lower() in special:
-                        continue
-                    try:
-                        number = int(candidate)
-                    except (ValueError, TypeError):
-                        errors[key] = "Gewichtung enthält einen ungültigen Zahlenwert."
-                        break
-                    if number < opt["min"] or number > opt["max"]:
-                        errors[key] = "Gewichteter Wert außerhalb des Bereichs."
-                        break
+            for candidate in value:
+                error = scalar_error(opt,candidate)
+                if error:
+                    errors[key] = error
             continue
-        if kind == "toggle" and not isinstance(value, bool):
-            errors[key] = "Bitte An oder Aus auswählen."
-        elif kind == "choice" and value not in dict(opt.get("choices") or []):
-            errors[key] = "Unbekannte Option."
-        elif kind == "range":
-            if isinstance(value, bool) or not isinstance(value, int):
-                errors[key] = "Ganze Zahl erforderlich."
-            elif not opt["min"] <= value <= opt["max"] and value not in (opt.get("special") or {}).values():
-                errors[key] = "Zahl außerhalb des erlaubten Bereichs."
+        if kind in SCALAR_KINDS:
+            error = scalar_error(opt,value)
+            if error:
+                errors[key] = error
         elif kind in ("set", "list") and not isinstance(value, list):
             errors[key] = "Liste erwartet."
         elif kind in ("set", "list") and isinstance(value, list):
@@ -331,60 +413,58 @@ def validate_values(schema: dict, values: dict) -> dict[str, str]:
             elif any(not isinstance(v, int) or isinstance(v, bool) or v < (opt.get("min") or 0)
                      or (opt.get("max") is not None and v > opt["max"]) for v in value.values()):
                 errors[key] = "Ungültige Anzahl."
+        elif kind == "raw":
+            container = opt.get("container") or ("dict" if isinstance(opt.get("default"),dict)
+                                                  else "list" if isinstance(opt.get("default"),list) else "")
+            if container == "dict" and not isinstance(value,dict):
+                errors[key] = "Eine YAML-Zuordnung (Schlüssel: Wert) wird erwartet."
+            elif container == "list" and not isinstance(value,list):
+                errors[key] = "Eine YAML-Liste wird erwartet."
     return errors
 
 
-# --- YAML import -------------------------------------------------------------------------------
-
-def _collapse_weights(opt: dict, value):
-    """{hard: 50, easy: 0} -> hard. Real weighting (several >0) is kept as-is."""
-    if not is_weighted(opt, value):
-        return value
-    active = [k for k, w in value.items() if isinstance(w, (int, float)) and w > 0]
-    if len(active) != 1:
-        return value
-    choice = active[0]
+def scalar_error(opt,value):
     kind = opt["kind"]
+    if isinstance(value,(dict,list)) or value is None:
+        return "Ein einzelner gültiger Wert wird erwartet."
+    text = str(value).lower()
     if kind == "toggle":
-        if choice is True or str(choice).lower() in TRUE_WORDS:
-            return True
-        if choice is False or str(choice).lower() in FALSE_WORDS:
-            return False
-    if kind == "range":
-        if isinstance(choice, int):
-            return choice
+        return "Bitte An oder Aus auswählen." if text not in TRUE_WORDS | FALSE_WORDS | {"random"} else ""
+    if kind == "choice":
+        choices = dict(opt.get("choices") or [])
+        aliases = opt.get("aliases",{})
+        numeric = type(value) is int and text in opt.get("choice_values",{})
+        if text not in choices and text not in aliases and text != "random" and not numeric:
+            return "Unbekannter Auswahlwert."
+    elif kind in ("text","textchoice"):
+        if not isinstance(value,str):
+            return "Text wird erwartet."
+    elif kind == "range":
         special = opt.get("special") or {}
-        if str(choice).lower() in special:
-            return special[str(choice).lower()]
-        if str(choice).lower() == "default":
-            return opt.get("default")
-        return value
-    if kind in ("choice", "textchoice"):
-        return str(choice).lower() if str(choice).lower() in dict(opt["choices"]) else str(choice)
-    return choice
+        if text in special or text in ("random","random-low","random-high","random-middle","default","high","low"):
+            return ""
+        if text.startswith("random-range-"):
+            match = re.fullmatch(r"random-range-(?:(?:low|middle|high)-)?(-?\d+)-(-?\d+)",text)
+            if match and all(opt["min"] <= int(v) <= opt["max"] for v in match.groups()):
+                return ""
+            return "Ungültiger Zufallsbereich."
+        if isinstance(value,bool) or not re.fullmatch(r"-?\d+",str(value)):
+            return "Ganze Zahl erforderlich."
+        number = int(value)
+        if not opt["min"] <= number <= opt["max"] and number not in special.values():
+            return "Zahl außerhalb des erlaubten Bereichs."
+    return ""
 
 
-def _normalize_plain(opt: dict, value):
-    kind = opt["kind"]
-    if kind == "toggle" and isinstance(value, str):
-        if value.lower() in TRUE_WORDS:
-            return True
-        if value.lower() in FALSE_WORDS:
-            return False
-    if kind in ("choice", "textchoice") and isinstance(value, str) and value.lower() in dict(opt["choices"]):
-        return value.lower()
-    if kind == "set" and isinstance(value, dict):  # some YAMLs write sets as {name: weight}
-        return [k for k, w in value.items() if w]
-    return value
-
+# --- YAML import -------------------------------------------------------------------------------
 
 def import_yaml(text: str, games: dict, load_schema) -> tuple[list[dict], list[str]]:
     """games: {slug: {game: name}}. Returns ([{slug, game, name, values, warnings}], errors)."""
     by_name = {info["game"]: slug for slug, info in games.items()}
     results, errors = [], []
     try:
-        docs = [d for d in yaml.safe_load_all(text) if d]
-    except yaml.YAMLError as e:
+        docs = [json_value(d) for d in yaml.load_all(text,Loader=_Loader) if d is not None]
+    except (yaml.YAMLError,ValueError,RecursionError) as e:
         return [], [f"Die Datei ist kein gültiges YAML: {e}"]
 
     for doc in docs:
@@ -401,6 +481,10 @@ def import_yaml(text: str, games: dict, load_schema) -> tuple[list[dict], list[s
         if not game_names:
             errors.append("Kein Spiel gefunden („game:“ fehlt).")
             continue
+        unsupported = set(doc) - {"name","description","game","requires",*game_names}
+        if unsupported:
+            errors.append("Nicht unterstützte YAML-Bereiche: " + ", ".join(sorted(unsupported)) + ". Es wurde nichts daraus übernommen.")
+            continue
 
         for game in game_names:
             slug = by_name.get(game)
@@ -408,18 +492,23 @@ def import_yaml(text: str, games: dict, load_schema) -> tuple[list[dict], list[s
                 errors.append(f"„{game}“ ist auf dem Server nicht installiert – erst die APWorld hochladen.")
                 continue
             schema = load_schema(slug)
+            if not schema:
+                errors.append(f"{game}: Das APWorld-Schema fehlt.")
+                continue
             opts = options_by_key(schema)
-            section = doc.get(game) or {}
-            values, warnings = {}, []
-            for key, value in section.items():
-                if key not in opts:
-                    warnings.append(f"Unbekannte Option „{key}“ ignoriert.")
-                    continue
-                value = _normalize_plain(opts[key], _collapse_weights(opts[key], value))
-                if is_weighted(opts[key], value):
-                    warnings.append(f"„{opts[key]['name']}“ ist gewichtet und wird so übernommen.")
-                if not _same(opts[key], value, opts[key].get("default")):
-                    values[key] = value
+            section = doc.get(game,{})
+            if not isinstance(section,dict):
+                errors.append(f"{game}: Die Spieloptionen müssen eine YAML-Zuordnung sein.")
+                continue
+            values = deepcopy(section)
+            issues = validate_values(schema,values)
+            if not isinstance(doc.get("requires",{}),dict):
+                issues["requires"] = "Die Versionsanforderungen müssen eine Zuordnung sein."
+            if issues:
+                errors.extend(f"{game} – {key}: {message}" for key,message in issues.items())
+                continue
+            warnings = [f"„{opts[key]['name']}“ bleibt unverändert gewichtet." for key,value in values.items()
+                        if is_weighted(opts[key],value)]
             description = doc.get("description")
             results.append({
                 "slug": slug,
@@ -427,5 +516,35 @@ def import_yaml(text: str, games: dict, load_schema) -> tuple[list[dict], list[s
                 "name": description if isinstance(description, str) and description.strip() else f"Import ({doc.get('name', '?')})",
                 "values": values,
                 "warnings": warnings,
+                "requires": doc.get("requires",{}),
             })
     return results, errors
+
+
+def validate_requirements(schema, requirements, ap_version):
+    errors = {}
+    def version(value):
+        if not isinstance(value,str) or not re.fullmatch(r"\d+\.\d+\.\d+",value):
+            raise ValueError("Version muss als Text im Format 0.0.0 angegeben werden.")
+        return tuple(map(int,value.split(".")))
+    try:
+        if set(requirements) - {"version","game"}:
+            raise ValueError("Nicht unterstützte Versions-/Plando-Anforderungen.")
+        if "version" in requirements and version(requirements["version"]) > version(ap_version):
+            raise ValueError("Die Vorlage benötigt eine neuere Archipelago-Version.")
+        games = requirements.get("game",{})
+        if not isinstance(games,dict):
+            raise ValueError("requires.game muss eine Zuordnung sein.")
+        for game,limits in games.items():
+            bounds = {"min":limits} if isinstance(limits,str) else limits
+            if not isinstance(bounds,dict) or not bounds or set(bounds) - {"min","max"}:
+                raise ValueError("World-Version benötigt min und/oder max.")
+            for bound,value in bounds.items():
+                parsed = version(value)
+                if game == schema["game"]:
+                    actual = version(schema.get("version") or "0.0.0")
+                    if (bound == "min" and actual < parsed) or (bound == "max" and actual > parsed):
+                        raise ValueError(f"{game}: aktive APWorld {schema.get('version')} ist nicht mit der Vorlage kompatibel.")
+    except (ValueError,TypeError) as exc:
+        errors["requires"] = str(exc)
+    return errors

@@ -41,6 +41,22 @@ def migrate() -> None:
             conn.execute("ALTER TABLE entries ADD COLUMN ready_hash TEXT NOT NULL DEFAULT ''")
         if "selected_apworld_sha" not in cols:
             conn.execute("ALTER TABLE entries ADD COLUMN selected_apworld_sha TEXT NOT NULL DEFAULT ''")
+        if "template_snapshot" not in cols:
+            conn.execute("ALTER TABLE entries ADD COLUMN template_snapshot TEXT NOT NULL DEFAULT ''")
+        template_cols = {r["name"] for r in conn.execute("PRAGMA table_info(templates)")}
+        for name, declaration in (("source_yaml","TEXT NOT NULL DEFAULT ''"),
+                                  ("source_sha256","TEXT NOT NULL DEFAULT ''"),
+                                  ("requirements","TEXT NOT NULL DEFAULT '{}'"),
+                                  ("immutable","INTEGER NOT NULL DEFAULT 0")):
+            if name not in template_cols:
+                conn.execute(f"ALTER TABLE templates ADD COLUMN {name} {declaration}")
+        # Freeze existing database presets without rewriting any saved option values.
+        for row in conn.execute("""SELECT e.id,e.template_ref,t.game,t.name,t.vals,t.requirements
+            FROM entries e JOIN templates t ON e.template_ref='t:' || t.id
+            WHERE e.template_snapshot='' AND e.game=t.game""").fetchall():
+            snapshot = {"ref":row["template_ref"],"game":row["game"],"label":f"Vorlage „{row['name']}“",
+                        "values":db.loads(row["vals"]),"requires":db.loads(row["requirements"])}
+            conn.execute("UPDATE entries SET template_snapshot=? WHERE id=?",(db.dumps(snapshot),row["id"]))
         columns = {r["name"] for r in conn.execute("PRAGMA table_info(sessions)")}
         if "description" not in columns:
             conn.execute("ALTER TABLE sessions ADD COLUMN description TEXT NOT NULL DEFAULT ''")
@@ -136,12 +152,25 @@ def _entry(eid: int):
     return row, room
 
 
+def update_open_entry(eid, assignments, args):
+    """A concurrent seed start must reject late edits, even after the page was read."""
+    conn = db.get()
+    changed = conn.execute(f"UPDATE entries SET {assignments} WHERE id=? AND session_id IN "
+                           "(SELECT id FROM sessions WHERE locked=0)",(*args,eid)).rowcount
+    conn.commit()
+    if changed != 1:
+        abort(409,"Die Lobby wurde inzwischen gesperrt. Die Einstellungen wurden nicht verändert.")
+
+
 def slot_fingerprint(entry: dict) -> str:
     record = {
         "slot": entry["slot"], "game": entry["game"],
         "values": entry.get("values", {}),
         "game_version": entry.get("game_version", ""),
         "world_sha256": entry.get("requested_world_sha") or "",
+        "template_snapshot":entry.get("template_snapshot", ""),
+        "requires":entry.get("requirements",{}),
+        "schema":entry.get("schema_fingerprint",""),
     }
     raw = json.dumps(record, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -157,8 +186,7 @@ def entry_world_version(eid):
     options = {v["sha256"] for v in ap_bridge.list_apworld_versions() if v["module"] == entry["game"]}
     if chosen and chosen not in options:
         abort(400, "APWorld-Version nicht vorhanden.")
-    db.execute("UPDATE entries SET selected_apworld_sha=?, ready=0, ready_hash='' WHERE id=?",
-               (chosen, eid))
+    update_open_entry(eid,"selected_apworld_sha=?, ready=0, ready_hash=''",(chosen,))
     flash("Version gewählt. Prüfe danach Optionen und Bereitschaft.", "info")
     return redirect(url_for("session_view", sid=room["id"]))
 
@@ -183,9 +211,11 @@ def lobby_list():
     _user()
     rows = db.query("""SELECT s.*, u.username AS host_name,
         (SELECT COUNT(*) FROM lobby_members lm WHERE lm.session_id=s.id) AS member_count,
-        (SELECT COUNT(*) FROM entries e WHERE e.session_id=s.id) AS game_count
+        (SELECT COUNT(*) FROM entries e WHERE e.session_id=s.id) AS game_count,
+        (s.created_by=? OR EXISTS (SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.id AND lm.user_id=?)
+         OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?)) AS is_member
         FROM sessions s LEFT JOIN users u ON u.id=s.created_by
-        ORDER BY s.locked, s.id DESC""")
+        ORDER BY s.locked, s.id DESC""",(g.user["id"],)*3)
     return render_template("lobbies.html", rooms=rows)
 
 
@@ -197,8 +227,8 @@ def join_open_lobby(sid):
         abort(409, "Die Lobby ist bereits geschlossen.")
     db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
                (sid, g.user["id"]))
-    flash("Du bist der Lobby beigetreten. Wähle jetzt dein Spiel.", "info")
-    return redirect(url_for("mvp.choose_game", sid=sid))
+    flash("Du bist der Lobby beigetreten. Unter „Deine Spielauswahl“ kannst du dein Spiel und die YAML-Einstellungen festlegen.", "info")
+    return redirect(url_for("session_view", sid=sid))
 
 
 @bp.route("/sessions/<int:sid>/leave", methods=["POST"])
@@ -241,9 +271,14 @@ def choose_game(sid):
         "SELECT 1 FROM lobby_members WHERE session_id=? AND user_id=?",
         (sid, g.user["id"]), one=True):
         return redirect(url_for("mvp.lobby_list"))
-    from .community import all_games
-    choices = [game for game in all_games() if game["installed"]]
-    return render_template("choose_game.html", room=room, games=choices)
+    return redirect(url_for("session_view", sid=sid, _anchor="game-selection"))
+
+
+@bp.route("/sessions/<int:sid>/selection", methods=["POST"])
+def lobby_selection_submit(sid):
+    _user()
+    from . import lobby_selection
+    return lobby_selection.submit(sid)
 
 
 def _join_url(token: str):
@@ -302,40 +337,49 @@ def entry_options(eid):
     schema = ap_bridge.schema(entry["game"])
     if schema is None:
         abort(404, "Diese APWorld ist nicht verfügbar.")
-    active = next((v["sha256"] for v in ap_bridge.list_apworld_versions()
-                   if v["active"] and v["module"] == entry["game"]), "")
-    if entry["selected_apworld_sha"] and entry["selected_apworld_sha"] != active:
-        abort(409, "Diese APWorld-Version ist nicht aktiv. Der Host muss sie im Adminbereich aktivieren.")
-    from .app import resolve_template, user_values
-    _, template_values, _ = resolve_template(schema, entry["template_ref"])
+    issue = ap_bridge.world_error(entry["game"],entry["selected_apworld_sha"])
+    if issue:
+        abort(409,issue)
+    from .app import entry_preset, user_values, session_entries, entry_yaml
+    _,template_values,found,requirements = entry_preset(schema,entry)
     overrides = db.loads(entry["option_overrides"])
     owner = db.query("SELECT * FROM users WHERE id=?", (entry["user_id"],), one=True)
-    effective = user_values(schema, yamlgen.layer(schema, template_values, overrides), owner)
-    errors = {}
+    baseline = user_values(schema,template_values,owner)
+    effective = user_values(schema,template_values,owner,overrides)
+    errors = yamlgen.validate_values(schema,effective)
+    errors.update(yamlgen.validate_requirements(schema,requirements,ap_bridge.index().get("ap_version","0.0.0")))
+    if not found:
+        errors["_template"] = "Die gewählte Vorlage fehlt oder wurde verändert. Bitte eine gültige Vorlage wählen."
+    pending = False
     if request.method == "POST":
-        updated, errors = yamlgen.parse_form(schema, request.form, effective)
-        errors.update(yamlgen.validate_values(schema, updated))
-        if not errors:
-            db.execute("UPDATE entries SET option_overrides=?, ready=0, ready_hash='' WHERE id=?",
-                       (db.dumps(updated), eid))
+        if request.form.get("_action") == "reset":
+            updated,field_errors = {},yamlgen.validate_values(schema,baseline)
+        else:
+            updated, field_errors = yamlgen.parse_lobby_form(schema,request.form,overrides,baseline)
+        errors = {k:v for k,v in errors.items() if k in ("_template","requires")}
+        errors.update(field_errors)
+        pending = True
+        if not errors and request.form.get("_action") != "preview":
+            update_open_entry(eid,"option_overrides=?, ready=0, ready_hash=''",(db.dumps(updated),))
             flash("Deine Einstellungen wurden gespeichert; bitte erneut als bereit markieren.", "info")
             return redirect(url_for("session_view", sid=room["id"]))
-        effective = updated
-        flash("Bitte fehlerhafte Optionen korrigieren.", "error")
+        effective = user_values(schema,template_values,owner,updated)
+        if errors:
+            flash("Bitte fehlerhafte Optionen korrigieren. Es wurde nichts gespeichert.", "error")
     groups = {}
     expert = request.args.get("expert") == "1"
     for option in schema["options"]:
-        if expert or option["key"] in effective or (
+        if expert or option["key"] in overrides or effective.get(option["key"]) != option.get("default") or (
             option.get("simple") and option.get("group") != "Item & Location Options"
             and option.get("kind") != "raw"
         ):
             groups.setdefault(option["group"], []).append(option)
-    yaml_preview = yamlgen.player_yaml(
-        yamlgen.clean_slot_name(owner["slot_name"]), schema, effective,
-        "Konfigurationsvorschau", ap_bridge.index().get("ap_version", "0.0.0"))
+    selected = next(e for e in session_entries(room["id"]) if e["id"] == eid)
+    selected["values"] = effective
+    yaml_preview = entry_yaml(selected,schema,ap_bridge.index().get("ap_version","0.0.0")) if not errors else ""
     return render_template("entry_options.html", entry=entry, room=room, schema=schema,
                            groups=groups, values=effective, errors=errors, yg=yamlgen,
-                           expert=expert, yaml_preview=yaml_preview)
+                           expert=expert, yaml_preview=yaml_preview, pending=pending,lobby=True)
 
 
 @bp.route("/entries/<int:eid>/ready", methods=["POST"])
@@ -352,14 +396,21 @@ def entry_ready(eid):
         if not schema:
             flash("Die APWorld ist nicht installiert.", "error")
             return redirect(url_for("session_view", sid=room["id"]))
-        from .app import resolve_template, user_values
-        _, templ, found = resolve_template(schema, entry["template_ref"])
+        from .app import entry_preset, capture_template, session_entries
+        if not entry["template_snapshot"]:
+            try:
+                snapshot = capture_template(schema,entry["template_ref"])
+            except ValueError as exc:
+                flash(str(exc),"error")
+                return redirect(url_for("session_view",sid=room["id"]))
+            update_open_entry(eid,"template_snapshot=?",(snapshot,))
+        selected = next(e for e in session_entries(room["id"]) if e["id"] == eid)
+        found = selected["template_found"]
         if not found:
             flash("Die ausgewählte Vorlage existiert nicht mehr.", "error")
             return redirect(url_for("session_view", sid=room["id"]))
-        values = user_values(schema, yamlgen.layer(
-            schema, templ, db.loads(entry["option_overrides"])), g.user)
-        errors = yamlgen.validate_values(schema, values)
+        errors = yamlgen.validate_values(schema,selected["values"])
+        errors.update(yamlgen.validate_requirements(schema,selected["requirements"],ap_bridge.index().get("ap_version","0.0.0")))
         if errors:
             flash("Optionen ungültig: " + "; ".join(f"{k}: {v}" for k,v in errors.items())[:700], "error")
             return redirect(url_for("mvp.entry_options", eid=eid))
@@ -367,11 +418,11 @@ def entry_ready(eid):
     if new:
         from .app import session_entries
         selected = next(e for e in session_entries(room["id"]) if e["id"] == eid)
-        if selected["requested_world_sha"] != selected["active_world_sha"]:
-            flash("Gewählte APWorld-Version ist nicht aktiv.", "error")
+        if selected["world_error"]:
+            flash(selected["world_error"], "error")
             return redirect(url_for("session_view", sid=room["id"]))
         fingerprint = slot_fingerprint(selected)
-    db.execute("UPDATE entries SET ready=?, ready_hash=? WHERE id=?", (int(new), fingerprint, eid))
+    update_open_entry(eid,"ready=?, ready_hash=?",(int(new),fingerprint))
     return redirect(url_for("session_view", sid=room["id"]))
 
 
@@ -394,6 +445,8 @@ def preflight(sid: int) -> tuple[list[dict], list[tuple[str, str]], list[str]]:
         if not entry["installed"]:
             failures.append(f"{entry['username']}: {entry['game']} ist nicht installiert.")
             continue
+        if entry["world_error"]:
+            failures.append(f"{entry['username']}: {entry['world_error']}")
         if not entry.get("template_found"):
             failures.append(f"{entry['username']}: gespeicherte Vorlage ist nicht mehr vorhanden.")
         if not entry["ready"]:
@@ -407,24 +460,28 @@ def preflight(sid: int) -> tuple[list[dict], list[tuple[str, str]], list[str]]:
         if previous is not None and previous != entry["user_id"]:
             failures.append(f"Slotname „{entry['slot_name']}“ ist mehrfach vergeben.")
         known_slots[original] = entry["user_id"]
-        schema = ap_bridge.schema(entry["game"])
+        schema = entry["_schema"]
         for key, error in yamlgen.validate_values(schema, entry["values"]).items():
             failures.append(f"{entry['username']} – {entry['game_name']} – {key}: {error}")
+        for key,error in yamlgen.validate_requirements(schema,entry["requirements"],ap_bridge.index().get("ap_version","0.0.0")).items():
+            failures.append(f"{entry['username']} – {key}: {error}")
     files = [] if failures else session_yamls(entries)
-    if len(files) != len(entries):
+    if not failures and len(files) != len(entries):
         failures.append("Die Anzahl erzeugter YAML-Dateien stimmt nicht mit der Spieleranzahl überein.")
     active_worlds = {v["module"]: v for v in ap_bridge.list_apworld_versions() if v["active"]}
     games = ap_bridge.index()["games"]
     selected = []
     for entry in entries:
-        if entry["game"] not in games:
+        if not entry["installed"]:
             continue
         world = active_worlds.get(entry["game"])
         selected.append({
             "slot": entry["slot"], "player_id": entry["user_id"], "game": entry["game"],
-            "game_name": entry["game_name"], "game_version": ap_bridge.schema(entry["game"])["version"],
+            "game_name": entry["game_name"], "game_version": entry["game_version"],
             "apworld_sha256": entry.get("requested_world_sha") or None,
             "ready": bool(entry["ready"]),
+            "values":entry["values"],"requires":entry["requirements"],
+            "configuration_hash":slot_fingerprint(entry),
         })
     # Block custom world execution unless host explicitly opts into the trusted-only mode.
     if any(v["apworld_sha256"] for v in selected) and not ap_bridge.trusted_custom_execution():
@@ -440,7 +497,7 @@ def _generate_job(build_id: int, snapshot: dict, files: list[tuple[str, str]]):
         players.mkdir(parents=True, exist_ok=False)
         output.mkdir(parents=True, exist_ok=False)
         for filename, contents in files:
-            (players / filename).write_text(contents, encoding="utf-8")
+            (players / filename).write_bytes(contents.encode("utf-8"))
         with db.transaction() as conn:
             conn.execute("UPDATE seed_builds SET status='running' WHERE id=?", (build_id,))
         # Never re-read user options or templates while generating a snapshot.
@@ -480,22 +537,31 @@ def begin_build(sid: int, spoiler: int, race: bool) -> tuple[int | None, list[st
         abort(403)
     if not ap_bridge.ap_ready():
         return None, ["Archipelago-Worker nicht eingerichtet (setup.ps1 ausführen)."]
-    selected, files, errors = preflight(sid)
-    if errors:
-        return None, errors
     with _LOCK:
-        running = db.query("SELECT id FROM seed_builds WHERE session_id=? AND status IN ('queued','running')",
-                           (sid,), one=True)
-        if running:
-            return None, ["Für diese Session läuft bereits eine Generierung."]
-        snapshot = {
-            "version": 1, "session_id": sid, "archipelago_version": ap_bridge.index().get("ap_version"),
-            "slots": selected, "yamls": {name: hashlib.sha256(txt.encode("utf-8")).hexdigest() for name,txt in files},
-            "spoiler": spoiler, "race": race, "created_at": utc_now(),
-        }
-        bid = db.execute("INSERT INTO seed_builds(session_id,status,snapshot,created_at) VALUES (?,?,?,?)",
-                         (sid, "queued", json.dumps(snapshot, ensure_ascii=False), utc_now()))
-        db.execute("UPDATE sessions SET locked=1 WHERE id=?", (sid,))
+        conn = db.get()
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            running = db.query("SELECT id FROM seed_builds WHERE session_id=? AND status IN ('queued','running')",
+                               (sid,), one=True)
+            if running:
+                conn.rollback()
+                return None, ["Für diese Session läuft bereits eine Generierung."]
+            selected, files, errors = preflight(sid)
+            if errors:
+                conn.rollback()
+                return None, errors
+            snapshot = {
+                "version": 2, "session_id": sid, "archipelago_version": ap_bridge.index().get("ap_version"),
+                "slots": selected, "yamls": {name: hashlib.sha256(txt.encode("utf-8")).hexdigest() for name,txt in files},
+                "spoiler": spoiler, "race": race, "created_at": utc_now(),
+            }
+            bid = conn.execute("INSERT INTO seed_builds(session_id,status,snapshot,created_at) VALUES (?,?,?,?)",
+                               (sid, "queued", json.dumps(snapshot, ensure_ascii=False), utc_now())).lastrowid
+            conn.execute("UPDATE sessions SET locked=1 WHERE id=?",(sid,))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
         threading.Thread(target=_generate_job, args=(bid, snapshot, files), daemon=True).start()
         return bid, []
 
@@ -603,6 +669,31 @@ def save_hosting(sid, build_id):
     return redirect(url_for("mvp.play_page", sid=sid, build_id=build_id))
 
 
+def _build_distribution(build, metadata=None):
+    metadata = json.loads(build["snapshot"]) if metadata is None else metadata
+    if metadata.get("race") or build["status"] != "succeeded" or not build["stats_json"]:
+        return None
+    try:
+        candidate = json.loads(build["stats_json"])
+        return candidate if stats.valid_distribution(candidate) else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _build_placements(build, distribution):
+    if distribution is None:
+        return None
+    path = config.SESSIONS / "_seeds" / str(build["id"]) / "output" / "item_placements.json"
+    try:
+        if path.is_file() and path.stat().st_size <= 32 * 1024 * 1024:
+            candidate = json.loads(path.read_text(encoding="utf-8"))
+            if stats.valid_item_details(candidate, distribution):
+                return candidate["placements"]
+    except (OSError, ValueError, TypeError):
+        pass
+    return None
+
+
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/stats")
 def build_stats(sid, build_id):
     room = _session(sid)
@@ -612,18 +703,36 @@ def build_stats(sid, build_id):
         abort(404)
     metadata = json.loads(build["snapshot"])
     # Race mode intentionally never presents spoiler-based distribution stats.
-    payload = None
-    if not metadata.get("race") and build["status"] == "succeeded" and build["stats_json"]:
-        try:
-            candidate = json.loads(build["stats_json"])
-            if stats.valid_distribution(candidate):
-                payload = candidate
-        except (ValueError, TypeError):
-            pass
+    payload = _build_distribution(build, metadata)
+    placements = _build_placements(build, payload)
     return render_template("seed_stats.html", room=room, build=build,
+                           hosted=db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1",(build_id,),one=True),
                            stats=payload, race=bool(metadata.get("race")),
                            overview=stats.game_overview(payload) if payload else [],
+                           progression=stats.progression_items(payload, placements) if placements is not None else [],
+                           progression_available=placements is not None,
                            reveal=request.args.get("spoilers") == "1")
+
+
+@bp.route("/sessions/<int:sid>/builds/<int:build_id>/stats/progression/<int:placement_id>")
+def reveal_progression_world(sid, build_id, placement_id):
+    room = _session(sid)
+    _assert_access(room)
+    build = db.query("SELECT * FROM seed_builds WHERE id=? AND session_id=?", (build_id, sid), one=True)
+    if not build:
+        abort(404)
+    metadata = json.loads(build["snapshot"])
+    if metadata.get("race"):
+        abort(403, "Im Race-Modus sind Spoiler gesperrt.")
+    distribution = _build_distribution(build, metadata)
+    placements = _build_placements(build, distribution)
+    if placements is None or placement_id >= len(placements) or placements[placement_id]["category"] != "progression":
+        abort(404, "Für dieses Item sind keine verifizierten Progression-Daten verfügbar.")
+    worlds = stats.progression_worlds(distribution, placements, placement_id)
+    if request.accept_mimetypes.best == "application/json":
+        return jsonify(worlds=worlds)
+    return render_template("progression_world.html", room=room, build=build,
+                           item=placements[placement_id], worlds=worlds)
 
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/stats/items/<int:player_id>")
@@ -638,11 +747,8 @@ def build_item_details(sid, build_id, player_id):
         abort(403, "Im Race-Modus sind Spoiler gesperrt.")
     if build["status"] != "succeeded":
         abort(404)
-    try:
-        distribution = json.loads(build["stats_json"])
-    except (ValueError, TypeError):
-        abort(404)
-    if not stats.valid_distribution(distribution):
+    distribution = _build_distribution(build, metadata)
+    if distribution is None:
         abort(404)
     players = {p["id"]: p for p in distribution["players"]}
     if player_id not in players:
@@ -655,15 +761,7 @@ def build_item_details(sid, build_id, player_id):
         page = max(1, int(request.args.get("page", "1")))
     except ValueError:
         abort(400)
-    path = config.SESSIONS / "_seeds" / str(build_id) / "output" / "item_placements.json"
-    placements = None
-    try:
-        if path.is_file() and path.stat().st_size <= 32 * 1024 * 1024:
-            candidate = json.loads(path.read_text(encoding="utf-8"))
-            if stats.valid_item_details(candidate, distribution):
-                placements = candidate["placements"]
-    except (OSError, ValueError, TypeError):
-        pass
+    placements = _build_placements(build, distribution)
     matches = [p for p in (placements or []) if p[direction] == player_id
                and search.casefold() in (p["item"] + " " + p["location"] + " "
                    + players[p["finder"]]["name"] + " " + players[p["recipient"]]["name"]).casefold()]
@@ -677,6 +775,7 @@ def build_item_details(sid, build_id, player_id):
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/play")
 def play_page(sid, build_id):
+    from . import game_catalog
     room = _session(sid)
     _assert_access(room)
     build = db.query("SELECT * FROM seed_builds WHERE id=? AND session_id=?", (build_id, sid), one=True)
@@ -691,7 +790,11 @@ def play_page(sid, build_id):
         guide = db.query("SELECT * FROM game_guides WHERE slug=?", (slot["game"],), one=True)
         guides[slot["game"]] = dict(guide) if guide else None
     assets = artifact_files(build_id, build["zip_name"]) if build["status"] == "succeeded" else []
+    distribution = _build_distribution(build, snapshot)
     return render_template("play.html", room=room, build=build, hosted=hosted,
+                           setup_infos={slot["game"]: game_catalog.details(slot["game"], slot["game_name"]) for slot in own},
+                           stats=distribution, race=bool(snapshot.get("race")),
+                           overview=stats.game_overview(distribution) if distribution else [],
                            slots=snapshot["slots"], own=own, guides=guides, assets=assets)
 
 

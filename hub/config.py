@@ -20,8 +20,8 @@ SCHEMAS = DATA / "schemas"
 SESSIONS = DATA / "sessions"
 DB_PATH = DATA / "hub.db"
 
-# Optional shared password for the whole group. Empty = anyone who can reach the site may log in.
-GROUP_PASSWORD = os.environ.get("HUB_PASSWORD", "")
+# Registration is open; legacy HUB_PASSWORD/HUB_INVITE_CODE values are ignored.
+COOKIE_SECURE = os.environ.get("HUB_COOKIE_SECURE", "0") == "1"
 
 GENERATE_TIMEOUT = int(os.environ.get("HUB_GENERATE_TIMEOUT", 15 * 60))
 EXTRACT_TIMEOUT = int(os.environ.get("HUB_EXTRACT_TIMEOUT", 10 * 60))

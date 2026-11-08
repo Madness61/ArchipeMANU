@@ -35,6 +35,14 @@ def migrate():
         );
         CREATE INDEX IF NOT EXISTS community_game_modules ON community_games(module);
         """)
+        columns = {r["name"] for r in conn.execute("PRAGMA table_info(community_games)")}
+        if "yaml_sha256" not in columns:
+            conn.execute("ALTER TABLE community_games ADD COLUMN yaml_sha256 TEXT NOT NULL DEFAULT ''")
+            for row in conn.execute("SELECT sha256 FROM community_games WHERE yaml_file=sha256").fetchall():
+                path = config.DATA / "community" / row["sha256"] / "options.yaml"
+                if path.is_file():
+                    conn.execute("UPDATE community_games SET yaml_sha256=? WHERE sha256=?",
+                                 (hashlib.sha256(path.read_bytes()).hexdigest(),row["sha256"]))
 
 
 def all_games(search=""):
@@ -150,10 +158,10 @@ def game_add():
                     original.write(yaml_data)
                 yaml_relative = info["sha256"]
             db.execute("""INSERT INTO community_games
-                     (sha256,module,display_name,version,created_by,yaml_file,source_url,approved)
-                     VALUES (?,?,?,?,?,?,?,1)""",
+                     (sha256,module,display_name,version,created_by,yaml_file,source_url,approved,yaml_sha256)
+                     VALUES (?,?,?,?,?,?,?,1,?)""",
                        (info["sha256"], info["module"], label, info["version"],
-                        g.user["id"], yaml_relative, source))
+                        g.user["id"], yaml_relative, source, hashlib.sha256(yaml_data).hexdigest() if yaml_data else ""))
     except (ValueError, OSError) as exc:
         flash(str(exc), "error")
         return render_template("community_add.html"), 400

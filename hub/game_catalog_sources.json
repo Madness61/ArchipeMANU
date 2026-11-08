@@ -1,0 +1,1566 @@
+{
+  "ahit": {
+    "guide_url": "https://archipelago.gg/tutorial/A%20Hat%20in%20Time/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/ahit/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Steam release of A Hat in Time",
+        "url": "https://store.steampowered.com/app/253230/A_Hat_in_Time/"
+      },
+      {
+        "label": "Archipelago Workshop Mod for A Hat in Time",
+        "url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3026842601"
+      }
+    ]
+  },
+  "alttp": {
+    "guide_url": "https://archipelago.gg/tutorial/A%20Link%20to%20the%20Past/multiworld/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/alttp/docs/multiworld_en.md",
+    "links": [
+      {
+        "label": "SNI",
+        "url": "https://github.com/alttpo/sni/releases"
+      },
+      {
+        "label": "snes9x-nwa",
+        "url": "https://github.com/Skarsnik/snes9x-emunwa/releases"
+      },
+      {
+        "label": "snes9x-rr",
+        "url": "https://github.com/gocha/snes9x-rr/releases"
+      },
+      {
+        "label": "BSNES-plus",
+        "url": "https://github.com/black-sliver/bsnes-plus"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "RetroArch",
+        "url": "https://retroarch.com?page=platforms"
+      }
+    ]
+  },
+  "shorthike": {
+    "guide_url": "https://archipelago.gg/tutorial/A%20Short%20Hike/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/shorthike/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Steam",
+        "url": "https://store.steampowered.com/app/1055540/A_Short_Hike/"
+      },
+      {
+        "label": "AShortHike.Randomizer: Projekt und Anleitung",
+        "url": "https://github.com/BrandenEK/AShortHike.Randomizer"
+      },
+      {
+        "label": "Mod Installer readme",
+        "url": "https://github.com/BrandenEK/AShortHike.Modding.Installer"
+      }
+    ]
+  },
+  "apquest": {
+    "guide_url": "https://archipelago.gg/tutorial/APQuest/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/apquest/docs/setup_en.md",
+    "links": [
+      {
+        "label": "The APQuest apworld",
+        "url": "https://github.com/NewSoupVi/Archipelago/releases"
+      }
+    ]
+  },
+  "adventure": {
+    "guide_url": "https://archipelago.gg/tutorial/Adventure/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/adventure/docs/setup_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "aquaria": {
+    "guide_url": "https://archipelago.gg/tutorial/Aquaria/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/aquaria/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/24420/Aquaria/"
+      },
+      {
+        "label": "Aquaria randomizer",
+        "url": "https://github.com/tioui/Aquaria_Randomizer/releases/latest"
+      }
+    ]
+  },
+  "blasphemous": {
+    "guide_url": "https://archipelago.gg/tutorial/Blasphemous/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/blasphemous/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/774361/Blasphemous/"
+      },
+      {
+        "label": "Mod Installer",
+        "url": "https://github.com/BrandenEK/Blasphemous.Modding.Installer"
+      },
+      {
+        "label": "Multiworld",
+        "url": "https://github.com/BrandenEK/Blasphemous.Randomizer.Multiworld"
+      },
+      {
+        "label": "Boots of Pleading",
+        "url": "https://github.com/BrandenEK/Blasphemous.BootsOfPleading"
+      },
+      {
+        "label": "Double Jump",
+        "url": "https://github.com/BrandenEK/Blasphemous.DoubleJump"
+      }
+    ]
+  },
+  "bomb_rush_cyberfunk": {
+    "guide_url": "https://archipelago.gg/tutorial/Bomb%20Rush%20Cyberfunk/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/bomb_rush_cyberfunk/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Steam",
+        "url": "https://store.steampowered.com/app/1353230/Bomb_Rush_Cyberfunk/"
+      },
+      {
+        "label": "Thunderstore",
+        "url": "https://thunderstore.io/c/bomb-rush-cyberfunk/p/TRPG/BRC_Archipelago/"
+      },
+      {
+        "label": "BRC-Archipelago: Downloads",
+        "url": "https://github.com/TRPG0/BRC-Archipelago/releases"
+      },
+      {
+        "label": "r2modman",
+        "url": "https://thunderstore.io/c/bomb-rush-cyberfunk/p/ebkr/r2modman/"
+      },
+      {
+        "label": "BepInEx 5.4.22 x64",
+        "url": "https://github.com/BepInEx/BepInEx/releases/tag/v5.4.22"
+      },
+      {
+        "label": "BRC-ModLocalizer: Downloads",
+        "url": "https://github.com/TRPG0/BRC-ModLocalizer/releases"
+      },
+      {
+        "label": "MoreMap",
+        "url": "https://thunderstore.io/c/bomb-rush-cyberfunk/p/TRPG/MoreMap/"
+      },
+      {
+        "label": "FasterLoadTimes",
+        "url": "https://thunderstore.io/c/bomb-rush-cyberfunk/p/cspotcode/FasterLoadTimes/"
+      },
+      {
+        "label": "CutsceneSkip",
+        "url": "https://thunderstore.io/c/bomb-rush-cyberfunk/p/Jay/CutsceneSkip/"
+      },
+      {
+        "label": "GimmeMyBoost",
+        "url": "https://thunderstore.io/c/bomb-rush-cyberfunk/p/Yuri/GimmeMyBoost/"
+      },
+      {
+        "label": "DisableAnnoyingCutscenes",
+        "url": "https://thunderstore.io/c/bomb-rush-cyberfunk/p/viliger/DisableAnnoyingCutscenes/"
+      },
+      {
+        "label": "FastTravel",
+        "url": "https://thunderstore.io/c/bomb-rush-cyberfunk/p/tari/FastTravel/"
+      }
+    ]
+  },
+  "bumpstik": {
+    "guide_url": "https://archipelago.gg/tutorial/Bumper%20Stickers/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/bumpstik/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Bumper Stickers GitHub releases page",
+        "url": "https://github.com/FelicitusNeko/FlixelBumpStik/releases"
+      },
+      {
+        "label": "Bumper Stickers AP Itch page",
+        "url": "https://kewliomzx.itch.io/bumpstik-ap"
+      }
+    ]
+  },
+  "cvcotm": {
+    "guide_url": "https://archipelago.gg/tutorial/Castlevania%20-%20Circle%20of%20the%20Moon/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/cvcotm/docs/setup_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "cv64": {
+    "guide_url": "https://archipelago.gg/tutorial/Castlevania%2064/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/cv64/docs/setup_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "checksfinder": {
+    "guide_url": "https://archipelago.gg/tutorial/ChecksFinder/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/checksfinder/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Github releases Page for the game",
+        "url": "https://github.com/jonloveslegos/ChecksFinder/releases"
+      },
+      {
+        "label": "itch.io Page for the game",
+        "url": "https://suncat0.itch.io/checksfinder"
+      }
+    ]
+  },
+  "cccharles": {
+    "guide_url": "https://archipelago.gg/tutorial/Choo-Choo%20Charles/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/cccharles/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Choo-Choo Charles Multiworld Randomizer Mod page",
+        "url": "https://github.com/lgbarrere/CCCharles-Random?tab=readme-ov-file#cccharles-random"
+      },
+      {
+        "label": "Steam",
+        "url": "https://store.steampowered.com/app/1766740/ChooChoo_Charles/"
+      },
+      {
+        "label": "CCCharles-Random: Downloads",
+        "url": "https://github.com/lgbarrere/CCCharles-Random/releases"
+      }
+    ]
+  },
+  "civ_6": {
+    "guide_url": "https://archipelago.gg/tutorial/Civilization%20VI/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/civ_6/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/289070/Sid_Meiers_Civilization_VI/"
+      },
+      {
+        "label": "Civ VI AP Mod",
+        "url": "https://github.com/hesto2/civilization_archipelago_mod/releases/latest"
+      }
+    ]
+  },
+  "dlcquest": {
+    "guide_url": "https://archipelago.gg/tutorial/DLCQuest/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/dlcquest/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Steam version",
+        "url": "https://store.steampowered.com/app/230050/DLC_Quest/"
+      },
+      {
+        "label": "DLCQuestipelago",
+        "url": "https://github.com/agilbert1412/DLCQuestipelago/releases"
+      }
+    ]
+  },
+  "doom_1993": {
+    "guide_url": "https://archipelago.gg/tutorial/DOOM%201993/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/doom_1993/docs/setup_en.md",
+    "links": [
+      {
+        "label": "DOOM 1993 (e.g. Steam version)",
+        "url": "https://store.steampowered.com/app/2280/DOOM__DOOM_II/"
+      },
+      {
+        "label": "Archipelago Crispy DOOM",
+        "url": "https://github.com/Daivuk/apdoom/releases"
+      }
+    ]
+  },
+  "doom_ii": {
+    "guide_url": "https://archipelago.gg/tutorial/DOOM%20II/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/doom_ii/docs/setup_en.md",
+    "links": [
+      {
+        "label": "DOOM II (e.g. Steam version)",
+        "url": "https://store.steampowered.com/app/2280/DOOM__DOOM_II/"
+      },
+      {
+        "label": "Archipelago Crispy DOOM",
+        "url": "https://github.com/Daivuk/apdoom/releases"
+      }
+    ]
+  },
+  "dark_souls_3": {
+    "guide_url": "https://archipelago.gg/tutorial/Dark%20Souls%20III/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/dark_souls_3/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Dark Souls III",
+        "url": "https://store.steampowered.com/app/374320/DARK_SOULS_III/"
+      },
+      {
+        "label": "Dark Souls III AP Client",
+        "url": "https://github.com/nex3/Dark-Souls-III-Archipelago-client/releases/latest"
+      },
+      {
+        "label": ".NET Runtime",
+        "url": "https://dotnet.microsoft.com/en-us/download/dotnet/6.0"
+      },
+      {
+        "label": "WINE",
+        "url": "https://www.winehq.org/"
+      },
+      {
+        "label": "thefifthmatt's DS3 enemy randomizer",
+        "url": "https://www.nexusmods.com/darksouls3/mods/484"
+      },
+      {
+        "label": "SoulsRandomizers: Projekt und Anleitung",
+        "url": "https://github.com/thefifthmatt/SoulsRandomizers/issues"
+      }
+    ]
+  },
+  "earthbound": {
+    "guide_url": "https://archipelago.gg/tutorial/EarthBound/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/earthbound/docs/setup_en.md",
+    "links": [
+      {
+        "label": "snes9x rr",
+        "url": "https://github.com/gocha/snes9x-rr/releases"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "snes9x nwa",
+        "url": "https://github.com/Skarsnik/snes9x-emunwa/releases"
+      }
+    ]
+  },
+  "factorio": {
+    "guide_url": "https://archipelago.gg/tutorial/Factorio/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/factorio/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Factorio Official Website",
+        "url": "https://factorio.com"
+      },
+      {
+        "label": "Factorio Official Website Download Page",
+        "url": "https://factorio.com/download"
+      },
+      {
+        "label": "Factorio Official Website",
+        "url": "https://factorio.com/"
+      },
+      {
+        "label": "WhatIsMyIP Website",
+        "url": "https://whatismyip.com/"
+      },
+      {
+        "label": "Factorio (Steam) Archipelago Setup Guide for Windows",
+        "url": "https://docs.google.com/document/d/1yZPAaXB-QcetD8FJsmsFrenAHO5V6Y2ctMAyIoT9jS4"
+      },
+      {
+        "label": "Factorio Speedrun Guide by Nefrums",
+        "url": "https://www.youtube.com/watch?v=ExLrmK1c7tA"
+      },
+      {
+        "label": "Factorio Official Wiki",
+        "url": "https://wiki.factorio.com/"
+      },
+      {
+        "label": "Archipelago Factorio Cheat Sheet",
+        "url": "https://docs.google.com/spreadsheets/d/1317PZU957IVWCG9jUUklyHAl82BhrKIriynSZJ0AGNg/edit?gid=0#gid=0"
+      }
+    ]
+  },
+  "faxanadu": {
+    "guide_url": "https://archipelago.gg/tutorial/Faxanadu/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/faxanadu/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Daxanadu",
+        "url": "https://github.com/Daivuk/Daxanadu/releases/"
+      }
+    ]
+  },
+  "ff1": {
+    "guide_url": "https://archipelago.gg/tutorial/Final%20Fantasy/multiworld/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/ff1/docs/multiworld_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "Final Fantasy Randomizer Homepage",
+        "url": "https://finalfantasyrandomizer.com/"
+      }
+    ]
+  },
+  "ffmq": {
+    "guide_url": "https://archipelago.gg/tutorial/Final%20Fantasy%20Mystic%20Quest/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/ffmq/docs/setup_en.md",
+    "links": [
+      {
+        "label": "snes9x rr",
+        "url": "https://github.com/gocha/snes9x-rr/releases"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "RetroArch Website",
+        "url": "https://retroarch.com?page=platforms"
+      },
+      {
+        "label": "FFMQR website",
+        "url": "https://ap.ffmqrando.net/Archipelago"
+      }
+    ]
+  },
+  "heretic": {
+    "guide_url": "https://archipelago.gg/tutorial/Heretic/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/heretic/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Heretic (e.g. Steam version)",
+        "url": "https://store.steampowered.com/app/3286930/Heretic__Hexen/"
+      },
+      {
+        "label": "Archipelago Crispy DOOM",
+        "url": "https://github.com/Daivuk/apdoom/releases"
+      }
+    ]
+  },
+  "hk": {
+    "guide_url": "https://archipelago.gg/tutorial/Hollow%20Knight/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/hk/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/367520/Hollow_Knight/"
+      },
+      {
+        "label": "Lumafly website",
+        "url": "https://themulhima.github.io/Lumafly/"
+      },
+      {
+        "label": "Archipelago and dependencies only",
+        "url": "https://themulhima.github.io/Lumafly/commands/download/?mods=Archipelago"
+      },
+      {
+        "label": "Archipelago with rando essentials",
+        "url": "https://themulhima.github.io/Lumafly/commands/download/?mods=Archipelago/Archipelago%20Map%20Mod/RecentItemsDisplay/DebugMod/RandoStats/Additional%20Timelines/CompassAlwaysOn/AdditionalMaps/"
+      }
+    ]
+  },
+  "hylics2": {
+    "guide_url": "https://archipelago.gg/tutorial/Hylics%202/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/hylics2/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Steam",
+        "url": "https://store.steampowered.com/app/1286710/Hylics_2/"
+      },
+      {
+        "label": "itch.io",
+        "url": "https://mason-lindroth.itch.io/hylics-2"
+      },
+      {
+        "label": "BepInEx: Downloads",
+        "url": "https://github.com/BepInEx/BepInEx/releases"
+      },
+      {
+        "label": "ArchipelagoHylics2: Projekt und Anleitung",
+        "url": "https://github.com/TRPG0/ArchipelagoHylics2"
+      },
+      {
+        "label": "ArchipelagoHylics2: Downloads",
+        "url": "https://github.com/TRPG0/ArchipelagoHylics2/releases"
+      }
+    ]
+  },
+  "inscryption": {
+    "guide_url": "https://archipelago.gg/tutorial/Inscryption/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/inscryption/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Inscryption",
+        "url": "https://store.steampowered.com/app/1092790/Inscryption/"
+      },
+      {
+        "label": "r2modman",
+        "url": "https://inscryption.thunderstore.io/package/ebkr/r2modman/"
+      },
+      {
+        "label": "Thunderstore Mod Manager",
+        "url": "https://www.overwolf.com/app/Thunderstore-Thunderstore_Mod_Manager"
+      },
+      {
+        "label": "BepInEx pack for Inscryption",
+        "url": "https://inscryption.thunderstore.io/package/BepInEx/BepInExPack_Inscryption/"
+      },
+      {
+        "label": "ArchipelagoMod",
+        "url": "https://inscryption.thunderstore.io/package/Ballin_Inc/ArchipelagoMod/"
+      },
+      {
+        "label": "Overwolf",
+        "url": "https://www.overwolf.com/"
+      },
+      {
+        "label": "Archipelago_Inscryption: Projekt und Anleitung",
+        "url": "https://github.com/DrBibop/Archipelago_Inscryption/issues"
+      }
+    ]
+  },
+  "jakanddaxter": {
+    "guide_url": "https://archipelago.gg/tutorial/Jak%20and%20Daxter%3A%20The%20Precursor%20Legacy/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/jakanddaxter/docs/setup_en.md",
+    "links": [
+      {
+        "label": "The OpenGOAL Launcher",
+        "url": "https://opengoal.dev/"
+      },
+      {
+        "label": "OpenGOAL: Installation",
+        "url": "https://opengoal.dev/docs/usage/installation"
+      },
+      {
+        "label": "OpenGOAL: Mods einrichten",
+        "url": "https://jakmods.dev/"
+      }
+    ]
+  },
+  "kh1": {
+    "guide_url": "https://archipelago.gg/tutorial/Kingdom%20Hearts/kh1/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/kh1/docs/kh1_en.md",
+    "links": [
+      {
+        "label": "Epic Games Store",
+        "url": "https://store.epicgames.com/en-US/discover/kingdom-hearts"
+      },
+      {
+        "label": "Steam",
+        "url": "https://store.steampowered.com/app/2552430/KINGDOM_HEARTS_HD_1525_ReMIX/"
+      },
+      {
+        "label": "OpenKH",
+        "url": "https://github.com/OpenKH/OpenKh/releases/latest"
+      },
+      {
+        "label": "Kingdom Hearts 1FM Randomizer Software",
+        "url": "https://github.com/gaithern/KH1FM-RANDOMIZER/releases/latest"
+      }
+    ]
+  },
+  "kh2": {
+    "guide_url": "https://archipelago.gg/tutorial/Kingdom%20Hearts%202/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/kh2/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Epic Games Store",
+        "url": "https://store.epicgames.com/en-US/discover/kingdom-hearts"
+      },
+      {
+        "label": "Steam",
+        "url": "https://store.steampowered.com/app/2552430/KINGDOM_HEARTS_HD_1525_ReMIX/"
+      },
+      {
+        "label": "KH2Rando.com",
+        "url": "https://tommadness.github.io/KH2Randomizer/setup/Panacea-ModLoader/"
+      },
+      {
+        "label": "Requirements/logic sheet",
+        "url": "https://docs.google.com/spreadsheets/d/1nNi8ohEs1fv-sDQQRaP45o6NoRcMlLJsGckBonweDMY/edit?usp=sharing"
+      }
+    ]
+  },
+  "kdl3": {
+    "guide_url": "https://archipelago.gg/tutorial/Kirby%27s%20Dream%20Land%203/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/kdl3/docs/setup_en.md",
+    "links": [
+      {
+        "label": "snes9x-emunwa Releases Page",
+        "url": "https://github.com/Skarsnik/snes9x-emunwa/releases"
+      },
+      {
+        "label": "snes9x-rr Releases Page",
+        "url": "https://github.com/gocha/snes9x-rr/releases"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "bsnes-plus GitHub",
+        "url": "https://github.com/black-sliver/bsnes-plus"
+      }
+    ]
+  },
+  "landstalker": {
+    "guide_url": "https://archipelago.gg/tutorial/Landstalker%20-%20The%20Treasures%20of%20King%20Nole/landstalker_setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/landstalker/docs/landstalker_setup_en.md",
+    "links": [
+      {
+        "label": "Landstalker Archipelago Client",
+        "url": "https://github.com/Dinopony/randstalker-archipelago/releases"
+      },
+      {
+        "label": "RetroArch",
+        "url": "https://retroarch.com?page=platforms"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "randstalker-archipelago: Projekt und Anleitung",
+        "url": "https://github.com/Dinopony/randstalker-archipelago/"
+      }
+    ]
+  },
+  "lingo": {
+    "guide_url": "https://archipelago.gg/tutorial/Lingo/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/lingo/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Lingo",
+        "url": "https://store.steampowered.com/app/1814170/Lingo/"
+      },
+      {
+        "label": "Lingo Archipelago Randomizer",
+        "url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3092505110"
+      },
+      {
+        "label": "download the randomizer manually",
+        "url": "https://code.fourisland.com/lingo-archipelago/about/"
+      }
+    ]
+  },
+  "ladx": {
+    "guide_url": "https://archipelago.gg/tutorial/Links%20Awakening%20DX/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/ladx/docs/setup_en.md",
+    "links": [
+      {
+        "label": "RetroArch",
+        "url": "https://retroarch.com?page=platforms"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "lufia2ac": {
+    "guide_url": "https://archipelago.gg/tutorial/Lufia%20II%20Ancient%20Cave/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/lufia2ac/docs/setup_en.md",
+    "links": [
+      {
+        "label": "snes9x rr",
+        "url": "https://github.com/gocha/snes9x-rr/releases"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "RetroArch",
+        "url": "https://retroarch.com?page=platforms"
+      }
+    ]
+  },
+  "mm2": {
+    "guide_url": "https://archipelago.gg/tutorial/Mega%20Man%202/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/mm2/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Mega Man Legacy Collection",
+        "url": "https://store.steampowered.com/app/363440/Mega_Man_Legacy_Collection/"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "mm3": {
+    "guide_url": "https://archipelago.gg/tutorial/Mega%20Man%203/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/mm3/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Mega Man Legacy Collection",
+        "url": "https://store.steampowered.com/app/363440/Mega_Man_Legacy_Collection/"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "mmbn3": {
+    "guide_url": "https://archipelago.gg/tutorial/MegaMan%20Battle%20Network%203/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/mmbn3/docs/setup_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "MegaMan Battle Network Legacy Collection Vol. 1",
+        "url": "https://store.steampowered.com/app/1798010/Mega_Man_Battle_Network_Legacy_Collection_Vol_1/"
+      }
+    ]
+  },
+  "meritous": {
+    "guide_url": "https://archipelago.gg/tutorial/Meritous/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/meritous/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Meritous Gaiden GitHub releases page",
+        "url": "https://github.com/FelicitusNeko/meritous-ap/releases"
+      }
+    ]
+  },
+  "musedash": {
+    "guide_url": "https://archipelago.gg/tutorial/Muse%20Dash/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/musedash/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Available on Steam",
+        "url": "https://store.steampowered.com/app/774171/Muse_Dash/"
+      },
+      {
+        "label": "Also Available on Steam",
+        "url": "https://store.steampowered.com/app/2593750/Muse_Dash__Muse_Plus/"
+      },
+      {
+        "label": "MelonLoader: Downloads",
+        "url": "https://github.com/LavaGang/MelonLoader/releases/latest"
+      },
+      {
+        "label": ".NET Framework 4.8",
+        "url": "https://dotnet.microsoft.com/en-us/download/dotnet-framework/net48"
+      },
+      {
+        "label": ".NET Runtime 6",
+        "url": "https://dotnet.microsoft.com/en-us/download/dotnet/6.0"
+      },
+      {
+        "label": "ArchipelagoMuseDash: Downloads",
+        "url": "https://github.com/DeamonHunter/ArchipelagoMuseDash/releases/latest"
+      }
+    ]
+  },
+  "noita": {
+    "guide_url": "https://archipelago.gg/tutorial/Noita/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/noita/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Noita",
+        "url": "https://noitagame.com/"
+      },
+      {
+        "label": "Archipelago Mod Download",
+        "url": "https://github.com/DaftBrit/NoitaArchipelago/releases/latest"
+      }
+    ]
+  },
+  "oot": {
+    "guide_url": "https://archipelago.gg/tutorial/Ocarina%20of%20Time/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/oot/docs/setup_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "osrs": {
+    "guide_url": "https://archipelago.gg/tutorial/Old%20School%20Runescape/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/osrs/docs/setup_en.md",
+    "links": [
+      {
+        "label": "RuneLite",
+        "url": "https://runelite.net/"
+      },
+      {
+        "label": "Jagex Launcher",
+        "url": "https://www.jagex.com/en-GB/launcher"
+      },
+      {
+        "label": "Archipelago Plugin",
+        "url": "https://github.com/digiholic/osrs-archipelago"
+      },
+      {
+        "label": "Region Locker Plugin",
+        "url": "https://github.com/slaytostay/region-locker"
+      },
+      {
+        "label": "Jagex Account",
+        "url": "https://www.jagex.com/en-GB/accounts"
+      }
+    ]
+  },
+  "overcooked2": {
+    "guide_url": "https://archipelago.gg/tutorial/Overcooked%21%202/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/overcooked2/docs/setup_en.md",
+    "links": [
+      {
+        "label": "OC2-Modding GitHub",
+        "url": "https://github.com/toasterparty/oc2-modding"
+      },
+      {
+        "label": "Overcooked! 2",
+        "url": "https://store.steampowered.com/bundle/13608/Overcooked_2___Gourmet_Edition/"
+      },
+      {
+        "label": "OC2-Modding Client",
+        "url": "https://github.com/toasterparty/oc2-modding/releases"
+      },
+      {
+        "label": "See Video",
+        "url": "https://youtu.be/VdOGhi6XPu4"
+      }
+    ]
+  },
+  "pokemon_emerald": {
+    "guide_url": "https://archipelago.gg/tutorial/Pokemon%20Emerald/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/pokemon_emerald/docs/setup_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "pokemon_rb": {
+    "guide_url": "https://archipelago.gg/tutorial/Pokemon%20Red%20and%20Blue/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/pokemon_rb/docs/setup_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "raft": {
+    "guide_url": "https://archipelago.gg/tutorial/Raft/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/raft/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Raft",
+        "url": "https://store.steampowered.com/app/648800/Raft/"
+      },
+      {
+        "label": "Raft Mod Loader",
+        "url": "https://www.raftmodding.com/loader"
+      },
+      {
+        "label": "ModUtils mod",
+        "url": "https://www.raftmodding.com/mods/modutils"
+      },
+      {
+        "label": "Raftipelago mod",
+        "url": "https://www.raftmodding.com/mods/raftipelago"
+      }
+    ]
+  },
+  "ror2": {
+    "guide_url": "https://archipelago.gg/tutorial/Risk%20of%20Rain%202/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/ror2/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/632360/Risk_of_Rain_2/"
+      },
+      {
+        "label": "r2modman Page",
+        "url": "https://thunderstore.io/package/ebkr/r2modman/"
+      },
+      {
+        "label": "Archipelago Mod Download Page",
+        "url": "https://thunderstore.io/package/Sneaki/Archipelago/"
+      }
+    ]
+  },
+  "smz3": {
+    "guide_url": "https://archipelago.gg/tutorial/SMZ3/multiworld/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/smz3/docs/multiworld_en.md",
+    "links": [
+      {
+        "label": "SNI",
+        "url": "https://github.com/alttpo/sni/releases"
+      },
+      {
+        "label": "snes9x-nwa",
+        "url": "https://github.com/Skarsnik/snes9x-emunwa/releases"
+      },
+      {
+        "label": "snes9x-rr",
+        "url": "https://github.com/gocha/snes9x-rr/releases"
+      },
+      {
+        "label": "BSNES-plus",
+        "url": "https://github.com/black-sliver/bsnes-plus"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "RetroArch",
+        "url": "https://retroarch.com?page=platforms"
+      }
+    ]
+  },
+  "satisfactory": {
+    "guide_url": "https://archipelago.gg/tutorial/Satisfactory/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/satisfactory/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Satisfactory (Steam)",
+        "url": "https://store.steampowered.com/app/526870/Satisfactory/"
+      },
+      {
+        "label": "Satisfactory (Epic)",
+        "url": "https://www.epicgames.com/store/en-US/product/satisfactory/home"
+      },
+      {
+        "label": "smm.ficsit.app",
+        "url": "https://smm.ficsit.app/"
+      },
+      {
+        "label": "latest stable release on GitHub",
+        "url": "https://github.com/satisfactorymodding/SatisfactoryModManager/releases/latest/"
+      },
+      {
+        "label": "Satisfactory Official Wiki",
+        "url": "https://satisfactory.wiki.gg/wiki/"
+      },
+      {
+        "label": "Satisfactory Modding Documentation FAQ",
+        "url": "https://docs.ficsit.app/satisfactory-modding/latest/faq.html"
+      },
+      {
+        "label": "Archipelago: Projekt und Anleitung",
+        "url": "https://github.com/Jarno458/Archipelago/blob/Satisfactory/worlds/satisfactory/Items.py"
+      },
+      {
+        "label": "Satisfactory Modding Documentation FAQ: Switching Branches",
+        "url": "https://docs.ficsit.app/satisfactory-modding/latest/faq.html#_how_do_i_get_the_experimental_or_early_access_branch_of_the_game"
+      },
+      {
+        "label": "Satisfactory Modding Documentation FAQ: Installing the Mod Manager",
+        "url": "https://docs.ficsit.app/satisfactory-modding/latest/ForUsers/SatisfactoryModManager.html"
+      },
+      {
+        "label": "Archipelago Randomizer mod on ficsit.app",
+        "url": "https://ficsit.app/mod/Archipelago"
+      },
+      {
+        "label": "Satisfactory Modding Documentation: Profiles",
+        "url": "https://docs.ficsit.app/satisfactory-modding/latest/ForUsers/SatisfactoryModManager.html#_profiles"
+      },
+      {
+        "label": "Satisfactory Wiki: Joining a Session",
+        "url": "https://satisfactory.wiki.gg/wiki/Multiplayer#Joining_a_session"
+      }
+    ]
+  },
+  "saving_princess": {
+    "guide_url": "https://archipelago.gg/tutorial/Saving%20Princess/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/saving_princess/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Saving Princess Archipelago GitHub",
+        "url": "https://github.com/LeonarthCG/saving-princess-archipelago"
+      },
+      {
+        "label": "Saving Princess",
+        "url": "https://brainos.itch.io/savingprincess"
+      },
+      {
+        "label": "saving_princess_archipelago.zip",
+        "url": "https://github.com/LeonarthCG/saving-princess-archipelago/releases/latest"
+      },
+      {
+        "label": "7-zip",
+        "url": "https://www.7-zip.org/download.html"
+      },
+      {
+        "label": "bspatch",
+        "url": "https://www.romhacking.net/utilities/929/"
+      }
+    ]
+  },
+  "soe": {
+    "guide_url": "https://archipelago.gg/tutorial/Secret%20of%20Evermore/multiworld/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/soe/docs/multiworld_en.md",
+    "links": [
+      {
+        "label": "SNI",
+        "url": "https://github.com/alttpo/sni/releases"
+      },
+      {
+        "label": "snes9x-nwa",
+        "url": "https://github.com/Skarsnik/snes9x-emunwa/releases"
+      },
+      {
+        "label": "snes9x-rr",
+        "url": "https://github.com/gocha/snes9x-rr/releases"
+      },
+      {
+        "label": "BSNES-plus",
+        "url": "https://github.com/black-sliver/bsnes-plus"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "RetroArch",
+        "url": "https://retroarch.com?page=platforms"
+      },
+      {
+        "label": "Evermizer Website",
+        "url": "https://evermizer.com"
+      },
+      {
+        "label": "Evermizer apbpatch Page",
+        "url": "https://evermizer.com/apbpatch"
+      },
+      {
+        "label": "Evermizer Archipelago Client Page",
+        "url": "http://evermizer.com/apclient"
+      }
+    ]
+  },
+  "shivers": {
+    "guide_url": "https://archipelago.gg/tutorial/Shivers/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/shivers/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Shivers (GOG version)",
+        "url": "https://www.gog.com/en/game/shivers"
+      },
+      {
+        "label": "ScummVM",
+        "url": "https://www.scummvm.org/downloads/"
+      },
+      {
+        "label": "Shivers Randomizer Client",
+        "url": "https://github.com/Shivers-Randomizer/Shivers-Randomizer/releases/latest"
+      }
+    ]
+  },
+  "sa2b": {
+    "guide_url": "https://archipelago.gg/tutorial/Sonic%20Adventure%202%20Battle/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/sa2b/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Sonic Adventure 2: Battle Steam Store Page",
+        "url": "https://store.steampowered.com/app/213610/Sonic_Adventure_2/"
+      },
+      {
+        "label": "SA Mod Manager GitHub Releases Page",
+        "url": "https://github.com/X-Hax/SA-Mod-Manager/releases"
+      },
+      {
+        "label": ".NET Desktop Runtime 8.0 Download Page",
+        "url": "https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/runtime-desktop-8.0.12-windows-x64-installer"
+      },
+      {
+        "label": "Sonic Adventure 2: Battle Archipelago Randomizer Mod Releases Page",
+        "url": "https://github.com/PoryGone/SA2B_Archipelago/releases/"
+      },
+      {
+        "label": "SA-Mod-Manager: Projekt und Anleitung",
+        "url": "https://github.com/X-Hax/SA-Mod-Manager/tree/master?tab=readme-ov-file"
+      },
+      {
+        "label": "protontricks: Projekt und Anleitung",
+        "url": "https://github.com/Matoking/protontricks"
+      }
+    ]
+  },
+  "sc2": {
+    "guide_url": "https://archipelago.gg/tutorial/Starcraft%202/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/sc2/docs/setup_en.md",
+    "links": [
+      {
+        "label": "StarCraft 2",
+        "url": "https://starcraft2.com/en-us/"
+      },
+      {
+        "label": "YAML specification",
+        "url": "https://yaml.org/spec/1.2.2/#21-collections"
+      },
+      {
+        "label": "APSC2 Item Docs",
+        "url": "https://archipelago-sc2.github.io/content-docs/"
+      }
+    ]
+  },
+  "stardew_valley": {
+    "guide_url": "https://archipelago.gg/tutorial/Stardew%20Valley/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/stardew_valley/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Steam version",
+        "url": "https://store.steampowered.com/app/413150/Stardew_Valley/"
+      },
+      {
+        "label": "Mod loader for Stardew Valley",
+        "url": "https://smapi.io/"
+      },
+      {
+        "label": "SMAPI: Downloads",
+        "url": "https://github.com/Pathoschild/SMAPI/releases"
+      },
+      {
+        "label": "StardewArchipelago Mod Release 7.x.x",
+        "url": "https://github.com/agilbert1412/StardewArchipelago/releases"
+      },
+      {
+        "label": "Supported mods documentation",
+        "url": "https://github.com/agilbert1412/StardewArchipelago/blob/7.x.x/Documentation/Supported%20Mods.md"
+      }
+    ]
+  },
+  "subnautica": {
+    "guide_url": "https://archipelago.gg/tutorial/Subnautica/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/subnautica/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Subnautica Steam Store Page",
+        "url": "https://store.steampowered.com/app/264710/Subnautica/"
+      },
+      {
+        "label": "Subnautica Epic Game Store Page",
+        "url": "https://store.epicgames.com/p/subnautica"
+      },
+      {
+        "label": "Subnautica Archipelago Mod Releases Page",
+        "url": "https://github.com/Berserker66/ArchipelagoSubnauticaModSrc/releases"
+      }
+    ]
+  },
+  "sm64ex": {
+    "guide_url": "https://archipelago.gg/tutorial/Super%20Mario%2064/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/sm64ex/docs/setup_en.md",
+    "links": [
+      {
+        "label": "SM64AP-Launcher",
+        "url": "https://github.com/N00byKing/SM64AP-Launcher/releases"
+      },
+      {
+        "label": "sm64ex",
+        "url": "https://github.com/N00byKing/sm64ex"
+      },
+      {
+        "label": "MSYS",
+        "url": "https://www.msys2.org/"
+      },
+      {
+        "label": "sm64-port: Projekt und Anleitung",
+        "url": "https://github.com/TheGag96/sm64-port"
+      },
+      {
+        "label": "Available Makeflags",
+        "url": "https://github.com/sm64pc/sm64ex/wiki/Build-options"
+      },
+      {
+        "label": "Included Game Patches",
+        "url": "https://github.com/N00byKing/sm64ex/blob/archipelago/enhancements/README.md"
+      }
+    ]
+  },
+  "marioland2": {
+    "guide_url": "https://archipelago.gg/tutorial/Super%20Mario%20Land%202/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/marioland2/docs/setup_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "smw": {
+    "guide_url": "https://archipelago.gg/tutorial/Super%20Mario%20World/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/smw/docs/setup_en.md",
+    "links": [
+      {
+        "label": "snes9x rr",
+        "url": "https://github.com/gocha/snes9x-rr/releases"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "RetroArch Website",
+        "url": "https://retroarch.com?page=platforms"
+      }
+    ]
+  },
+  "sm": {
+    "guide_url": "https://archipelago.gg/tutorial/Super%20Metroid/multiworld/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/sm/docs/multiworld_en.md",
+    "links": [
+      {
+        "label": "SNI",
+        "url": "https://github.com/alttpo/sni/releases"
+      },
+      {
+        "label": "snes9x-nwa",
+        "url": "https://github.com/Skarsnik/snes9x-emunwa/releases"
+      },
+      {
+        "label": "snes9x-rr",
+        "url": "https://github.com/gocha/snes9x-rr/releases"
+      },
+      {
+        "label": "BSNES-plus",
+        "url": "https://github.com/black-sliver/bsnes-plus"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "RetroArch",
+        "url": "https://retroarch.com?page=platforms"
+      }
+    ]
+  },
+  "terraria": {
+    "guide_url": "https://archipelago.gg/tutorial/Terraria/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/terraria/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Terraria",
+        "url": "https://store.steampowered.com/app/105600/Terraria/"
+      },
+      {
+        "label": "tModLoader",
+        "url": "https://store.steampowered.com/app/1281930/tModLoader/"
+      },
+      {
+        "label": "Archipelago-Mod im Steam Workshop",
+        "url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2922217554"
+      }
+    ]
+  },
+  "tloz": {
+    "guide_url": "https://archipelago.gg/tutorial/The%20Legend%20of%20Zelda/multiworld/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/tloz/docs/multiworld_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "messenger": {
+    "guide_url": "https://archipelago.gg/tutorial/The%20Messenger/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/messenger/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Courier Github",
+        "url": "https://github.com/Brokemia/Courier"
+      },
+      {
+        "label": "The Messenger Randomizer AP Github",
+        "url": "https://github.com/alwaysintreble/TheMessengerRandomizerModAP"
+      },
+      {
+        "label": "Latest release is currently 0.7.1",
+        "url": "https://github.com/Brokemia/Courier/releases"
+      },
+      {
+        "label": "The Messenger Randomizer Mod AP releases page",
+        "url": "https://github.com/alwaysintreble/TheMessengerRandomizerModAP/releases"
+      }
+    ]
+  },
+  "tww": {
+    "guide_url": "https://archipelago.gg/tutorial/The%20Wind%20Waker/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/tww/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Dolphin Emulator",
+        "url": "https://dolphin-emu.org/download/"
+      },
+      {
+        "label": "available on Flathub",
+        "url": "https://flathub.org/apps/org.DolphinEmu.dolphin-emu"
+      },
+      {
+        "label": "TWW AP Randomizer Build",
+        "url": "https://github.com/tanjo3/wwrando/releases?q=tag%3Aap_2"
+      },
+      {
+        "label": "Custom Wind Waker Player Models",
+        "url": "https://github.com/Sage-of-Mirrors/Custom-Wind-Waker-Player-Models"
+      }
+    ]
+  },
+  "witness": {
+    "guide_url": "https://archipelago.gg/tutorial/The%20Witness/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/witness/docs/setup_en.md",
+    "links": [
+      {
+        "label": "The Witness for 64-bit Windows (e.g. Steam version)",
+        "url": "https://store.steampowered.com/app/210970/The_Witness/"
+      },
+      {
+        "label": "The Witness Archipelago Randomizer",
+        "url": "https://github.com/NewSoupVi/The-Witness-Randomizer-for-Archipelago/releases/latest"
+      }
+    ]
+  },
+  "timespinner": {
+    "guide_url": "https://archipelago.gg/tutorial/Timespinner/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/timespinner/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Timespinner (Steam)",
+        "url": "https://store.steampowered.com/app/368620/Timespinner/"
+      },
+      {
+        "label": "Timespinner (GOG)",
+        "url": "https://www.gog.com/game/timespinner"
+      },
+      {
+        "label": "Timespinner Randomizer",
+        "url": "https://github.com/Jarno458/TsRandomizer"
+      },
+      {
+        "label": "Timespinner Randomizer Releases",
+        "url": "https://github.com/Jarno458/TsRandomizer/releases"
+      }
+    ]
+  },
+  "undertale": {
+    "guide_url": "https://archipelago.gg/tutorial/Undertale/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/undertale/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Steam page",
+        "url": "https://store.steampowered.com/app/391540"
+      }
+    ]
+  },
+  "v6": {
+    "guide_url": "https://archipelago.gg/tutorial/VVVVVV/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/v6/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Steam Store Page",
+        "url": "https://store.steampowered.com/app/70300/VVVVVV/"
+      },
+      {
+        "label": "GOG Store Page",
+        "url": "https://www.gog.com/game/vvvvvv"
+      },
+      {
+        "label": "V6AP",
+        "url": "https://github.com/N00byKing/VVVVVV/releases"
+      }
+    ]
+  },
+  "wargroove": {
+    "guide_url": "https://archipelago.gg/tutorial/Wargroove/wargroove/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/wargroove/docs/wargroove_en.md",
+    "links": [
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/607050/Wargroove/"
+      }
+    ]
+  },
+  "yachtdice": {
+    "guide_url": "https://archipelago.gg/tutorial/Yacht%20Dice/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/yachtdice/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Yacht Dice Website",
+        "url": "https://yacht-dice-ap.netlify.app/"
+      },
+      {
+        "label": "Yacht Dice Release",
+        "url": "https://github.com/spinerak/ArchipelagoYachtDice/releases/latest"
+      }
+    ]
+  },
+  "yoshisisland": {
+    "guide_url": "https://archipelago.gg/tutorial/Yoshi%27s%20Island/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/yoshisisland/docs/setup_en.md",
+    "links": [
+      {
+        "label": "snes9x rr",
+        "url": "https://github.com/gocha/snes9x-rr/releases"
+      },
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      },
+      {
+        "label": "snes9x nwa",
+        "url": "https://github.com/Skarsnik/snes9x-emunwa/releases"
+      }
+    ]
+  },
+  "yugioh06": {
+    "guide_url": "https://archipelago.gg/tutorial/Yu-Gi-Oh%21%202006/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/yugioh06/docs/setup_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "zillion": {
+    "guide_url": "https://archipelago.gg/tutorial/Zillion/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/zillion/docs/setup_en.md",
+    "links": [
+      {
+        "label": "RetroArch Website",
+        "url": "https://retroarch.com?page=platforms"
+      }
+    ]
+  },
+  "shapez": {
+    "guide_url": "https://archipelago.gg/tutorial/shapez/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/shapez/docs/setup_en.md",
+    "links": [
+      {
+        "label": "Steam",
+        "url": "https://store.steampowered.com/app/1318690/shapez/"
+      },
+      {
+        "label": "mod.io page",
+        "url": "https://mod.io/g/shapez/m/shapezipelago"
+      }
+    ]
+  },
+  "celeste_open_world": {
+    "guide_url": "https://archipelago.gg/tutorial/Celeste%20%28Open%20World%29/guide/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/celeste_open_world/docs/guide_en.md",
+    "links": [
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/504230/Celeste/"
+      },
+      {
+        "label": "Olympus Download Page",
+        "url": "https://everestapi.github.io/"
+      },
+      {
+        "label": "Celeste-Archipelago-Open-World: Downloads",
+        "url": "https://github.com/PoryGoneDev/Celeste-Archipelago-Open-World/releases"
+      }
+    ]
+  },
+  "celeste64": {
+    "guide_url": "https://archipelago.gg/tutorial/Celeste%2064/guide/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/celeste64/docs/guide_en.md",
+    "links": [
+      {
+        "label": "Celeste 64 Archipelago Releases Page",
+        "url": "https://github.com/PoryGoneDev/Celeste64/releases/"
+      }
+    ]
+  },
+  "gl": {
+    "guide_url": "https://archipelago.gg/tutorial/Gauntlet%20Legends/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/gl/docs/setup_en.md",
+    "links": [
+      {
+        "label": "RetroArch: Emulator herunterladen",
+        "url": "https://www.retroarch.com/?page=platforms"
+      },
+      {
+        "label": "Steam",
+        "url": "https://store.steampowered.com/app/1118310/RetroArch/"
+      }
+    ]
+  },
+  "mlss": {
+    "guide_url": "https://archipelago.gg/tutorial/Mario%20%26%20Luigi%20Superstar%20Saga/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/mlss/docs/setup_en.md",
+    "links": [
+      {
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory",
+        "label": "BizHawk: Emulator herunterladen"
+      }
+    ]
+  },
+  "paint": {
+    "guide_url": "https://archipelago.gg/tutorial/Paint/guide/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/paint/docs/guide_en.md",
+    "links": [
+      {
+        "label": "Archipelago Paint",
+        "url": "https://mariomantaw.github.io/jspaint/"
+      }
+    ]
+  },
+  "tunic": {
+    "guide_url": "https://archipelago.gg/tutorial/TUNIC/setup/en",
+    "source_url": "https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/worlds/tunic/docs/setup_en.md",
+    "links": [
+      {
+        "label": "TUNIC",
+        "url": "https://tunicgame.com/"
+      },
+      {
+        "label": "TUNIC Randomizer Mod",
+        "url": "https://github.com/silent-destroyer/tunic-randomizer/releases/latest"
+      },
+      {
+        "label": "BepInEx 6.0.0-pre.1 (Unity IL2CPP x64)",
+        "url": "https://github.com/BepInEx/BepInEx/releases/tag/v6.0.0-pre.1"
+      },
+      {
+        "label": "BepInEx 6.0.0-pre.1 (Unity IL2CPP x64)",
+        "url": "https://github.com/BepInEx/BepInEx/releases/download/v6.0.0-pre.1/BepInEx_UnityIL2CPP_x64_6.0.0-pre.1.zip"
+      },
+      {
+        "label": "guide to set up BepInEx via Proton",
+        "url": "https://docs.bepinex.dev/articles/advanced/proton_wine.html"
+      }
+    ]
+  },
+  "borderlands2": {
+    "guide_url": "https://github.com/EdricY/Bouncy-Loot-God#setup-for-playing",
+    "source_url": "https://github.com/EdricY/Bouncy-Loot-God",
+    "links": [
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/49520/Borderlands_2/"
+      },
+      {
+        "label": "BouncyLootGod: Mod und APWorld",
+        "url": "https://github.com/EdricY/Bouncy-Loot-God/releases"
+      },
+      {
+        "label": "Python SDK: Installation",
+        "url": "https://bl-sdk.github.io/"
+      }
+    ]
+  }
+}

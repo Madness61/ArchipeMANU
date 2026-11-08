@@ -97,9 +97,11 @@
 {% endif %}
 
 <h2>Benutzer</h2>
+<p class="muted small">Neue Spieler erstellen ihr Konto selbst mit Benutzername und Passwort.</p>
+<p class="muted small">Persönliche Einrichtungscodes nur an den jeweiligen Kontobesitzer weitergeben. Nach der Passwortvergabe werden seine bisherigen Sitzungen beendet.</p>
 <div class="panel table-wrap">
   <table>
-    <tr><th>Name</th><th>Slot</th><th>Rolle</th><th></th></tr>
+    <tr><th>Name</th><th>Slot</th><th>Rolle</th><th>Rechte</th><th>Kontoeinrichtung</th></tr>
     {% for u in users %}
     <tr>
       <td>{{ u.username }}</td><td>{{ u.slot_name }}</td><td>{{ 'Admin' if u.is_admin else 'Spieler' }}</td>
@@ -108,6 +110,10 @@
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
           <button class="linkish small">{{ 'Admin entziehen' if u.is_admin else 'Zum Admin machen' }}</button></form>
       {% endif %}</td>
+      <td><form method="post" action="{{ url_for('admin_setup_account', uid=u.id) }}" class="inline">
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+        <button>{{ 'Passwort wiederherstellen' if u.password_hash else 'Einrichtungscode erzeugen' }}</button>
+      </form></td>
     </tr>
     {% endfor %}
   </table>

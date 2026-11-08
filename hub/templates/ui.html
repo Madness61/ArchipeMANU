@@ -1,0 +1,18 @@
+{% macro lobby_card(s) %}
+<article class="panel card lobby-card">
+  <div class="row spread"><span class="chip {{ 'ok' if not s.locked else '' }}">{{ 'Offen' if not s.locked else 'Geschlossen' }}</span>
+    {% if s.created_by == g.user.id %}<span class="small muted">Deine Lobby · Host</span>{% elif s.is_member %}<span class="small muted">Du bist dabei</span>{% endif %}</div>
+  <div><h3>{{ s.name }}</h3><p class="muted small">Host: {{ s.host_name or 'Nicht mehr vorhanden' }}</p></div>
+  <div class="game-meta"><span>{{ s.member_count }} Teilnehmer</span><span>{{ s.game_count }} ausgewählte Spiele</span></div>
+  <div class="card-actions">
+    {% if s.is_member or g.user.is_admin %}
+      <a class="btn primary" href="{{ url_for('session_view', sid=s.id) }}">{{ 'Zur Lobby' if not s.locked else 'Runde öffnen' }} →</a>
+    {% elif not s.locked %}
+      <form method="post" action="{{ url_for('mvp.join_open_lobby', sid=s.id) }}" class="inline">
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="primary">Mitmachen →</button>
+      </form>
+      <a class="btn" href="{{ url_for('session_view', sid=s.id) }}">Lobby ansehen</a>
+    {% else %}<span class="small muted">Diese Runde ist abgeschlossen.</span>{% endif %}
+  </div>
+</article>
+{% endmacro %}

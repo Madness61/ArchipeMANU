@@ -30,13 +30,16 @@ SCHEMA = {
 
 
 class LayerTests(unittest.TestCase):
-    def test_overrides_win_and_defaults_are_dropped(self):
+    def test_overrides_win_and_explicit_defaults_are_preserved(self):
         values = yamlgen.layer(SCHEMA, {"goal": "all_chests", "death_link": True}, {"death_link": False})
-        self.assertEqual(values, {"goal": "all_chests"})
+        self.assertEqual(values["goal"],"all_chests")
+        self.assertIs(values["death_link"],False)
+        self.assertEqual(values["progression_balancing"],50)
 
     def test_global_overrides_only_for_known_options(self):
         result = yamlgen.global_overrides_for(SCHEMA, {"death_link": True, "progression_balancing": 120})
-        self.assertEqual(result, {"death_link": True})
+        self.assertEqual(result, {"death_link": True,"progression_balancing":120})
+        self.assertIn("progression_balancing",yamlgen.validate_values(SCHEMA,result))
 
 
 class SlotNameTests(unittest.TestCase):
@@ -74,10 +77,10 @@ class YamlTests(unittest.TestCase):
         doc = yaml.safe_load(text)
         self.assertEqual(doc["name"], "Max")
         self.assertEqual(doc["game"], "Test Game")
-        self.assertEqual(doc["requires"], {"version": "0.6.8", "game": {"Test Game": "1.2.0"}})
-        self.assertEqual(doc["Test Game"], {"goal": "all_chests"})
+        self.assertEqual(doc["requires"], {"version": "0.6.8", "game": {"Test Game": {"min":"1.2.0","max":"1.2.0"}}})
+        self.assertEqual(doc["Test Game"], yamlgen.effective_values(SCHEMA,{"goal":"all_chests"}))
 
-    def test_import_collapses_template_weights(self):
+    def test_import_keeps_weights_and_defaults_unchanged(self):
         text = """
 name: Someone
 description: Mein Setup
@@ -92,7 +95,6 @@ Test Game:
   progression_balancing:
     random: 0
     normal: 50
-  unknown_option: 3
 ---
 name: Other
 game:
@@ -107,8 +109,8 @@ Test Game:
         results, errors = yamlgen.import_yaml(text, games, lambda slug: SCHEMA)
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0]["name"], "Mein Setup")
-        self.assertEqual(results[0]["values"], {"goal": "all_chests", "death_link": True})
-        self.assertTrue(any("unknown_option" in w for w in results[0]["warnings"]))
+        self.assertEqual(results[0]["values"], {"goal":{"boss":0,"all_chests":50},
+             "death_link":{"true":50,"false":0},"progression_balancing":{"random":0,"normal":50}})
         self.assertEqual(results[1]["values"], {"goal": {"boss": 30, "all_chests": 70}})
         self.assertEqual(len(errors), 1)
 

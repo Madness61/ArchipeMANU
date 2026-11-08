@@ -2,3 +2,7 @@ data/
 __pycache__/
 *.pyc
 .venv/
+.venv-browser/
+.playwright-browsers/
+.pytest_cache/
+test-results/

@@ -2,29 +2,17 @@
 {% block title %}Jetzt spielen · {{ room.name }}{% endblock %}
 {% block content %}
 <p><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
-<h1>Jetzt spielen · {{ room.name }}</h1>
-<p><a class="btn" href="{{ url_for('mvp.build_stats', sid=room.id, build_id=build.id) }}">Itemverteilung & Statistiken anzeigen</a></p>
-<p>Seed #{{ build.id }} · <span class="chip {{ 'ok' if build.status == 'succeeded' else 'warn' }}">{{ build.status }}</span> · {{ build.created_at[:16] }}</p>
+<div class="page-head"><div><p class="eyebrow">Alles für den Spieleabend</p><h1>Jetzt spielen · {{ room.name }}</h1><p class="muted">Seed #{{ build.id }} · {{ build.created_at[:16] }}</p></div><span class="chip {{ 'ok' if build.status == 'succeeded' else 'warn' }}">{{ status_labels.get(build.status,build.status) }}</span></div>
 {% if build.status == 'succeeded' %}
 <p><a class="btn primary" href="{{ url_for('mvp.build_download', sid=room.id, build_id=build.id) }}">Multiworld-ZIP herunterladen</a></p>
 {% endif %}
-{% if hosted %}
-<div class="panel stack">
-<h2>Verbindung</h2>
-<p><b>Adresse:</b> <code id="host-address">{{ hosted.host }}:{{ hosted.port }}</code>
-<button type="button" data-copy="#host-address">Kopieren</button></p>
-{% if hosted.room_url %}<p><a href="{{ hosted.room_url }}" target="_blank" rel="noopener noreferrer">Archipelago-Raum öffnen</a></p>{% endif %}
-<p><span class="chip {{ 'ok' if hosted.confirmed else 'warn' }}">{{ 'Host hat Hosting bestätigt' if hosted.confirmed else 'Host hat Verfügbarkeit noch nicht bestätigt' }}</span></p>
-</div>
-{% else %}
-<p class="muted">Der Host hat für diesen Seed noch keine Verbindungsdaten hinterlegt.</p>
-{% endif %}
-<h2>Deine Slots</h2>
+{% include "connection.html" %}
+<h2>Deine Spiele</h2>
 {% if own %}
 {% for slot in own %}
 <div class="panel stack">
 <h3>{{ slot.game_name }}</h3>
-<p><b>Slotname:</b> <code id="slot-{{ loop.index }}">{{ slot.slot }}</code>
+<p><b>Dein Spielername im Spiel-Client:</b> <code id="slot-{{ loop.index }}">{{ slot.slot }}</code>
 <button type="button" data-copy="#slot-{{ loop.index }}">Kopieren</button></p>
 <p class="muted small">APWorld-Version: {{ slot.game_version }}{% if slot.apworld_sha256 %} · SHA-256: {{ slot.apworld_sha256[:12] }}…{% endif %}</p>
 {% set guide = guides.get(slot.game) %}
@@ -34,7 +22,10 @@
 {% if guide.mod_url %}<p><a href="{{ guide.mod_url }}" target="_blank" rel="noopener noreferrer">Mod-/Client-Download</a></p>{% endif %}
 {% if guide.source_url %}<p><a href="{{ guide.source_url }}" target="_blank" rel="noopener noreferrer">Quellinformationen</a></p>{% endif %}
 {% if guide.trouble %}<details><summary>Häufige Probleme</summary><pre class="log">{{ guide.trouble }}</pre></details>{% endif %}
-{% else %}<p class="muted">Für dieses Spiel ist noch keine verifizierte Installationsanleitung hinterlegt.</p>{% endif %}
+{% endif %}
+<details class="technical-options"><summary>Voraussetzungen, Einrichtung & Downloads für {{ slot.game_name }}</summary>
+  {% with game_info=setup_infos[slot.game], guide=none, guide_id='slot-guide-' ~ loop.index %}{% include "game_setup_panel.html" %}{% endwith %}
+</details>
 </div>
 {% endfor %}
 {% else %}<p>Du hast in diesem Seed keinen eigenen Slot.</p>{% endif %}
@@ -53,7 +44,19 @@
 <p class="muted">Keine separaten Patchdateien im Seed-ZIP gefunden. Viele Spiele benötigen ihren eigenen Client oder ein anderes Patch-Verfahren.</p>
 {% endif %}
 <h2>Check-Analyse</h2>
-<p class="muted small">Exakte Check-Zahlen sind für diesen Seed derzeit nicht verifiziert aus Metadaten auslesbar. Deshalb wird keine geschätzte oder erfundene Verteilung angezeigt.</p>
+{% if race %}
+<p class="muted">Race-Modus: Die Seed-Analyse ist für diese Runde ausgeblendet.</p>
+{% elif stats %}
+<div class="panel table-wrap" id="check-analysis">
+  <table><thead><tr><th>Spiel</th><th>Welten</th><th>Checks mit platziertem Item</th></tr></thead>
+    <tbody>{% for game in overview %}<tr><td>{{ game.name }}</td><td>{{ game.players|length }}</td><td>{{ game.locations }}</td></tr>{% endfor %}</tbody>
+  </table>
+  <p class="muted small">{{ stats.total_placements }} platzierte Items insgesamt. Gezählt werden adressierte Fundorte mit einem platzierten Item; Events, Startinventar und Item-Link-Gruppenslots sind nicht enthalten.</p>
+</div>
+<p><a class="btn" href="{{ url_for('mvp.build_stats', sid=room.id, build_id=build.id) }}#progression">Progression-Items und Seed-Analyse öffnen</a></p>
+{% else %}
+<p class="muted">Für diesen Seed sind keine verifizierten Statistikdaten gespeichert. Die Analyse ist verfügbar, sobald ein erfolgreicher Seed mit Statistikdaten vorliegt.</p>
+{% endif %}
 
 <h2>Mitspieler</h2>
 <div class="panel"><table><tr><th>Slot</th><th>Spiel</th></tr>{% for slot in slots %}<tr><td>{{ slot.slot }}</td><td>{{ slot.game_name }}</td></tr>{% endfor %}</table></div>

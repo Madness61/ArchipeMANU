@@ -1,27 +1,32 @@
 {% extends "base.html" %}
-{% from "template_form.html" import field with context %}
+{% from "option_fields.html" import field with context %}
 {% block title %}Slotoptionen · {{ schema.game }}{% endblock %}
 {% block content %}
 <p><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
 <h1>Deine Optionen · {{ schema.game }}</h1>
-<p class="muted">Diese Einstellungen gelten nur für diesen Slot in „{{ room.name }}“. Sie überschreiben deine gewählte Vorlage; andere Spieler werden nicht verändert.</p>
+<p class="muted">Priorität: APWorld-Standard → gewählte Vorlage → dein Spielerprofil → diese Lobby-Einstellungen. Deine Lobby-Änderungen haben immer Vorrang.</p>
+<p class="muted small">Die gewählte Vorlage wird für diesen Slot als Kopie fixiert. Für eine neue Vorlagenfassung die Vorlage in der Lobby erneut auswählen.</p>
 <p class="small">
 {% if expert %}<a href="{{ url_for('mvp.entry_options', eid=entry.id) }}">Einfacher Modus</a>
 {% else %}<a href="{{ url_for('mvp.entry_options', eid=entry.id, expert=1) }}">Alle Optionen anzeigen</a>{% endif %}
 </p>
 <form method="post" class="panel">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  {% for key,message in errors.items() %}<p class="err">{{ key }}: {{ message }}</p>{% endfor %}
   {% for group, opts in groups.items() %}
     <details class="group" open>
       <summary>{{ group }} ({{ opts|length }})</summary>
       {% for opt in opts %}{{ field(opt) }}{% endfor %}
     </details>
   {% endfor %}
-  <p class="row"><button class="primary">Einstellungen speichern</button><a href="{{ url_for('session_view', sid=room.id) }}">Zurück</a></p>
+  <p class="row"><button class="primary" name="_action" value="save">Einstellungen speichern</button>
+    <button name="_action" value="preview">Vorschau aktualisieren</button><a href="{{ url_for('session_view', sid=room.id) }}">Zurück</a></p>
+  <p><button name="_action" value="reset">Alle Lobby-Änderungen auf Vorlage/Profil zurücksetzen</button></p>
 </form>
-<details class="panel" style="margin-top:16px">
-  <summary>Technische YAML-Vorschau (aktueller Formularstand vor erneutem Speichern)</summary>
-  <pre class="log">{{ yaml_preview }}</pre>
+<details class="panel" id="yaml-preview" style="margin-top:16px" {% if pending %}open{% endif %}>
+  <summary>YAML-Vorschau · {{ 'noch nicht gespeichert' if pending else 'gespeicherte Konfiguration' }}</summary>
+  {% if pending %}<p class="muted small">Diese Vorschau wird erst nach „Einstellungen speichern“ für die Generierung verwendet.</p>{% endif %}
+  {% if yaml_preview %}<pre class="log">{{ yaml_preview }}</pre>{% else %}<p class="err">Keine gültige YAML: Bitte die markierten Fehler korrigieren.</p>{% endif %}
 </details>
 {% endblock %}
 {% block scripts %}

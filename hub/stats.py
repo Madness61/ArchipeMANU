@@ -132,3 +132,41 @@ def valid_item_details(data, distribution):
     summary = aggregate_placements(distribution["players"],
                                    ((r["finder"], r["recipient"], r["category"]) for r in rows))
     return summary["matrix"] == distribution["matrix"] and summary["categories"] == distribution["categories"]
+
+
+def progression_items(distribution, placements):
+    """Group recipient progression items without putting their finders in the page."""
+    players = {p["id"]: p for p in distribution["players"]}
+    games = {p["game"]: {"name": p["game"], "items": [], "count": 0} for p in distribution["players"]}
+    items = {}
+    for index, row in enumerate(placements):
+        if row["category"] != "progression":
+            continue
+        owner = players[row["recipient"]]
+        key = (row["recipient"], row["item_id"], row["item"])
+        game = games[owner["game"]]
+        if key not in items:
+            item = {"id": index, "name": row["item"], "recipient": owner, "count": 0}
+            items[key] = item
+            game["items"].append(item)
+        items[key]["count"] += 1
+        game["count"] += 1
+    for game in games.values():
+        game["items"].sort(key=lambda item: (item["name"].casefold(), item["recipient"]["name"].casefold(), item["id"]))
+    return sorted(games.values(), key=lambda game: game["name"].casefold())
+
+
+def progression_worlds(distribution, placements, index):
+    """Reveal every concrete check for this recipient's item, grouped by world."""
+    selected = placements[index]
+    worlds = {}
+    players = {p["id"]: p for p in distribution["players"]}
+    for row in placements:
+        if (row["category"] == "progression" and row["recipient"] == selected["recipient"]
+                and row["item_id"] == selected["item_id"] and row["item"] == selected["item"]):
+            world = worlds.setdefault(row["finder"], {**players[row["finder"]], "count": 0, "locations": []})
+            world["count"] += 1
+            world["locations"].append({"id": row["location_id"], "name": row["location"]})
+    for world in worlds.values():
+        world["locations"].sort(key=lambda location: (location["name"].casefold(), location["id"]))
+    return sorted(worlds.values(), key=lambda world: (world["name"].casefold(), world["id"]))
