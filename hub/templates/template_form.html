@@ -2,6 +2,7 @@
 {% block title %}Vorlage · {{ schema.game }}{% endblock %}
 
 {% from "option_fields.html" import field with context %}
+{% from "ui.html" import option_tools with context %}
 
 {% block content %}
 <p class="small"><a href="{{ url_for('game', slug=schema.slug) }}">← {{ schema.game }}</a></p>
@@ -12,7 +13,7 @@
   <a href="{{ expert_url }}">Experten-Modus</a>{% endif %}
 </p>
 
-<form method="post" class="panel">
+<form method="post" class="panel" data-option-editor>
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   {% for key,message in errors.items() %}<p class="err">{{ key }}: {{ message }}</p>{% endfor %}
   <div class="row" style="align-items:flex-start">
@@ -25,8 +26,9 @@
   <p><label><input type="checkbox" name="shared" value="1" {% if shared %}checked{% endif %}>
     Für die Gruppe freigeben (sonst nur für dich sichtbar)</label></p>
 
+  {{ option_tools() }}
   {% for group, opts in groups.items() %}
-    <details class="group" {% if group != 'Item & Location Options' or opts|selectattr('key', 'in', values)|list %}open{% endif %}>
+    <details class="group">
       <summary>{{ group }} <span class="muted small">({{ opts|length }})</span></summary>
       {% for opt in opts %}{{ field(opt) }}{% endfor %}
     </details>

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "option_fields.html" import field with context %}
+{% from "ui.html" import option_tools with context %}
 {% block title %}Slotoptionen · {{ schema.game }}{% endblock %}
 {% block content %}
 <p><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
@@ -10,9 +11,10 @@
 {% if expert %}<a href="{{ url_for('mvp.entry_options', eid=entry.id) }}">Einfacher Modus</a>
 {% else %}<a href="{{ url_for('mvp.entry_options', eid=entry.id, expert=1) }}">Alle Optionen anzeigen</a>{% endif %}
 </p>
-<form method="post" class="panel">
+<form method="post" class="panel" data-option-editor>
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   {% for key,message in errors.items() %}<p class="err">{{ key }}: {{ message }}</p>{% endfor %}
+  {{ option_tools() }}
   {% for group, opts in groups.items() %}
     <details class="group">
       <summary>{{ group }} ({{ opts|length }})</summary>

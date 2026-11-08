@@ -1,9 +1,32 @@
+{% macro icon(name, extra='') -%}
+<svg class="icon {{ extra }}" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="{{ url_for('static', filename='icons.svg') }}#{{ name }}"></use></svg>
+{%- endmacro %}
+{% macro badge(label, tone='') -%}<span class="chip {{ tone }}">{{ label }}</span>{%- endmacro %}
+{% macro action(label, href, primary=false, symbol='arrow') -%}
+<a class="btn {{ 'primary' if primary else '' }}" href="{{ href }}">{{ label }}{{ icon(symbol) }}</a>
+{%- endmacro %}
+{% macro section_heading(title, description='', eyebrow='') -%}
+<div class="section-head"><div>{% if eyebrow %}<p class="eyebrow">{{ eyebrow }}</p>{% endif %}<h2>{{ title }}</h2>{% if description %}<p class="muted small">{{ description }}</p>{% endif %}</div>{% if caller is defined %}{{ caller() }}{% endif %}</div>
+{%- endmacro %}
+{% macro progress(done, total, label='', extra='') -%}
+<div class="ui-progress {{ extra }}"><div class="progress-caption"><span>{{ label }}</span><strong>{{ done }} / {{ total }}</strong></div><div class="progress-track" role="progressbar" aria-label="{{ label or 'Fortschritt' }}" aria-valuemin="0" aria-valuemax="{{ total or 1 }}" aria-valuenow="{{ done }}"><span style="width:{{ (100 * done / total) if total else 0 }}%"></span></div></div>
+{%- endmacro %}
+{% macro game_art(name, slug='', compact=false) -%}
+<div class="game-art {{ 'compact' if compact else '' }}" style="--game-hue:{{ (slug or name)|game_hue }}" {% if not compact %}role="img" aria-label="Grafisches Titelbild für {{ name }}"{% else %}aria-hidden="true"{% endif %}>
+  <svg class="art-orbits" viewBox="0 0 400 230" aria-hidden="true"><path d="M-20 170 180-30l240 240M30 250 280 0l180 180M-40 70 120-90l300 300"/><circle cx="292" cy="92" r="71"/><circle cx="292" cy="92" r="103"/><path d="m208 119 59-64 52 37-59 64-52-37Z"/></svg>
+  <span class="art-gamepad">{{ icon('gamepad') }}</span>
+  {% if not compact %}<span class="art-caption"><small>ARCHIPELAGO MULTIWORLD</small><strong>{{ name }}</strong></span>{% endif %}
+</div>
+{%- endmacro %}
+{% macro empty_state(title, description, label='', href='', symbol='gamepad') -%}
+<div class="panel empty-state"><span class="empty-icon">{{ icon(symbol) }}</span><h3>{{ title }}</h3><p>{{ description }}</p>{% if label %}{{ action(label, href, true) }}{% endif %}</div>
+{%- endmacro %}
 {% macro lobby_card(s) %}
 <article class="panel card lobby-card">
   <div class="row spread"><span class="chip {{ 'ok' if not s.locked else '' }}">{{ 'Abgeschlossen' if s.completed_at else 'Offen' if not s.locked else 'Geschlossen' }}</span>
     {% if s.created_by == g.user.id %}<span class="small muted">Deine Lobby · Host</span>{% elif s.is_member %}<span class="small muted">Du bist dabei</span>{% endif %}</div>
-  <div><h3>{{ s.name }}</h3><p class="muted small">Host: {{ s.host_name or 'Nicht mehr vorhanden' }}</p></div>
-  <div class="game-meta"><span>{{ s.member_count }} Teilnehmer</span><span>{{ s.game_count }} ausgewählte Spiele</span></div>
+  <div class="lobby-card-heading"><span class="lobby-emblem">{{ icon('worlds') }}</span><div><h3>{{ s.name }}</h3><p class="muted small">Host: {{ s.host_name or 'Nicht mehr vorhanden' }}</p></div></div>
+  <div class="game-meta"><span>{{ icon('users') }} {{ s.member_count }} Teilnehmer</span><span>{{ icon('gamepad') }} {{ s.game_count }} ausgewählte Spiele</span></div>
   <div class="card-actions">
     {% if s.is_member or g.user.is_admin %}
       <a class="btn primary" href="{{ url_for('session_view', sid=s.id) }}">{{ 'Zur Lobby' if not s.locked else 'Runde öffnen' }} →</a>
@@ -15,4 +38,9 @@
     {% else %}<span class="small muted">Diese Runde ist abgeschlossen.</span>{% endif %}
   </div>
 </article>
+{% endmacro %}
+{% macro option_tools() %}
+<div class="options-toolbar"><label>Optionen suchen<input type="search" data-option-search placeholder="Name, Beschreibung oder Schlüssel …" autocomplete="off"></label><span class="small" data-option-count role="status" aria-live="polite"></span><button type="button" class="small" data-option-search-clear>Suche leeren</button></div>
+<p class="options-empty" data-options-empty hidden>Keine passende Option. Deine übrigen Werte bleiben erhalten.</p>
+<details class="technical-options option-changes"><summary>Angepasste Werte (<span data-change-count>0</span>)</summary><p class="small muted">Abweichungen vom Spiel-Standard und neue Eingaben. Erst mit Speichern werden neue Eingaben übernommen.</p><ul data-option-changes></ul></details>
 {% endmacro %}

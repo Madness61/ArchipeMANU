@@ -23,6 +23,10 @@ def register(page,name,password=PASSWORD):
 
 
 def nav(page,name):
+    name = {"Übersicht": "Dashboard", "Aktive Lobby": "Aktive Runden", "Seed-Analyse": "Seed-Analysen"}.get(name, name)
+    toggle = page.locator("#menu-toggle")
+    if toggle.is_visible() and toggle.get_attribute("aria-expanded") != "true":
+        toggle.click()
     return page.get_by_role("navigation",name="Hauptnavigation").get_by_role("link",name=name,exact=True)
 
 
@@ -68,7 +72,7 @@ def join_lobby(page,name):
 
 def select_game(page,goal="finish",difficulty=3,death_link=False):
     page.get_by_role("combobox",name="Ich spiele:",exact=True).select_option("browser_test_world")
-    page.get_by_role("button",name="YAML überarbeiten",exact=True).click()
+    page.get_by_role("button",name="Einstellungen anpassen",exact=True).click()
     editor = page.locator("#selection-editor")
     editor.locator("details.group > summary").first.click()
     editor.get_by_role("combobox",name="Goal",exact=True).select_option(goal)
@@ -151,7 +155,7 @@ def test_shared_library_activation_two_player_lobby_and_seed_statistics(actors,l
     mark_ready(alice,"Alice")
     mark_ready(bob,"Bob")
     alice.reload()
-    alice.get_by_role("button",name="Runde generieren",exact=True).click()
+    alice.get_by_role("button",name="Seed generieren",exact=True).click()
     build = alice.locator('[data-build-status="succeeded"]')
     expect(build).to_be_visible(timeout=15000)
     expect(alice.get_by_text("Geschlossen",exact=True)).to_be_visible()
@@ -206,6 +210,7 @@ def test_shared_library_activation_two_player_lobby_and_seed_statistics(actors,l
     alice.get_by_role("link",name="Jetzt spielen / Verbindung",exact=True).click()
     expect(alice.locator("#check-analysis")).to_contain_text("4 platzierte Items insgesamt")
     expect(alice.get_by_text("Exakte Check-Zahlen",exact=False)).to_have_count(0)
+    alice.get_by_text("Technische Informationen & Check-Analyse", exact=True).click()
     alice.get_by_role("link",name="Progression-Items und Seed-Analyse öffnen",exact=True).click()
     alice.get_by_role("link",name="Spoiler anzeigen & Details erkunden",exact=True).click()
     alice.get_by_text("Itemverteilung zwischen den Spielern",exact=True).click()
@@ -231,13 +236,13 @@ def test_missing_readiness_and_invalid_yaml_do_not_start_generator(actors,live_s
     select_game(alice)
     select_game(bob)
     alice.reload()
-    expect(alice.get_by_role("button",name="Runde generieren",exact=True)).to_be_disabled()
+    expect(alice.get_by_role("button",name="Seed generieren",exact=True)).to_be_disabled()
     expect(alice.locator("#host-controls")).to_contain_text("Noch nicht bereit")
     assert build_count(live_server) == 0
     assert live_server.calls() == []
     mark_ready(alice,"Alice")
 
-    bob.get_by_role("button",name="YAML überarbeiten",exact=True).click()
+    bob.get_by_role("button",name="Einstellungen anpassen",exact=True).click()
     bob.locator("#selection-editor details.group > summary").first.click()
     bob.get_by_role("spinbutton",name="Difficulty",exact=True).fill("999")
     bob.get_by_role("button",name="Auswahl übernehmen",exact=True).click()
@@ -254,7 +259,7 @@ def test_missing_readiness_and_invalid_yaml_do_not_start_generator(actors,live_s
     bob.get_by_role("link",name="Abbrechen",exact=True).click()
     expect(slot_row(bob,"Bob").get_by_text("Nicht bereit",exact=True)).to_be_visible()
     alice.reload()
-    expect(alice.get_by_role("button",name="Runde generieren",exact=True)).to_be_disabled()
+    expect(alice.get_by_role("button",name="Seed generieren",exact=True)).to_be_disabled()
     expect(alice.locator("#host-controls")).to_contain_text("Bob: Noch nicht bereit")
     assert live_server.calls() == []
     assert build_count(live_server) == 0
@@ -263,7 +268,7 @@ def test_missing_readiness_and_invalid_yaml_do_not_start_generator(actors,live_s
     edit_options(bob,"Bob","collect",4)
     mark_ready(bob,"Bob")
     alice.reload()
-    alice.get_by_role("button",name="Runde generieren",exact=True).click()
+    alice.get_by_role("button",name="Seed generieren",exact=True).click()
     expect(alice.locator('[data-build-status="succeeded"]')).to_be_visible(timeout=15000)
     assert len(live_server.calls()) == 1
 
@@ -272,16 +277,20 @@ def test_mobile_library_filters_navigation_and_player_host_separation(actors,art
     alice,bob = actors.alice,actors.bob
     for page in (alice,bob):
         page.set_viewport_size({"width":390,"height":844})
-        page.emulate_media(color_scheme="dark")  # Content stays light, as requested.
+        page.emulate_media(color_scheme="dark")
     register(alice,"Alice")
     register(bob,"Bob")
     navigation = alice.get_by_role("navigation",name="Hauptnavigation")
-    expect(navigation.get_by_role("link")).to_have_count(4)
-    expect(navigation.locator('[aria-current="page"]')).to_have_text("Übersicht")
+    alice.get_by_role("button", name="Menü öffnen", exact=True).click()
+    expect(navigation.get_by_role("link")).to_have_count(5)
+    expect(navigation.locator('[aria-current="page"]')).to_have_text("Dashboard")
+    alice.get_by_role("button", name="Menü schließen", exact=True).click()
     assert alice.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
     alice.screenshot(path=str(artifact_dir/"overview-mobile.png"),full_page=True)
     upload_world(alice)
+    nav(alice, "Spielebibliothek")
     expect(navigation.locator('[aria-current="page"]')).to_have_text("Spielebibliothek")
+    alice.get_by_role("button", name="Menü schließen", exact=True).click()
     alice.get_by_label("Spieltyp",exact=True).select_option("builtin")
     expect(alice.get_by_role("heading",name="Keine passenden Spiele gefunden")).to_be_visible()
     alice.get_by_label("Spieltyp",exact=True).select_option("custom")
@@ -308,9 +317,9 @@ def test_mobile_library_filters_navigation_and_player_host_separation(actors,art
     create_lobby(alice,"Mobile Runde")
     join_lobby(bob,"Mobile Runde")
     expect(bob.locator("#host-controls")).to_have_count(0)
-    expect(bob.get_by_role("button",name="Runde generieren",exact=True)).to_have_count(0)
+    expect(bob.get_by_role("button",name="Seed generieren",exact=True)).to_have_count(0)
     expect(alice.locator("#host-controls")).to_be_visible()
-    expect(alice.get_by_role("button",name="Runde generieren",exact=True)).to_be_disabled()
+    expect(alice.get_by_role("button",name="Seed generieren",exact=True)).to_be_disabled()
     select_game(alice,"collect",5)
     select_game(bob,"finish",4)
     for page in (alice,bob):
@@ -383,7 +392,7 @@ def test_admin_deletes_accounts_rounds_and_seeds(actors, live_server):
     lobby_url = create_lobby(alice, "Delete this round")
     select_game(alice)
     mark_ready(alice, "Alice")
-    alice.get_by_role("button", name="Runde generieren", exact=True).click()
+    alice.get_by_role("button", name="Seed generieren", exact=True).click()
     expect(alice.locator('[data-build-status="succeeded"]')).to_be_visible()
     assert build_count(live_server) == 1
     login(admin, "TestAdmin")
@@ -401,7 +410,7 @@ def test_admin_deletes_accounts_rounds_and_seeds(actors, live_server):
     # The round survives the individual seed deletion and can generate again.
     alice.goto(lobby_url)
     expect(alice.get_by_role("heading", name="Delete this round", exact=True)).to_be_visible()
-    alice.get_by_role("button", name="Runde generieren", exact=True).click()
+    alice.get_by_role("button", name="Seed generieren", exact=True).click()
     expect(alice.locator('[data-build-status="succeeded"]')).to_be_visible()
     admin.reload()
     admin.get_by_role("button", name="Runde löschen", exact=True).click()
@@ -424,7 +433,7 @@ def test_refresh_preserves_draft_and_active_lobby_navigation(actors, live_server
     lobby_url = create_lobby(alice, "Live status round")
     join_lobby(bob, "Live status round")
     select_game(alice)
-    alice.get_by_role("link", name="YAML / Einstellungen", exact=True).click()
+    alice.get_by_role("link", name="Einstellungen", exact=True).click()
     editor = alice.locator("#selection-editor")
     editor.locator("details.group > summary").first.click()
     editor.get_by_role("spinbutton", name="Difficulty", exact=True).fill("9")
@@ -438,11 +447,12 @@ def test_refresh_preserves_draft_and_active_lobby_navigation(actors, live_server
     expect(alice.locator("#participants-section")).to_contain_text("1 von 2 bereit")
     editor.get_by_role("button", name="Auswahl übernehmen", exact=True).click()
     mark_ready(alice, "Alice")
-    alice.get_by_role("button", name="Runde generieren", exact=True).click()
+    alice.get_by_role("button", name="Seed generieren", exact=True).click()
     build = alice.locator('[data-build-status="succeeded"]')
     expect(build).to_be_visible()
     expect(build.get_by_role("heading", name="Raum-Link, Server & Port eintragen · Host", exact=True)).to_be_visible()
-    expect(nav(alice, "Aktive Lobby")).to_have_count(0)
+    expect(nav(alice, "Aktive Lobby")).to_be_visible()
+    expect(alice.locator(".nav-count")).to_have_count(0)
     build.get_by_label("Archipelago-Raum-Link (optional)", exact=True).fill("https://archipelago.gg/room/testroom")
     build.get_by_label("Serveradresse", exact=True).fill("archipelago.gg")
     build.get_by_label("Port", exact=True).fill("38281")
@@ -482,15 +492,19 @@ def test_refresh_preserves_draft_and_active_lobby_navigation(actors, live_server
     bob.get_by_role("button", name="Ich bin fertig", exact=True).click()
     expect(bob.get_by_role("heading", level=1)).to_have_text("Abgeschlossene Runde · Live status round")
     expect(bob.locator("#completion")).to_contain_text("Alle Spieler haben bestätigt")
-    expect(nav(bob, "Aktive Lobby")).to_have_count(0)
+    expect(nav(bob, "Aktive Lobby")).to_be_visible()
+    expect(bob.locator(".nav-count")).to_have_count(0)
+    if bob.locator("#menu-toggle").is_visible(): bob.get_by_role("button", name="Menü schließen", exact=True).click()
     bob.screenshot(path=str(artifact_dir / "completed-lobby-mobile.png"), full_page=True)
     alice.reload()
-    expect(nav(alice, "Aktive Lobby")).to_have_count(0)
+    expect(nav(alice, "Aktive Lobby")).to_be_visible()
+    expect(alice.locator(".nav-count")).to_have_count(0)
+    if alice.locator("#menu-toggle").is_visible(): alice.get_by_role("button", name="Menü schließen", exact=True).click()
     expect(alice.get_by_role("button", name="Verbindung speichern", exact=True)).to_have_count(0)
     expect(alice.get_by_role("link", name="Multiworld-ZIP herunterladen", exact=True)).to_be_visible()
     alice.goto(lobby_url)
     expect(alice.locator("#session-overview")).to_contain_text("Abgeschlossen")
-    expect(alice.get_by_role("button", name="Runde generieren", exact=True)).to_have_count(0)
+    expect(alice.get_by_role("button", name="Seed generieren", exact=True)).to_have_count(0)
 
 
 def test_direct_defaults_template_explanation_and_single_value_reset(actors, live_server, artifact_dir):
@@ -506,7 +520,7 @@ def test_direct_defaults_template_explanation_and_single_value_reset(actors, liv
     expect(slot_row(page, "Alice")).to_contain_text(GAME)
     expect(slot_row(page, "Alice")).to_contain_text("Nicht bereit")
     mark_ready(page, "Alice")
-    page.get_by_role("link", name="YAML / Einstellungen", exact=True).click()
+    page.get_by_role("link", name="Einstellungen", exact=True).click()
     editor = page.locator("#selection-editor")
     expect(editor.locator("details.group[open]")).to_have_count(0)
     editor.locator("details.group > summary").first.click()

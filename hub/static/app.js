@@ -2,7 +2,117 @@
 (function () {
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+  // One navigation drawer on small screens, with keyboard focus containment.
+  const menuToggle = document.getElementById("menu-toggle");
+  const menuPanel = document.getElementById("sidebar-body");
+  const scrim = document.getElementById("nav-scrim");
+  const main = document.getElementById("main-content");
+  const mobile = matchMedia("(max-width: 900px)");
+  const setMenu = (open, restore = false) => {
+    if (!menuToggle) return;
+    const active = open && mobile.matches;
+    document.body.classList.toggle("menu-open", active);
+    menuToggle.setAttribute("aria-expanded", String(active));
+    menuToggle.setAttribute("aria-label", active ? "Menü schließen" : "Menü öffnen");
+    menuToggle.querySelector("use").setAttribute("href", menuToggle.querySelector("use").getAttribute("href").replace(/#[^#]+$/, active ? "#close" : "#menu"));
+    scrim.hidden = !active;
+    main.inert = active;
+    if (restore) menuToggle.focus();
+  };
+  menuToggle?.addEventListener("click", () => setMenu(menuToggle.getAttribute("aria-expanded") !== "true"));
+  scrim?.addEventListener("click", () => setMenu(false, true));
+  mobile.addEventListener("change", () => setMenu(false));
+  document.addEventListener("keydown", event => {
+    if (!document.body.classList.contains("menu-open")) return;
+    if (event.key === "Escape") { event.preventDefault(); setMenu(false, true); }
+    if (event.key !== "Tab") return;
+    const controls = $$("a[href],button,input:not([type=hidden])", document.querySelector("header.top")).filter(n => n.getClientRects().length && !n.disabled);
+    if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1).focus(); }
+    else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0].focus(); }
+  });
+  document.addEventListener("click", event => {
+    if (event.target.closest("#sidebar-body a") && mobile.matches) setMenu(false);
+  });
+
+  // Option search only hides controls; it never removes/disables submitted values.
+  $$("[data-option-editor]").forEach(editor => {
+    const search = editor.querySelector("[data-option-search]");
+    if (!search) return;
+    const options = $$(".opt", editor), groups = $$("details.group", editor);
+    const starts = new Map(options.map(option => [option, JSON.stringify($$("input,select,textarea", option).filter(n => n.name && n.name !== "_r").map(n => [n.name,n.value,n.checked]))]));
+    const openStates = new Map();
+    const updateChanges = () => {
+      const changed = options.filter(option => {
+        const edited = starts.get(option) !== JSON.stringify($$("input,select,textarea", option).filter(n => n.name && n.name !== "_r").map(n => [n.name,n.value,n.checked]));
+        option.classList.toggle("is-edited", edited);
+        let flag = option.querySelector(".edit-flag");
+        if (edited && !flag) { flag = document.createElement("span"); flag.className = "chip edit-flag"; flag.setAttribute("aria-hidden", "true"); flag.textContent = "Bearbeitet"; option.querySelector("label.name").append(flag); }
+        if (flag) flag.hidden = !edited;
+        return edited || option.classList.contains("changed");
+      });
+      const list = editor.querySelector("[data-option-changes]");
+      list.replaceChildren();
+      changed.forEach(option => {
+        const item = document.createElement("li"), name = document.createElement("strong");
+        name.textContent = option.dataset.optionName;
+        const field = option.querySelector("[id^='f-']");
+        const current = field?.type === "checkbox" ? (field.checked ? "An" : "Aus") : field?.value || "Komplexer Wert";
+        item.append(name, document.createTextNode(" · " + current.slice(0,120)));
+        list.append(item);
+      });
+      editor.querySelector("[data-change-count]").textContent = String(changed.length);
+      if (!changed.length) { const item = document.createElement("li"); item.textContent = "Keine angepassten Werte."; list.append(item); }
+    };
+    const filterOptions = () => {
+      const query = search.value.toLocaleLowerCase("de").trim();
+      let count = 0;
+      options.forEach(option => {
+        const visible = !query || option.textContent.toLocaleLowerCase("de").includes(query) || option.dataset.optionKey.includes(query);
+        option.hidden = !visible; if (visible) count++;
+      });
+      groups.forEach(group => {
+        if (query && !openStates.has(group)) openStates.set(group, group.open);
+        group.hidden = !$$(".opt",group).some(option => !option.hidden);
+        if (query && !group.hidden) group.open = true;
+        if (!query && openStates.has(group)) { group.open = openStates.get(group); openStates.delete(group); }
+      });
+      editor.querySelector("[data-option-count]").textContent = count + " von " + options.length + " Optionen";
+      editor.querySelector("[data-options-empty]").hidden = count > 0;
+    };
+    search.addEventListener("input", filterOptions);
+    editor.querySelector("[data-option-search-clear]").addEventListener("click", () => { search.value = ""; filterOptions(); search.focus(); });
+    editor.addEventListener("input", updateChanges);
+    editor.addEventListener("change", updateChanges);
+    filterOptions(); updateChanges();
+  });
+
   // All cards are present so filtering never reloads the page or loses input focus.
+  const chooseGame = document.getElementById("add-game");
+  const updateGamePreview = () => {
+    if (!chooseGame) return;
+    const selected = chooseGame.selectedOptions[0];
+    const title = document.querySelector("[data-chosen-game-name]");
+    if (title) title.textContent = chooseGame.value ? selected.textContent : "Welche Welt wird deine?";
+    const art = document.querySelector(".selection-art .game-art");
+    if (art && selected?.dataset.hue) art.style.setProperty("--game-hue", selected.dataset.hue);
+    document.querySelectorAll("[data-choose-game]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.chooseGame === chooseGame.value)));
+  };
+  chooseGame?.addEventListener("change", updateGamePreview);
+  document.querySelectorAll("[data-choose-game]").forEach(button => button.addEventListener("click", () => {
+    chooseGame.value = button.dataset.chooseGame;
+    chooseGame.dispatchEvent(new Event("change", {bubbles:true}));
+    button.closest("details").open = false;
+    chooseGame.focus();
+  }));
+  document.querySelector("[data-game-search]")?.addEventListener("input", event => {
+    let count = 0;
+    document.querySelectorAll("[data-choose-game]").forEach(button => {
+      button.hidden = !button.textContent.toLowerCase().includes(event.target.value.toLowerCase().trim());
+      if (!button.hidden) count++;
+    });
+    document.querySelector("[data-game-empty]").hidden = count > 0;
+  });
+  updateGamePreview();
   const libraryFilters = document.getElementById("library-filters");
   if (libraryFilters) {
     const cards = $$("[data-library-game]").map(card => ({
@@ -252,7 +362,7 @@
         if (selected.summary.length > 6) {
           const more = document.createElement("p");
           more.className = "small muted";
-          more.textContent = "Weitere Werte siehst du unter „YAML überarbeiten“.";
+          more.textContent = "Weitere Werte siehst du unter „Einstellungen anpassen“.";
           target.append(more);
         }
       }

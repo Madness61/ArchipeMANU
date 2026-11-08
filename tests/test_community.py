@@ -181,7 +181,7 @@ class CommunityTests(unittest.TestCase):
         host_page = self.host.get("/sessions/1")
         self.assertIn(b"1 von 2 bereit",host_page.data)
         self.assertIn(b"Friend: Spiel fehlt",host_page.data)
-        self.assertRegex(host_page.get_data(as_text=True),r'<button class="primary" disabled>Runde generieren</button>')
+        self.assertRegex(host_page.get_data(as_text=True),r'<button class="primary" disabled>Seed generieren</button>')
         member_page = self.friend.get("/sessions/1")
         self.assertNotIn(b'id="host-controls"',member_page.data)
         self.assertNotIn(b"Lobby verwalten",member_page.data)
@@ -200,7 +200,7 @@ class CommunityTests(unittest.TestCase):
         self.assertIn('id="host-rom-requirements"', host)
         self.assertIn("Fixture USA ROM", host)
         self.assertIn("Generator-Rechner", host)
-        self.assertLess(host.index('id="host-rom-requirements"'), host.index('>Runde generieren</button>'))
+        self.assertLess(host.index('id="host-rom-requirements"'), host.index('>Seed generieren</button>'))
         self.assertNotIn('id="host-rom-requirements"', member)
 
     def test_active_lobby_appears_after_hosting_only_for_participants(self):
@@ -212,10 +212,10 @@ class CommunityTests(unittest.TestCase):
             bid = db.execute("INSERT INTO seed_builds(session_id,status,snapshot,created_at) VALUES (1,'succeeded',?, 'today')",
                              (json.dumps({"slots": []}),))
             db.execute("UPDATE sessions SET locked=1 WHERE id=1")
-        self.assertNotIn(b'>Aktive Lobby</a>', self.friend.get("/").data)
+        self.assertNotIn(b'class="nav-count"', self.friend.get("/").data)
         self.assertEqual(self.post(self.host, f"/sessions/1/builds/{bid}/hosting", {
             "host": "archipelago.gg", "port": "38281", "room_url": "https://archipelago.gg/room/testroom"}).status_code, 302)
-        self.assertIn(b'>Aktive Lobby</a>', self.friend.get("/").data)
+        self.assertIn(b'class="nav-count"', self.friend.get("/").data)
         active = self.friend.get("/active-lobby")
         self.assertEqual(active.status_code, 302)
         self.assertEqual(active.location, f"/sessions/1/builds/{bid}/play")
@@ -232,7 +232,7 @@ class CommunityTests(unittest.TestCase):
         self.assertIn(b'value="38281"', host_page.data)
         outsider = self.app.test_client()
         self.login(outsider, "Outsider")
-        self.assertNotIn(b'>Aktive Lobby</a>', outsider.get("/").data)
+        self.assertNotIn(b'class="nav-count"', outsider.get("/").data)
         self.assertNotIn(b"Active round", outsider.get("/active-lobby").data)
         self.assertEqual(outsider.get(active.location).status_code, 403)
 

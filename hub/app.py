@@ -302,6 +302,10 @@ def inject_globals():
 
 # --- Dashboard & games -------------------------------------------------------------------------
 
+@app.template_filter("game_hue")
+def game_hue(value):
+    return int(hashlib.sha256(str(value).encode("utf-8")).hexdigest()[:8], 16) % 360
+
 @app.route("/")
 @login_required
 def index():
@@ -315,8 +319,50 @@ def index():
             SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.id AND lm.user_id=?)
             OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?)
         ORDER BY s.id DESC""", (g.user["id"],)*6)
+    own_ids = {s["id"] for s in sessions if s["is_member"]}
+    active = [dict(c) for c in mvp.active_connections() if c["session_id"] in own_ids]
+    active_ids = {c["session_id"] for c in active}
+    own_rooms = sorted([dict(s) for s in sessions if s["is_member"]],
+                       key=lambda s: (0 if s["id"] in active_ids else 2 if s["completed_at"] else 1, -s["id"]))[:6]
+    for room in own_rooms:
+        entries = session_entries(room["id"])
+        room["game_names"] = list(dict.fromkeys(e["game_name"] for e in entries))
+        member_ids = {r["user_id"] for r in db.query("SELECT user_id FROM lobby_members WHERE session_id=?", (room["id"],))} | {e["user_id"] for e in entries}
+        room["member_count"] = len(member_ids)
+        room["ready_count"] = sum(bool([e for e in entries if e["user_id"] == uid]) and all(
+            e["ready_valid"] and e["template_found"] for e in entries if e["user_id"] == uid) for uid in member_ids)
+        room["own_entry"] = next((e for e in entries if e["user_id"] == g.user["id"]), None)
+    focus = next((s for s in own_rooms if active and s["id"] == active[0]["session_id"]), None)
+    focus = focus or next((s for s in own_rooms if not s["completed_at"]), None)
+    focus_action = focus_url = None
+    focus_live = None
+    if focus:
+        build = db.query("SELECT * FROM seed_builds WHERE session_id=? ORDER BY id DESC LIMIT 1", (focus["id"],), one=True)
+        connection = next((c for c in active if c["session_id"] == focus["id"]), None)
+        if connection:
+            linked = live_store.current(connection["build_id"])
+            focus_action = "Live-Dashboard öffnen" if linked else "Jetzt spielen"
+            focus_url = url_for("live.dashboard" if linked else "mvp.play_page", sid=focus["id"], build_id=connection["build_id"])
+            if linked and linked["latest_json"]:
+                focus_live = db.loads(linked["latest_json"])
+        elif build and build["status"] == "succeeded":
+            focus_action = "Jetzt spielen"
+            focus_url = url_for("mvp.play_page", sid=focus["id"], build_id=build["id"])
+        else:
+            own = focus["own_entry"]
+            focus_action = ("Generierung ansehen" if build and build["status"] in ("queued", "running")
+                            else "Zur Lobby" if focus["locked"] or (own and own["ready_valid"])
+                            else "Einstellungen prüfen" if own and (own["world_error"] or not own["template_found"])
+                            else "Bereit melden" if own else "Spiel auswählen")
+            focus_url = url_for("session_view", sid=focus["id"], _anchor="participants-section" if own else "game-selection")
+    recent = db.query("""SELECT b.id,b.session_id,b.created_at,s.name FROM seed_builds b JOIN sessions s ON s.id=b.session_id
+        WHERE b.status='succeeded' AND b.completed_at IS NOT NULL AND (s.created_by=?
+        OR EXISTS (SELECT 1 FROM lobby_members m WHERE m.session_id=s.id AND m.user_id=?)
+        OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?))
+        ORDER BY b.id DESC LIMIT 4""", (g.user["id"],)*3)
     return render_template("index.html", open_rooms=[s for s in sessions if not s["locked"]][:6],
-                           own_rooms=[s for s in sessions if s["is_member"]][:6],
+                           own_rooms=own_rooms, focus=focus, focus_action=focus_action, focus_url=focus_url,
+                           focus_live=focus_live, own_active=active, recent_rounds=recent,
                            games_total=len(community.all_games()),
                            open_total=db.query("SELECT COUNT(*) AS n FROM sessions WHERE locked=0", one=True)["n"],
                            players_total=db.query("SELECT COUNT(*) AS n FROM users", one=True)["n"])
@@ -689,9 +735,11 @@ def session_view(sid, selection=None):
             waiting.append({"name":name,"reason":"Spiel fehlt" if not user_entries else "Einstellungen prüfen" if any(e["world_error"] or not e["template_found"] for e in user_entries) else "Noch nicht bereit"})
     all_ready = bool(entries) and not waiting
     step = 2 if selection else 4 if own_entry and own_entry["ready_valid"] else 3 if own_entry else 1
+    host_user = db.query("SELECT username FROM users WHERE id=?", (row["created_by"],), one=True)
     return render_template("session.html", s=row, entries=entries, games=games,
                            host_rom_requirements=game_catalog.host_rom_requirements(entries),
                            manage=can_manage_session(row), build_history=history,
+                           host_name=host_user["username"] if host_user else "Nicht mehr vorhanden",
                            lobby_guests=guests, is_member=is_member,
                            selection=selection, selected_game=selected_game, selected_ref=selected_ref,
                            selection_templates=selection_templates, yg=yamlgen,

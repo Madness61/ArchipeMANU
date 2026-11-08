@@ -1,5 +1,11 @@
 # Multiworld Hub
 
+Das [Designsystem](DESIGN_SYSTEM.md) beschreibt das neue Dark-Gaming-Frontend:
+Sidebar und mobiles Menü, persönliches Dashboard, Spielkatalog mit eigenen
+grafischen Titelbildern, Lobby-Spielerkarten und eine persönliche Spielstartzentrale.
+Die vorhandenen Formulare, YAML-Regeln, Rechte und Seed-/Live-Funktionen bleiben
+erhalten. Für das Redesign sind keine neuen Datenbankmigrationen nötig.
+
 Das neue [Live-Dashboard](LIVE_DASHBOARD.md) begleitet laufende Runden mit
 gemeinsam gecachten Archipelago-Daten, Spielerkarten, Empfangsmatrix, Verlauf,
 Ereignissen und Vergleichen. Nach dem Upload des Seeds genügt der Raumlink

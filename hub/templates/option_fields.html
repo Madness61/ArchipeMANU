@@ -3,10 +3,10 @@
   {% set cur = values[key] if key in values else opt.default %}
   {% set fid = 'f-' ~ key %}
   {% set resetting = key in request.form.getlist('_reset_option') or request.form.get('_action') == 'reset' %}
-  <div class="opt {% if key in values and cur != opt.default %}changed{% endif %}">
+  <div class="opt {% if key in values and cur != opt.default %}changed{% endif %}" data-option-key="{{ key }}" data-option-name="{{ opt.name }}">
     <input type="hidden" name="_r" value="{{ key }}">
     <label class="name" for="{{ fid }}">{{ opt.name }}
-      {% if key in values and cur != opt.default %}<span class="chip small">geändert</span>{% endif %}</label>
+      {% if key in values and cur != opt.default %}<span class="chip small" aria-hidden="true">geändert</span>{% endif %}</label>
 
     {% if yg.raw_mode(opt, cur) %}
       {% if opt.kind != 'raw' %}<input type="hidden" name="m.{{ key }}" value="raw">
@@ -78,6 +78,6 @@
     </div>{% endif %}
 
     {% if errors[key] %}<div class="err">{{ errors[key] }}</div>{% endif %}
-    {% if opt.doc %}<div class="doc" title="Klicken zum Aufklappen">{{ opt.doc }}</div>{% endif %}
+    {% if opt.doc %}<details class="option-doc small"><summary>Erklärung zu {{ opt.name }}</summary><div class="doc open">{{ opt.doc }}</div></details>{% endif %}
   </div>
 {% endmacro %}

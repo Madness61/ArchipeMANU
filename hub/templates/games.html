@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "ui.html" import icon, game_art with context %}
 {% block title %}Spielebibliothek · {{ app_name }}{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -23,7 +24,8 @@
   {% set visible_slugs = rows|map(attribute='slug')|list %}
   {% for item in library %}
   <article class="panel card game-card" data-library-game data-search="{{ (item.name ~ ' ' ~ item.slug ~ ' ' ~ item.added_by ~ ' ' ~ item.catalog.description ~ ' ' ~ item.catalog.genres|join(' '))|lower }}" data-kind="{{ 'custom' if item.custom else 'builtin' }}" data-state="{{ item.support_state }}" data-genres="{{ item.catalog.genres|tojson|forceescape }}" data-setup="{{ item.catalog.setup_type }}" {% if item.slug not in visible_slugs %}hidden{% endif %}>
-    <div class="row spread">
+    {{ game_art(item.name, item.slug) }}
+    <div class="card-content"><div class="row spread">
       <span class="chip {{ 'ok' if item.installed else 'warn' }}">{{ support_states[item.support_state] }}</span>
       <span class="muted small">{{ 'Hinzugefügt' if item.custom else 'Integriert' }}</span>
     </div>
@@ -35,7 +37,7 @@
     <p class="muted small" style="margin:8px 0">
       {{ 'Von ' ~ item.added_by if item.added_by else 'In Archipelago enthalten' }}
     </p>
-    <div class="row">
+    <div class="row library-actions">
       {% if item.installed %}<a class="btn primary" href="{{ url_for('game', slug=item.slug) }}">Spiel öffnen</a>{% else %}
         <span class="muted small">{% if item.active %}Die APWorld ist aktiviert. Das Einlesen läuft automatisch; bei Fehlern das Admin-Protokoll prüfen.{% else %}Eine gespeicherte Version aktivieren, um die Spieloptionen automatisch einzulesen.{% endif %}</span>
       {% endif %}
@@ -62,6 +64,7 @@
       {% endfor %}
     </details>
     {% endif %}
+    </div>
   </article>
   {% endfor %}
 </div>
