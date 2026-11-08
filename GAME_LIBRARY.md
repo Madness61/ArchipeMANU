@@ -1,11 +1,11 @@
 # Spielebibliothek: Informationen und Einrichtung
 
 Die Bibliothek unterscheidet den technischen APWorld-Status von der lokalen
-Spieleinrichtung. „Optionen verfügbar“ bestätigt ausschließlich, dass die
+Spieleinrichtung. „Für Lobby auswählbar“ bestätigt ausschließlich, dass die
 Spieloptionen eingelesen wurden. Die Anwendung erkennt weder eine installierte
 Spielkopie noch vorhandene ROMs, Emulatoren, Mods oder eine aktive Spielverbindung.
 
-Die 82 bekannten Spiele besitzen in `hub/game_catalog.py` eine deutsche
+Die 85 bekannten Spiele besitzen in `hub/game_catalog.py` eine deutsche
 Beschreibung, mehrere passende Genre-Tags, eine Einrichtungsart sowie konkrete
 Voraussetzungen und Einrichtungsschritte. Diese Angaben werden auf den
 Spielseiten und bei generierten Runden verwendet. Inaktive Uploads haben eine
@@ -14,7 +14,9 @@ eigene Seite unter `/games/<slug>/setup`.
 `hub/game_catalog_sources.json` enthält die dazugehörigen Setup- und Download-Links.
 Die Basis sind die offiziellen, mit Archipelago 0.6.8 ausgelieferten Dokumente;
 die jeweilige Quelldatei ist direkt verlinkt. Borderlands 2 verweist auf die
-Anleitung des BouncyLootGod-Projekts. Zusätzlich hinterlegte Gruppenanleitungen
+Anleitung des BouncyLootGod-Projekts, ebenso Borderlands: The Pre-Sequel.
+Pseudoregalia und Resident Evil 4 Remake verweisen auf ihre Mod-Projekte mit
+Installationsschritten und Versionshinweisen. Zusätzlich hinterlegte Gruppenanleitungen
 bleiben sichtbar. Versionen von Spiel, Client, Mod und APWorld müssen zueinander
 passen; ein Link auf „latest“ ist keine Kompatibilitätsgarantie für ältere Seeds.
 
@@ -31,6 +33,6 @@ speichert die Auswahl in der URL. Ohne JavaScript funktioniert dieselbe Filterun
 
 Prüfungen: `tests/test_game_catalog.py`, die Bibliothekstests in
 `tests/test_community.py` und die Browser-Szenarien in
-`browser_tests/test_players.py`. Der Browser-Test mit 82 Karten verwendet nur
+`browser_tests/test_players.py`. Der Browser-Test mit allen Katalogkarten verwendet nur
 inaktive Beispieldaten im isolierten temporären Testserver, keine echten ROMs,
 keine APWorld-Ausführung und keine Produktivdaten.

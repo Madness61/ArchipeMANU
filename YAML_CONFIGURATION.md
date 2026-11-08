@@ -40,8 +40,9 @@ erhalten und werden nicht aus der Konfiguration gefiltert.
 Im Lobbyformular werden Abweichungen von Vorlage plus Profil gespeichert.
 Explizite Rücksetzungen auf `false`, `0`, leere Listen oder Dictionaries bleiben
 als Lobby-Änderungen erhalten, wenn die darunterliegenden Ebenen anders lauten.
-„Für diesen Wert wieder Vorlage/Profil übernehmen“ entfernt den betreffenden
-Lobby-Override. Die separate Schaltfläche zum Zurücksetzen aller Lobby-Änderungen
+„Diesen Wert zurücksetzen“ entfernt den betreffenden Lobby-Override zunächst
+im Entwurf; andere Änderungen bleiben erhalten. Die früheren Vererbungs-Häkchen
+sind nicht mehr nötig. Die separate Schaltfläche zum Zurücksetzen aller Lobby-Änderungen
 entfernt diese nur auf ausdrückliche Benutzeraktion.
 
 ## Vorlagen und Originaldateien
@@ -49,10 +50,16 @@ entfernt diese nur auf ausdrückliche Benutzeraktion.
 ### Auswahl direkt in der Lobby
 
 Beitritt und Lobby-Erstellung legen noch keinen Spielslot an. Unter „Deine
-Spielauswahl“ wählt der Spieler Spiel und Vorlage und öffnet mit „YAML erstellen /
-bearbeiten“ den Editor innerhalb der Lobby. Vorschau und Download sind ein
+Spielauswahl“ wählt der Spieler Spiel und Vorlage und öffnet mit „YAML überarbeiten“
+den Editor innerhalb der Lobby. Vorschau und Download sind ein
 Entwurf; erst „Auswahl übernehmen“ speichert Spiel und Einstellungen gemeinsam.
 Vorhandene Slots behalten bis dahin ihre Einstellungen und Bereitschaft.
+
+Alternativ speichert „Standardwerte übernehmen“ bzw. „Vorlage übernehmen“ die
+gewählte Grundlage einschließlich Profilwerten direkt, ohne den Editor zu öffnen.
+Dabei werden frühere Lobby-Overrides entfernt und die Bereitschaft zurückgesetzt.
+Auch dieser POST prüft Mitgliedschaft, Lobby-Sperre, Schema, APWorld und
+Vorlagenanforderungen und speichert die Auswahl atomar.
 
 Der Entwurf enthält eine signierte, auf Benutzer und Lobby beschränkte Kopie der
 Vorlage. Veränderte Schemas, Profile, Slotnamen oder eine parallel geänderte

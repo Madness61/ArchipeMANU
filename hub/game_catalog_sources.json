@@ -1545,6 +1545,35 @@
       }
     ]
   },
+  "borderlands_tps": {
+    "guide_url": "https://github.com/EdricY/Bouncy-Loot-God#setup-for-playing",
+    "source_url": "https://github.com/EdricY/Bouncy-Loot-God",
+    "links": [
+      {"label": "Originalspiel bei Steam", "url": "https://store.steampowered.com/app/261640/Borderlands_The_PreSequel/"},
+      {"label": "BouncyLootGod: Mod und TPS-APWorld", "url": "https://github.com/EdricY/Bouncy-Loot-God/releases"},
+      {"label": "Python SDK und Mod Manager", "url": "https://bl-sdk.github.io/"},
+      {"label": "coroutines: Abhängigkeit", "url": "https://bl-sdk.github.io/willow2-mod-db/mods/coroutines/"}
+    ]
+  },
+  "pseudoregalia": {
+    "guide_url": "https://github.com/pseudoregalia-modding/pseudoregalia-archipelago/blob/main/AP_Randomizer/apworld/docs/setup_en.md",
+    "source_url": "https://github.com/pseudoregalia-modding/pseudoregalia-archipelago",
+    "links": [
+      {"label": "Originalspiel bei Steam", "url": "https://store.steampowered.com/app/2365810/Pseudoregalia/"},
+      {"label": "Mod und APWorld: passende Version auswählen", "url": "https://github.com/pseudoregalia-modding/pseudoregalia-archipelago/releases"},
+      {"label": "Versionshinweise zu 0.11.0", "url": "https://github.com/pseudoregalia-modding/pseudoregalia-archipelago/releases/tag/0.11.0"}
+    ]
+  },
+  "RE4R": {
+    "guide_url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard#install",
+    "source_url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard",
+    "links": [
+      {"label": "Originalspiel bei Steam", "url": "https://store.steampowered.com/app/2050650/Resident_Evil_4/"},
+      {"label": "RE4R AP Wizard: Downloads", "url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard/releases"},
+      {"label": "Voraussetzungen und DLCs", "url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard#what-you-need"},
+      {"label": "Hilfe bei fehlenden Checks und Verbindungsproblemen", "url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard#somethings-wrong"}
+    ]
+  },
   "borderlands2": {
     "guide_url": "https://github.com/EdricY/Bouncy-Loot-God#setup-for-playing",
     "source_url": "https://github.com/EdricY/Bouncy-Loot-God",

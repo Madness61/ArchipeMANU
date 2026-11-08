@@ -5,6 +5,15 @@
   <p class="status-note warn">Die Bibliothek prüft deine lokale Spieleinrichtung nicht. Eine verfügbare YAML-Vorlage allein reicht zum Spielen noch nicht aus.</p>
   <h3>Das brauchst du</h3>
   <ul>{% for requirement in game_info.requirements %}<li>{{ requirement }}</li>{% endfor %}</ul>
+  {% if game_info.host_rom %}
+  <aside class="status-note warn" aria-label="Voraussetzung für den Host">
+    <strong>Host: ROM vor der Generierung einrichten</strong>
+    <p>{{ game_info.host_rom }} muss auf dem Rechner vorhanden und in Archipelago konfiguriert sein, auf dem dieser Hub den Seed generiert. Die Datei nur auf dem Rechner eines Mitspielers zu haben, reicht dafür nicht aus. Läuft der Hub auf einem separaten Server, wird die ROM dort benötigt.</p>
+    <p class="small">Die YAML enthält keine ROM. Richte den Dateipfad vor „Runde generieren“ gemäß der verlinkten Spielanleitung ein. Spieler benötigen später ihre eigene Originaldatei zum Patchen.</p>
+  </aside>
+  {% elif game_info.setup_type == 'rom' %}
+  <p class="status-note">Für den Host: Eine ROM beim Spieler bedeutet nicht automatisch, dass auch der Generator sie benötigt. Prüfe die verlinkte Anleitung für diese APWorld-Version vor der Generierung. Falls sie eine Originaldatei zur Generierung verlangt, muss diese auf dem Generator-Rechner eingerichtet sein.</p>
+  {% endif %}
   <h3>{{ 'Einrichtung für dieses Spiel' if game_info.documented else 'Einrichtung noch ergänzen' }}</h3>
   {% for step in game_info.steps %}<p>{{ step }}</p>{% endfor %}
   {% if game_info.setup_type == 'rom' %}<p class="small muted">Original-ROMs und Disc-Abbilder werden hier nicht mitgeliefert. Verwende deine eigenen Originaldateien in der angegebenen Region und Revision. Ein Slot-Patch enthält Änderungen für den Seed und ersetzt die Originaldatei nicht.</p>{% endif %}

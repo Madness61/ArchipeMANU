@@ -1,0 +1,125 @@
+# Vollständige Standardvorlage für Resident Evil 4 Remake.
+# Erstellt aus dem eingelesenen Schema deiner aktiven RE4R-APWorld 0.8.0.
+# Enthält alle 33 dort verfügbaren Optionen mit ihren Standardwerten.
+# Beim Import in Multiworld Hub ersetzt später dein Profil-Slotname den Namen.
+
+name: Max Mustermann
+description: Resident Evil 4 Remake - Standardwerte (APWorld 0.8.0)
+game: Resident Evil 4 Remake
+
+Resident Evil 4 Remake:
+  # Fortschrittsausgleich: 0 = aus, 50 = normal, 99 = besonders stark.
+  progression_balancing: 50
+
+  # full = alle vorgesehenen Items/Checks erreichbar; minimal = Ziel erreichbar.
+  accessibility: full
+
+  # Spielinhalte. Mercenaries kann zusätzlich oder allein gewählt werden.
+  # Separate Ways wird von dieser Version noch nicht für die Generierung unterstützt.
+  included_content:
+    - Main Campaign
+
+  # Diese drei Optionen wirken nur, wenn Mercenaries enthalten ist.
+  # Ränge: c, b, a, s, s_plus, s_plus_plus. Untergrenze <= Obergrenze.
+  mercenaries_rank_floor: c
+  mercenaries_rank_ceiling: a
+  # Erlaubt Fortschrittsitems auf C/B/A-Checks; höhere Ränge bleiben davon ausgenommen.
+  mercenaries_progression: true
+
+  # assisted, standard, hardcore oder professional.
+  # Muss zur Schwierigkeit des verwendeten Spielstands passen.
+  difficulty: standard
+
+  # false: Keine Fortschrittsitems an dauerhaft verpassbaren Fundorten.
+  allow_missable_locations: false
+
+  # Veraltete Option ohne Wirkung; nur aus Kompatibilitätsgründen vorhanden.
+  randomize_gated_keys: false
+
+  # true: Die Schlüsselkarten Level 1/2/3 werden im Multiworld verteilt.
+  shuffle_keycards: false
+
+  # Hält wichtige Checks näher am Hauptweg und reduziert nötige Rückwege/Umwege.
+  minimize_backtracking: true
+
+  # Experimentelle BioRand-Ereignisse; standardmäßig ausgeschaltet.
+  random_events: false
+
+  # Kaufbare Händler-Checks pro Kapitel: 0 bis 6.
+  # Standard 3 ergibt 45 Shop-Checks über 15 Kapitel.
+  merchant_checks_per_chapter: 3
+
+  # mixed = eigene/fremde Items; local_only = eigene; remote_only = fremde.
+  # remote_only benötigt mindestens eine weitere Welt in der Runde.
+  merchant_checks: mixed
+
+  # Verteilt Händler-Ausrüstung, Waffen und weitere Händlergegenstände im Multiworld.
+  shuffle_merchant_gear: true
+
+  # Spinell-Handels-Checks pro Kapitel: 0 bis 3; Standard 3 ergibt 45 Checks.
+  # Benötigt shuffle_merchant_gear: true.
+  trade_checks_per_chapter: 3
+
+  # 0 bis 2 zufällige Startwaffen aus dem Pool, inklusive passender Munition.
+  # Benötigt shuffle_merchant_gear: true, wenn größer als 0.
+  starting_arsenal: 2
+
+  # Zugelassene Typen für die Startwaffen. Zusätzlich möglich: bolt und arrow.
+  starting_arsenal_types:
+    - flame
+    - handgun
+    - magnum
+    - rifle
+    - shotgun
+    - smg
+
+  # 'off' = unverändert, stats_only = zufällige Werte, full = auch Upgrade-Pfade.
+  random_weapon_stats: 'off'
+
+  # 'off', markers oder markers_rarity.
+  # markers erlaubt neutrale Check-Markierungen; markers_rarity zusätzlich Itemklassen-Farben.
+  check_guidance: markers
+
+  # minimal, basic, locate, identify oder developer.
+  # locate beschreibt den ursprünglichen Fundort, ohne das verteilte Item zu verraten.
+  # identify verrät Item und Empfänger; developer ergänzt Debug-Informationen.
+  marker_detail: locate
+
+  # Von Beginn an freigeschaltete Schreibmaschinen; leer = keine zusätzlich vorgeben.
+  # Beispiel: ["Farm Typewriter (Save Point)"]
+  unlocked_typewriters: []
+
+  # Gemeinsame Tode mit anderen Spielern, die DeathLink aktiviert haben.
+  death_link: false
+
+  # Allgemeine Archipelago-Optionen. Leer bedeutet: keine zusätzlichen Vorgaben.
+
+  # Diese Items müssen in deiner eigenen Welt liegen.
+  local_items: []
+
+  # Diese Items müssen in anderen Welten liegen.
+  non_local_items: []
+
+  # Zusätzliche Startgegenstände als Zuordnung "Itemname: Anzahl".
+  start_inventory: {}
+
+  # Startgegenstände aus dem vorhandenen Itempool entnehmen.
+  start_inventory_from_pool: {}
+
+  # Zu diesen Items erhältst du von Beginn an Fundort-Hinweise.
+  start_hints: []
+
+  # Zu diesen Checks erhältst du von Beginn an Item-Hinweise.
+  start_location_hints: []
+
+  # An diesen Checks sollen keine wichtigen Items liegen.
+  exclude_locations: []
+
+  # Diese Checks sollen wichtige Items bevorzugen.
+  priority_locations: []
+
+  # Gemeinsame Itempools mit anderen Slots.
+  item_links: []
+
+  # Manuell geplante Itemplatzierungen; ohne konkreten Plan leer lassen.
+  plando_items: []

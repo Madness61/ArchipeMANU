@@ -5,7 +5,7 @@ from copy import deepcopy
 
 import yaml
 
-from .config import SLOT_NAME_MAX
+from .config import APP_NAME, SLOT_NAME_MAX
 
 SCALAR_KINDS = {"toggle", "choice", "textchoice", "range", "text"}
 TRUE_WORDS = {"on", "1", "true", "yes", "enabled"}
@@ -168,7 +168,7 @@ def player_yaml(slot: str, schema: dict, values: dict, description: str, ap_vers
         "requires": requires,
         schema["game"]: values,
     }
-    return "# Erstellt mit AP YAML Hub\n" + dump(doc)
+    return f"# Erstellt mit {APP_NAME}\n" + dump(doc)
 
 
 # --- Display -----------------------------------------------------------------------------------
@@ -331,7 +331,7 @@ def parse_form(schema: dict, form, previous: dict, *, keep_defaults=False) -> tu
 
 
 def parse_lobby_form(schema, form, previous, baseline):
-    inherited = set(form.getlist("_inherit")) & set(form.getlist("_r"))
+    inherited = (set(form.getlist("_inherit")) | set(form.getlist("_reset_option"))) & set(form.getlist("_r"))
     submitted = form.copy()
     submitted.setlist("_r",[key for key in form.getlist("_r") if key not in inherited])
     before = effective_values(schema,baseline,previous)

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}YAML importieren · AP YAML Hub{% endblock %}
+{% block title %}YAML importieren · {{ app_name }}{% endblock %}
 {% block content %}
 <h1>YAML importieren</h1>
-<p class="muted">Vorhandene YAMLs werden zu Vorlagen. Der Spielername in der Datei wird ignoriert – beim Spielen wird
-  automatisch dein Slot-Name eingesetzt. Dateien mit mehreren Spielen ergeben eine Vorlage pro Spiel.</p>
+<p class="muted">Hier speicherst du eine vorhandene Archipelago-YAML als wiederverwendbare Spielvorlage. Lade eine Datei hoch oder füge ihren vollständigen Inhalt ein. Anschließend findest du die Vorlage beim jeweiligen Spiel und kannst sie in einer Lobby unter „Grundeinstellungen“ auswählen.</p>
+<p class="small muted">Der Import speichert zunächst eine Vorlage. Beim späteren Generieren setzt der Hub den Slot-Namen des jeweiligen Spielers ein. So kann auch eine YAML mit <code>name: Max Mustermann</code> von dir oder anderen Gruppenmitgliedern verwendet werden. Dateien mit mehreren Spielen ergeben eine Vorlage pro Spiel.</p>
 
 {% for e in errors %}<div class="flash error">{{ e }}</div>{% endfor %}
 {% if results %}
@@ -19,10 +19,12 @@
 </div>
 {% endif %}
 
-<form method="post" enctype="multipart/form-data" class="panel stack" style="margin-top:16px">
+<form method="post" enctype="multipart/form-data" class="panel stack import-form" style="margin-top:16px">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-  <label>YAML-Dateien<br><input type="file" name="files" accept=".yaml,.yml,.txt" multiple></label>
-  <label>… oder Inhalt einfügen<br><textarea name="text" rows="8" placeholder="name: Max&#10;game: Dark Souls III&#10;Dark Souls III:&#10;  ..."></textarea></label>
+  <label>YAML-Dateien<input type="file" name="files" accept=".yaml,.yml,.txt" multiple></label>
+  <label>… oder Inhalt einfügen<textarea name="text" rows="8" placeholder="name: Max Mustermann&#10;description: Meine Dark-Souls-III-Einstellungen&#10;game: Dark Souls III&#10;Dark Souls III:&#10;  progression_balancing: 50"></textarea></label>
+  <p class="small muted"><code>name</code> ist der Beispiel-Spielername in der YAML. Mit <code>description</code> benennst du die importierte Vorlage. <code>game</code> bestimmt das Spiel; darunter stehen seine Einstellungen. Der graue Beispieltext dient als Orientierung – zum Importieren wählst du eine Datei oder fügst eigenen YAML-Inhalt ein.</p>
+  <p class="small muted">Mit „Für die Gruppe freigeben“ können andere die Vorlage ebenfalls auswählen. Ohne Häkchen bleibt sie persönlich.</p>
   <label><input type="checkbox" name="shared" value="1" checked> Für die Gruppe freigeben</label>
   <div><button class="primary">Importieren</button></div>
 </form>

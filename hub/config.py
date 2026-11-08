@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+APP_NAME = "Multiworld Hub"
 
 # Where setup.ps1 / setup.sh put the Archipelago source and its Python env.
 AP_HOME = Path(os.environ.get("AP_HOME", Path.home() / ".ap-yaml-hub"))

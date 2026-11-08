@@ -2,6 +2,7 @@
   {% set key = opt.key %}
   {% set cur = values[key] if key in values else opt.default %}
   {% set fid = 'f-' ~ key %}
+  {% set resetting = key in request.form.getlist('_reset_option') or request.form.get('_action') == 'reset' %}
   <div class="opt {% if key in values and cur != opt.default %}changed{% endif %}">
     <input type="hidden" name="_r" value="{{ key }}">
     <label class="name" for="{{ fid }}">{{ opt.name }}
@@ -10,7 +11,7 @@
     {% if yg.raw_mode(opt, cur) %}
       {% if opt.kind != 'raw' %}<input type="hidden" name="m.{{ key }}" value="raw">
         <p class="small muted">Gewichteter Wert (Archipelago-Syntax). Leeren, um den Standard zu nutzen.</p>{% endif %}
-      <textarea id="{{ fid }}" name="o.{{ key }}" rows="4" placeholder="YAML">{{ request.form.get('o.' ~ key, yg.dump(cur).strip()) }}</textarea>
+      <textarea id="{{ fid }}" name="o.{{ key }}" rows="4" placeholder="YAML">{{ yg.dump(cur).strip() if resetting else request.form.get('o.' ~ key, yg.dump(cur).strip()) }}</textarea>
 
     {% elif opt.kind == 'toggle' %}
       <label><input id="{{ fid }}" type="checkbox" name="o.{{ key }}" value="1" {% if cur is sameas true %}checked{% endif %}> an</label>
@@ -63,15 +64,18 @@
     {% endif %}
 
     {% if not yg.raw_mode(opt, cur) %}
-    <details class="small" style="margin-top:8px" {% if request.form.get('m.' ~ key) == 'raw' %}open{% endif %}>
+    <details class="small" style="margin-top:8px" {% if request.form.get('m.' ~ key) == 'raw' and not resetting %}open{% endif %}>
       <summary>Gewichte oder komplexen YAML-Wert eingeben</summary>
-      <label><input type="checkbox" name="m.{{ key }}" value="raw" {% if request.form.get('m.' ~ key) == 'raw' %}checked{% endif %}>
+      <label><input type="checkbox" name="m.{{ key }}" value="raw" {% if request.form.get('m.' ~ key) == 'raw' and not resetting %}checked{% endif %}>
         Diesen YAML-Wert verwenden (ersetzt das Feld oben)</label>
-      <textarea name="y.{{ key }}" rows="4" aria-label="YAML für {{ opt.name }}">{{ request.form.get('y.' ~ key, yg.dump(cur).strip()) }}</textarea>
+      <textarea name="y.{{ key }}" rows="4" aria-label="YAML für {{ opt.name }}">{{ yg.dump(cur).strip() if resetting else request.form.get('y.' ~ key, yg.dump(cur).strip()) }}</textarea>
       <p class="muted">Gewichte für einzelne Werte: <code>wert: 50</code>. Alle Gewichte müssen ganze Zahlen sein; mindestens eines muss positiv sein.</p>
     </details>
     {% endif %}
-    {% if lobby %}<label class="small muted"><input type="checkbox" name="_inherit" value="{{ key }}"> Für diesen Wert wieder Vorlage/Profil übernehmen</label>{% endif %}
+    {% if lobby and baseline is defined %}<div class="option-reset small">
+      <span class="muted">Grundwert: {{ yg.display_value(opt, baseline[key]) }}</span>
+      <button class="linkish small" name="_reset_option" value="{{ key }}" data-option-reset formnovalidate {% if cur == baseline[key] %}hidden{% endif %}>Diesen Wert zurücksetzen</button>
+    </div>{% endif %}
 
     {% if errors[key] %}<div class="err">{{ errors[key] }}</div>{% endif %}
     {% if opt.doc %}<div class="doc" title="Klicken zum Aufklappen">{{ opt.doc }}</div>{% endif %}

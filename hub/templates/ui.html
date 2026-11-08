@@ -1,6 +1,6 @@
 {% macro lobby_card(s) %}
 <article class="panel card lobby-card">
-  <div class="row spread"><span class="chip {{ 'ok' if not s.locked else '' }}">{{ 'Offen' if not s.locked else 'Geschlossen' }}</span>
+  <div class="row spread"><span class="chip {{ 'ok' if not s.locked else '' }}">{{ 'Abgeschlossen' if s.completed_at else 'Offen' if not s.locked else 'Geschlossen' }}</span>
     {% if s.created_by == g.user.id %}<span class="small muted">Deine Lobby · Host</span>{% elif s.is_member %}<span class="small muted">Du bist dabei</span>{% endif %}</div>
   <div><h3>{{ s.name }}</h3><p class="muted small">Host: {{ s.host_name or 'Nicht mehr vorhanden' }}</p></div>
   <div class="game-meta"><span>{{ s.member_count }} Teilnehmer</span><span>{{ s.game_count }} ausgewählte Spiele</span></div>
