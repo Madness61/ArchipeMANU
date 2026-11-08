@@ -25,7 +25,7 @@ MAX_UPLOAD = 20 * 1024 * 1024
 MAX_UNCOMPRESSED = 150 * 1024 * 1024
 MAX_FILES = 5000
 _LOCK = threading.RLock()
-_MODULE = re.compile(r"[a-z0-9_]+\Z")
+_MODULE = re.compile(r"[A-Za-z0-9_]+\Z")
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -67,7 +67,7 @@ def inspect_bytes(data: bytes) -> dict:
                 raise ValueError("APWorld benötigt genau einen Modulordner mit __init__.py.")
             module = modules.pop()
             if not _MODULE.fullmatch(module):
-                raise ValueError("APWorld-Modulname darf nur a-z, 0-9 und _ enthalten.")
+                raise ValueError(f"Ungültiger APWorld-Modulordner {module!r}: Erlaubt sind A–Z, a–z, 0–9 und _. Gemeint ist der Ordner im Archiv, nicht der Dateiname beim Upload.")
             meta = {}
             filename = f"{module}/archipelago.json"
             if filename in archive.namelist():
@@ -164,6 +164,14 @@ def _bootstrap(conn) -> None:
             conn.execute("UPDATE apworld_versions SET active=1 WHERE sha256=?", (info["sha256"],))
 
 
+def _check_module_case(conn, module):
+    # On Windows these names share a filename, but Python modules preserve case.
+    # Never overwrite another package by silently lowercasing or changing its name.
+    for row in conn.execute("SELECT DISTINCT module FROM apworld_versions"):
+        if row["module"] != module and row["module"].casefold() == module.casefold():
+            raise ValueError(f"Modulname {module!r} kollidiert mit dem bereits gespeicherten Modul {row['module']!r}. Die Namen unterscheiden sich nur in Groß-/Kleinschreibung.")
+
+
 def store(data: bytes, source_url: str = "", activate: bool = True) -> dict:
     info = inspect_bytes(data)
     source_url = source_url.strip()
@@ -173,6 +181,7 @@ def store(data: bytes, source_url: str = "", activate: bool = True) -> dict:
             raise ValueError("Quellenlink muss eine gültige HTTPS-URL sein.")
     with _LOCK, _db() as conn:
         _bootstrap(conn)
+        _check_module_case(conn, info["module"])
         archive = _versions() / f"{info['sha256']}.apworld"
         if not archive.is_file():
             _write_atomic(archive, data)
@@ -210,6 +219,7 @@ def activate(sha256: str) -> dict:
         info = inspect_bytes(data)
         if info["sha256"] != sha256 or info["module"] != row["module"]:
             raise ValueError("APWorld-Version stimmt nicht mit der gespeicherten Prüfsumme überein.")
+        _check_module_case(conn, row["module"])
         _write_atomic(config.APWORLDS / f"{row['module']}.apworld", data)
         conn.execute("UPDATE apworld_versions SET active=0 WHERE module=?", (row["module"],))
         conn.execute("UPDATE apworld_versions SET active=1 WHERE sha256=?", (sha256,))

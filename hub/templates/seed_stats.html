@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Seed-Analyse · ArchipeMANU{% endblock %}
+{% block title %}Seed-Analyse · {{ app_name }}{% endblock %}
 {% block content %}
 <p class="small"><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
 <div class="page-head">
@@ -51,7 +51,7 @@
   <div class="panel"><p class="muted">Für diesen Seed ist keine vollständige, verifizierte Itemliste gespeichert. Die Übersicht bleibt verfügbar; konkrete Progression-Items lassen sich damit nicht anzeigen.</p></div>
   {% else %}
   {% for game in progression %}
-  <details class="panel analysis-section progression-game" open>
+  <details class="panel analysis-section progression-game">
     <summary>{{ game.name }} · {{ game.count }} Progression-Items</summary>
     <ul class="progression-items">
       {% for item in game['items'] %}

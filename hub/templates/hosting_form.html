@@ -1,0 +1,16 @@
+<details class="hosting-setup" id="hosting-{{ hosting_build.id }}" aria-label="Verbindung für Seed {{ hosting_build.id }} einrichten" {% if not hosting_data and not live_connection %}open{% endif %}>
+  <summary><h3>Raum-Link, Server & Port eintragen · Host</h3><span class="chip {{ 'ok' if hosting_data else 'warn' }}">{{ 'Verbindung hinterlegt' if hosting_data else 'Verbindung fehlt noch' }}</span></summary>
+  <ol class="small">
+    <li>Die Multiworld-ZIP dieses Seeds herunterladen und bei <a href="https://archipelago.gg/uploads" target="_blank" rel="noopener noreferrer">Archipelago hochladen</a>. Dort einen Raum erstellen. Alternativ den Seed selbst mit Archipelago hosten.</li>
+    <li>Auf der Raumseite den <strong>Raum-Link</strong> sowie die angezeigte <strong>Serveradresse und den Port</strong> ablesen und unten eintragen. Beim eigenen Hosting die Adresse und den Port dieses Archipelago-Servers verwenden.</li>
+    <li>Verbindung speichern. Alle Teilnehmer finden diese Runde danach oben unter <strong>Aktive Lobby</strong>.</li>
+  </ol>
+  <form method="post" action="{{ url_for('mvp.save_hosting', sid=hosting_sid, build_id=hosting_build.id) }}" class="stack" id="hosting-form-{{ hosting_build.id }}" data-preserve-draft>
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <label>Archipelago-Raum-Link (optional)<input type="url" name="room_url" value="{{ hosting_data.room_url if hosting_data else '' }}" placeholder="https://archipelago.gg/room/…"></label>
+    <div class="row hosting-fields"><label>Serveradresse<input name="host" value="{{ hosting_data.host if hosting_data else '' }}" required placeholder="z. B. archipelago.gg"></label><label>Port<input type="number" name="port" value="{{ hosting_data.port if hosting_data else '' }}" min="1" max="65535" required placeholder="z. B. 38281"></label></div>
+    <p class="muted small">Serveradresse ohne „http://“ und ohne Port eintragen. Der Port gehört in das eigene Feld. Gemeint ist der Archipelago-Spielserver, nicht die Adresse oder der Port dieser Hub-Webseite.</p>
+    <label><input type="checkbox" name="confirmed" value="1" {% if hosting_data and hosting_data.confirmed %}checked{% endif %}> Ich habe die Verbindung eingerichtet und geprüft.</label>
+    <button class="primary">Verbindung speichern</button>
+  </form>
+</details>

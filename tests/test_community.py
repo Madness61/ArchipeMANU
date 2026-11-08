@@ -187,6 +187,72 @@ class CommunityTests(unittest.TestCase):
         self.assertNotIn(b"Lobby verwalten",member_page.data)
         self.assertEqual(self.post(self.friend,"/sessions/1/generate").status_code,403)
 
+    def test_host_sees_rom_requirement_before_generate_button(self):
+        from hub import game_catalog
+        self.login(self.host, "Host")
+        self.login(self.friend, "Friend")
+        self.post(self.host, "/sessions", {"name": "ROM requirements"})
+        self.post(self.host, "/sessions/1/entries", {"game": "test_world"})
+        self.post(self.friend, "/sessions/1/join")
+        with patch.dict(game_catalog.HOST_ROM_REQUIRED, {"test_world": "Fixture USA ROM"}):
+            host = self.host.get("/sessions/1").get_data(as_text=True)
+            member = self.friend.get("/sessions/1").get_data(as_text=True)
+        self.assertIn('id="host-rom-requirements"', host)
+        self.assertIn("Fixture USA ROM", host)
+        self.assertIn("Generator-Rechner", host)
+        self.assertLess(host.index('id="host-rom-requirements"'), host.index('>Runde generieren</button>'))
+        self.assertNotIn('id="host-rom-requirements"', member)
+
+    def test_active_lobby_appears_after_hosting_only_for_participants(self):
+        self.login(self.host, "Host")
+        self.login(self.friend, "Friend")
+        self.post(self.host, "/sessions", {"name": "Active round"})
+        self.post(self.friend, "/sessions/1/join")
+        with self.app.app_context():
+            bid = db.execute("INSERT INTO seed_builds(session_id,status,snapshot,created_at) VALUES (1,'succeeded',?, 'today')",
+                             (json.dumps({"slots": []}),))
+            db.execute("UPDATE sessions SET locked=1 WHERE id=1")
+        self.assertNotIn(b'>Aktive Lobby</a>', self.friend.get("/").data)
+        self.assertEqual(self.post(self.host, f"/sessions/1/builds/{bid}/hosting", {
+            "host": "archipelago.gg", "port": "38281", "room_url": "https://archipelago.gg/room/testroom"}).status_code, 302)
+        self.assertIn(b'>Aktive Lobby</a>', self.friend.get("/").data)
+        active = self.friend.get("/active-lobby")
+        self.assertEqual(active.status_code, 302)
+        self.assertEqual(active.location, f"/sessions/1/builds/{bid}/play")
+        page = self.friend.get(active.location)
+        self.assertIn(b"archipelago.gg:38281", page.data)
+        self.assertNotIn(b'data-preserve-draft', page.data)
+        host_page = self.host.get(f"/sessions/1/builds/{bid}/play")
+        self.assertIn(b'aria-label="Verbindung f', host_page.data)
+        connection = host_page.get_data(as_text=True).split('id="connection"', 1)[1].split('</section>', 1)[0]
+        self.assertIn('name="room_url"', connection)
+        self.assertIn('name="host"', connection)
+        self.assertIn('name="port"', connection)
+        self.assertIn(b'value="archipelago.gg"', host_page.data)
+        self.assertIn(b'value="38281"', host_page.data)
+        outsider = self.app.test_client()
+        self.login(outsider, "Outsider")
+        self.assertNotIn(b'>Aktive Lobby</a>', outsider.get("/").data)
+        self.assertNotIn(b"Active round", outsider.get("/active-lobby").data)
+        self.assertEqual(outsider.get(active.location).status_code, 403)
+
+    def test_multiple_active_lobbies_and_latest_connection_per_round(self):
+        self.login(self.host, "Host")
+        for name in ("Round one", "Round two"):
+            self.post(self.host, "/sessions", {"name": name})
+        with self.app.app_context():
+            bids = [db.execute("INSERT INTO seed_builds(session_id,status,snapshot,created_at) VALUES (?,'succeeded',?, 'today')",
+                               (sid, json.dumps({"slots": []}))) for sid in (1, 1, 2)]
+        for sid, bid, port in ((1, bids[0], 1111), (1, bids[1], 2222), (2, bids[2], 3333)):
+            self.post(self.host, f"/sessions/{sid}/builds/{bid}/hosting", {"host": "archipelago.gg", "port": str(port)})
+        page = self.host.get("/active-lobby")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b"Round one", page.data)
+        self.assertIn(b"Round two", page.data)
+        self.assertNotIn(b"1111", page.data)
+        self.assertIn(b"2222", page.data)
+        self.assertIn(b"3333", page.data)
+
     def test_ui_game_page_displays_saved_guide_and_presets(self):
         self.login(self.host,"Host")
         with self.app.app_context():
@@ -241,6 +307,21 @@ class CommunityTests(unittest.TestCase):
             self.assertTrue(any("Friend" in problem and "kein Spiel" in problem for problem in problems))
             self.assertTrue(any("Host" in problem and "kein Spiel" in problem for problem in problems))
             self.assertFalse(files)
+
+    def test_member_upload_preserves_uppercase_module_from_archive(self):
+        self.login(self.friend, "Friend")
+        stream = io.BytesIO()
+        with zipfile.ZipFile(stream, "w") as archive:
+            archive.writestr("RE4R/__init__.py", "# Inert fixture; never imported")
+            archive.writestr("RE4R/archipelago.json", json.dumps({"game": "Test World", "world_version": "1.0"}))
+        payload = stream.getvalue()
+        response = self.post(self.friend, "/games/community/add", {
+            "apworld": (io.BytesIO(payload), "refour.apworld")}, content_type="multipart/form-data")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual((config.APWORLDS / "RE4R.apworld").read_bytes(), payload)
+        with self.app.app_context():
+            self.assertEqual(db.query("SELECT module FROM community_games", one=True)["module"], "RE4R")
+        ap_bridge.start_extract.assert_called_once()
 
     def test_duplicate_upload_preserves_original_yaml_and_owner(self):
         self.login(self.host, "Host")
@@ -351,8 +432,10 @@ class CommunityTests(unittest.TestCase):
         self.login(outsider, "Outsider")
         self.assertEqual(self.post(outsider, "/sessions/1/clone").status_code, 403)
 
-    def test_delete_preserves_seed_history_and_deletes_empty_invited_lobby(self):
+    def test_non_admin_host_preserves_seed_history_and_deletes_empty_invited_lobby(self):
         self.login(self.host, "Host")
+        with self.app.app_context():
+            db.execute("UPDATE users SET is_admin=0 WHERE username='Host'")
         self.post(self.host, "/sessions", {"name": "History"})
         with self.app.app_context():
             db.execute("INSERT INTO seed_builds(session_id,status,snapshot,created_at) VALUES (1,'failed','{}','today')")

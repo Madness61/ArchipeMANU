@@ -32,6 +32,9 @@ p{margin:8px 0 14px}.muted{color:var(--muted)}.small{font-size:13px}.err{color:v
 .page-head{display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:24px}
 .page-head p{margin-bottom:0;max-width:690px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.spread{justify-content:space-between}.stack>*+*{margin-top:14px}
+.profile-setting{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,190px);align-items:center;gap:14px}
+.profile-setting input,.profile-setting select{width:100%;min-width:0}
+.import-form>label{display:block}.import-form>label>input:not([type=checkbox]),.import-form>label>textarea{display:block;width:100%;max-width:100%;margin-top:6px}
 .grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr))}
 .grid>*,.row>*,.page-head>*{min-width:0}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:24px;box-shadow:0 3px 10px #16284b04;min-width:0}
@@ -103,10 +106,22 @@ code{font-family:ui-monospace,Consolas,monospace;font-size:.9em;overflow-wrap:an
 .flow-steps b{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#edf0f6;margin-right:7px;font-size:11px}
 .flow-steps li[aria-current=step] b{background:var(--accent);color:#fff}
 .selection-form{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.selection-form label{flex:1;min-width:min(200px,100%)}.selection-form select{display:block;width:100%;margin-top:7px}.selection-form>button{margin-bottom:0}
+.selection-actions{align-items:stretch}.selection-actions button{white-space:normal}
+.template-explanation{border:1px solid var(--line);border-radius:10px;background:#fafbff;padding:14px 17px;margin-top:16px}
+.template-explanation p{margin:6px 0}.option-reset{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px}
 .status-note{padding:14px 17px;background:#f5f6fc;border:1px solid var(--line);border-radius:10px;font-size:13px;margin:16px 0}
 .status-note.ok{border-color:#c3e3d6;background:#f1faf6;color:#20684e}.status-note.warn{border-color:#efddaf;background:#fffaf0;color:#79571f}
 .host-panel{border-top:3px solid #9b93ec}.technical-options{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}.technical-options>summary{font-size:12px;color:var(--muted)}.technical-options form{margin-top:12px}
 .build-card{margin-top:14px}.stat-row{padding:16px 0;border-bottom:1px solid var(--line)}.stat-row:last-of-type{border-bottom:0}
+.hosting-setup{border:1px solid #c9c4fa;border-radius:12px;background:#f8f7ff;padding:20px;margin:20px 0}
+.hosting-setup h3{margin:0}.hosting-setup input:not([type=checkbox]){display:block;width:100%;margin-top:6px}
+.hosting-setup>summary{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;cursor:pointer;list-style:none}
+.hosting-setup>summary::-webkit-details-marker{display:none}
+.hosting-setup>summary::before{content:"▸";color:var(--accent)}
+.hosting-setup[open]>summary::before{content:"▾"}
+.hosting-fields{align-items:flex-start}.hosting-fields label{flex:1;min-width:min(180px,100%)}
+.live-connect{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin:18px 0}.live-connect>label{flex:1;min-width:min(300px,100%);font-weight:650}.live-connect input{display:block;width:100%;margin-top:6px}.live-connect>p{flex-basis:100%;margin:0}
+#participants-section,#generated-rounds,.hosting-setup{scroll-margin-top:20px}
 .matrix th,.matrix td{text-align:center;min-width:65px}.matrix th:first-child,.matrix td:first-child{text-align:left;min-width:140px}
 .matrix-cell{display:inline-block;padding:6px 10px;border-radius:7px;background:#efeffb;color:#504bc9;font-weight:750}.matrix-own{background:#e6f7ef;color:#087954}
 .stackbar{display:flex;overflow:hidden;border-radius:6px;background:#f0f2f8;height:12px;margin:10px 0 8px}.stackbar span{display:inline-block;height:100%}
@@ -129,6 +144,7 @@ code{font-family:ui-monospace,Consolas,monospace;font-size:.9em;overflow-wrap:an
  header.top .brand{font-size:16px}header.top nav a{padding:8px 9px;font-size:12px}header.top .me{gap:9px}
  .filter-bar label,.filter-bar>button{flex:1;min-width:min(150px,100%)}
  .selection-form>button{width:100%}.sticky-save{margin-left:-19px;margin-right:-19px}
+ .selection-actions{width:100%}.selection-actions button{flex:1}
  .create-lobby>button{width:100%}.create-lobby label{max-width:none}
  .hero-actions{width:100%}.hero-actions .btn{flex:1}.quick-guide{gap:8px;flex-direction:column}
  .table-wrap table{font-size:13px}.connection-address{font-size:16px}

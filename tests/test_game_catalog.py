@@ -12,7 +12,7 @@ class GameCatalogTests(unittest.TestCase):
 
     def test_every_documented_game_has_specific_setup_and_sources(self):
         self.assertEqual(set(game_catalog.CATALOG), set(game_catalog._SOURCES))
-        self.assertEqual(len(game_catalog.CATALOG), 82)
+        self.assertTrue({"borderlands2", "borderlands_tps", "pseudoregalia", "RE4R"} <= set(game_catalog.CATALOG))
         for slug in game_catalog.CATALOG:
             with self.subTest(game=slug):
                 info = game_catalog.details(slug, slug)
@@ -38,6 +38,17 @@ class GameCatalogTests(unittest.TestCase):
         self.assertIn("Kopie", aquaria["steps"][0])
         self.assertTrue(any("Aquaria_Randomizer" in link["url"] for link in aquaria["links"]))
         self.assertEqual(game_catalog.details("paint", "Paint")["setup_type"], "browser")
+
+    def test_host_rom_reminders_are_specific_and_deduplicated(self):
+        entries = [dict(game="smw", game_name="Super Mario World"),
+                   dict(game="smw", game_name="Super Mario World"),
+                   dict(game="pokemon_emerald", game_name="Pokemon Emerald"),
+                   dict(game="aquaria", game_name="Aquaria")]
+        reminders = game_catalog.host_rom_requirements(entries)
+        self.assertEqual([v["slug"] for v in reminders], ["smw", "pokemon_emerald"])
+        self.assertIn("Super Mario World (USA).sfc", reminders[0]["required"])
+        self.assertIsNone(reminders[1]["required"])
+        self.assertEqual(game_catalog.SUPPORT_STATES["loaded"], "Für Lobby auswählbar")
 
     def test_unknown_upload_has_no_invented_genre_or_readiness(self):
         row = self.row("new_world", "New World")

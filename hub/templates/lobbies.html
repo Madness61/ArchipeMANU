@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "ui.html" import lobby_card with context %}
-{% block title %}Lobbys · ArchipeMANU{% endblock %}
+{% block title %}Lobbys · {{ app_name }}{% endblock %}
 {% block content %}
 <div class="page-head"><div><p class="eyebrow">Deine Gruppe, deine Runde</p><h1>Lobbys</h1><p class="muted">Gemeinsam vorbereiten, unterschiedliche Spiele spielen. Tritt einer Runde bei oder werde selbst Host.</p></div><a class="btn" href="#new-lobby">Neue Lobby</a></div>
 <form method="post" action="{{ url_for('session_create') }}" class="panel create-lobby" id="new-lobby">

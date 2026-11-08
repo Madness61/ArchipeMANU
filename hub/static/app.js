@@ -57,7 +57,9 @@
     filter(false);
   }
 
-  $$("[data-copy]").forEach(button => button.addEventListener("click", () => {
+  document.addEventListener("click", event => {
+    const button = event.target.closest("[data-copy]");
+    if (!button) return;
     const target = document.querySelector(button.dataset.copy);
     if (!target) return;
     const value = target.textContent.trim();
@@ -66,11 +68,68 @@
     } else {
       button.title = value;
     }
-  }));
+  });
 
   // Confirm dialogs for destructive forms.
-  $$("form[data-confirm]").forEach((form) =>
-    form.addEventListener("submit", (e) => { if (!confirm(form.dataset.confirm)) e.preventDefault(); }));
+  document.addEventListener("submit", event => {
+    const form = event.target.closest("form[data-confirm]");
+    if (form && !confirm(form.dataset.confirm)) event.preventDefault();
+  });
+
+  // Refresh lobby status without throwing away an open YAML or hosting draft.
+  let sessionRefreshing = false;
+  document.addEventListener("input", event => {
+    const form = event.target.closest("form[data-preserve-draft]");
+    if (form) form.dataset.dirty = "1";
+  });
+  document.addEventListener("change", event => {
+    const form = event.target.closest("form[data-preserve-draft]");
+    if (form) form.dataset.dirty = "1";
+  });
+  document.addEventListener("click", async event => {
+    const button = event.target.closest("[data-session-refresh]");
+    if (!button) return;
+    event.preventDefault();
+    if (sessionRefreshing) return;
+    sessionRefreshing = true;
+    const status = document.getElementById("session-refresh-status");
+    const participants = document.getElementById("participants-section");
+    status.textContent = "Teilnehmer und generierte Runden werden aktualisiert …";
+    participants?.setAttribute("aria-busy", "true");
+    button.setAttribute("aria-disabled", "true");
+    try {
+      const response = await fetch(button.href, {cache: "no-store", headers: {"Accept": "text/html"}});
+      if (!response.ok) throw new Error("Refresh failed");
+      const page = new DOMParser().parseFromString(await response.text(), "text/html");
+      if (!page.getElementById("participants-section")) throw new Error("Session unavailable");
+      const drafts = $$("form[data-preserve-draft][data-dirty='1']").map(form => ({
+        id: form.id,
+        fields: $$("input,select,textarea", form).filter(field => field.name !== "_csrf").map(field => ({
+          name: field.name, value: field.value, checked: field.checked,
+        })),
+      }));
+      $$("[data-refresh-fragment], #main-navigation").forEach(fragment => {
+        const updated = page.getElementById(fragment.id);
+        if (updated) fragment.replaceWith(updated);
+      });
+      drafts.forEach(draft => {
+        const form = document.getElementById(draft.id);
+        if (!form) return;
+        form.dataset.dirty = "1";
+        draft.fields.forEach(saved => {
+          const field = form.elements.namedItem(saved.name);
+          if (field) { field.value = saved.value; if (typeof saved.checked === "boolean") field.checked = saved.checked; }
+        });
+      });
+      status.textContent = "Teilnehmer und generierte Runden wurden aktualisiert.";
+    } catch {
+      status.textContent = "Aktualisierung fehlgeschlagen. Bitte erneut versuchen oder neu anmelden. Deine Eingaben bleiben erhalten.";
+    } finally {
+      document.getElementById("participants-section")?.removeAttribute("aria-busy");
+      document.querySelectorAll("[data-session-refresh]").forEach(link => link.removeAttribute("aria-disabled"));
+      sessionRefreshing = false;
+    }
+  });
 
   // Option docs: click to expand.
   $$(".opt .doc").forEach((el) => el.addEventListener("click", () => el.classList.toggle("open")));
@@ -148,7 +207,8 @@
 
   // Session page: template dropdowns depend on the chosen game.
   const templatesFor = (slug) => fetch(window.HUB_TEMPLATES_URL.replace("__SLUG__", encodeURIComponent(slug))).then((r) => r.json());
-  const label = (t) => (t.is_default ? "★ " : "") + t.name + " · " + t.source;
+  const label = (t) => (t.is_default ? "★ " : "") + t.name + " · " + (t.ref === "default" ? "Spielvorgaben" : t.source)
+    + (t.summary?.length ? ` · ${t.summary.length} Änderungen` : "");
   const templateOption = (t) => {
     const option = new Option(label(t) + (t.compatible === false ? " (inkompatibel)" : ""), t.ref);
     option.disabled = t.compatible === false;
@@ -159,29 +219,83 @@
   const addRef = document.getElementById("add-ref");
   if (addGame && addRef) {
     let templateRequest = 0;
+    let currentTemplates = null;
+    const explainTemplate = () => {
+      const list = currentTemplates || window.HUB_SELECTION_TEMPLATES || [];
+      const selected = list.find(t => t.ref === addRef.value) || (addRef.value === "" ? list.find(t => t.is_default) : null);
+      const target = document.getElementById("template-explanation");
+      if (!target) return;
+      const baseButton = document.getElementById("use-base-values");
+      baseButton.textContent = selected && selected.ref !== "default" ? "Vorlage übernehmen" : "Standardwerte übernehmen";
+      if (!selected) {
+        target.textContent = addGame.value ? "Die Standardauswahl wird beim Übernehmen geprüft." : "Wähle ein Spiel, um seine Grundeinstellungen zu sehen.";
+        return;
+      }
+      const title = document.createElement("strong");
+      title.textContent = selected.name;
+      const description = document.createElement("p");
+      description.className = "small";
+      description.textContent = selected.description;
+      target.replaceChildren(title, description);
+      if (selected.summary?.length) {
+        const heading = document.createElement("p");
+        heading.className = "small muted";
+        heading.textContent = `${selected.summary.length} Abweichungen vom Spiel-Standard:`;
+        const summary = document.createElement("ul");
+        summary.className = "summary";
+        selected.summary.slice(0, 6).forEach(([name, value]) => {
+          const item = document.createElement("li");
+          item.textContent = `${name}: ${value}`;
+          summary.append(item);
+        });
+        target.append(heading, summary);
+        if (selected.summary.length > 6) {
+          const more = document.createElement("p");
+          more.className = "small muted";
+          more.textContent = "Weitere Werte siehst du unter „YAML überarbeiten“.";
+          target.append(more);
+        }
+      }
+    };
     addGame.addEventListener("change", () => {
       const currentRequest = ++templateRequest;
       const slug = addGame.value;
       const editor = document.getElementById("selection-editor");
       if (editor) editor.hidden = true;
-      addRef.replaceChildren(new Option("Gruppen-Standard", ""));
+      currentTemplates = [];
+      addRef.replaceChildren(new Option("Standardauswahl der Gruppe", ""));
+      explainTemplate();
       if (!slug) return;
       templatesFor(slug).then((list) => {
         if (currentRequest === templateRequest && addGame.value === slug) {
           list.forEach((t) => addRef.add(templateOption(t)));
+          currentTemplates = list;
+          explainTemplate();
         }
       }).catch(() => { addRef.title = "Vorlagen konnten nicht geladen werden. Die Auswahl funktioniert auch mit dem Gruppen-Standard."; });
     });
     addRef.addEventListener("change", () => {
       const editor = document.getElementById("selection-editor");
       if (editor) editor.hidden = true;
+      explainTemplate();
     });
   }
 
-  $$("select.entry-ref").forEach((sel) => {
-    sel.addEventListener("focus", () => templatesFor(sel.dataset.game).then((list) => {
-      list.forEach((t) => { if (t.ref !== sel.dataset.current) sel.add(templateOption(t)); });
-    }), { once: true });
+  // Changing a field never requires opting in to inheritance; reset is optional.
+  const showOptionReset = event => {
+    const reset = event.target.closest(".opt")?.querySelector("[data-option-reset]");
+    if (reset) reset.hidden = false;
+  };
+  document.addEventListener("input", showOptionReset);
+  document.addEventListener("change", showOptionReset);
+
+  document.addEventListener("focusin", event => {
+    const sel = event.target.closest("select.entry-ref");
+    if (!sel || sel.dataset.loaded) return;
+    sel.dataset.loaded = "1";
+    templatesFor(sel.dataset.game).then(list => {
+      list.forEach(t => { if (t.ref !== sel.dataset.current) sel.add(templateOption(t)); });
+    }).catch(() => { delete sel.dataset.loaded; });
   });
 
   // New builds are recorded independently from previous generations.

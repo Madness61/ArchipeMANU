@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "ui.html" import lobby_card with context %}
-{% block title %}Übersicht · ArchipeMANU{% endblock %}
+{% block title %}Übersicht · {{ app_name }}{% endblock %}
 {% block content %}
 <div class="panel hero">
   <div><p class="eyebrow">Zusammen spielen</p><h1>Hallo {{ g.user.username }}</h1>

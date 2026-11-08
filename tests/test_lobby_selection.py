@@ -104,6 +104,86 @@ class LobbySelectionTests(unittest.TestCase):
         with self.app.app_context():
             self.assertTrue(db.query("SELECT locked FROM sessions WHERE id=?", (self.sid,), one=True)["locked"])
 
+    def test_direct_base_selection_saves_template_and_profile_without_editor(self):
+        self.schema["options"].append({"key": "death_link", "kind": "toggle", "name": "Death Link",
+                                      "default": False, "group": "Game Options", "simple": True, "doc": ""})
+        with self.app.app_context():
+            tid = db.execute("INSERT INTO templates(game,name,vals,created_by) VALUES ('test_world','Collect on easy',?,1)",
+                             (db.dumps({"goal": "collect", "difficulty": 2}),))
+            db.execute("UPDATE users SET overrides=? WHERE id=1", (db.dumps({"death_link": True}),))
+        response = self.post(self.url + "/selection/start", {"game": "test_world", "ref": f"t:{tid}", "_action": "base"})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("participants-section", response.location)
+        page = self.client.get(response.location)
+        self.assertNotIn(b'id="selection-editor"', page.data)
+        saved = self.entries()[0]
+        self.assertFalse(saved["ready"])
+        self.assertEqual(db.loads(saved["option_overrides"]), {})
+        with self.app.app_context():
+            entry = session_entries(self.sid)[0]
+            self.assertEqual(entry["values"]["goal"], "collect")
+            self.assertEqual(entry["values"]["difficulty"], 2)
+            self.assertTrue(entry["values"]["death_link"])
+
+    def test_direct_defaults_replace_old_edits_and_require_new_readiness(self):
+        token, _ = self.draft()
+        self.apply(token)
+        eid = self.entries()[0]["id"]
+        self.post(f"/entries/{eid}/ready", {"ready": "1"})
+        response = self.post(self.url + "/selection/start", {"game": "test_world", "ref": "default", "_action": "base"})
+        self.assertEqual(response.status_code, 302)
+        entry = self.entries()[0]
+        self.assertEqual(entry["id"], eid)
+        self.assertEqual(db.loads(entry["option_overrides"]), {})
+        self.assertEqual(entry["ready"], 0)
+        self.assertEqual(entry["ready_hash"], "")
+
+    def test_edit_choice_does_not_commit_and_direct_choice_requires_membership(self):
+        response = self.post(self.url + "/selection/start", {"game": "test_world", "ref": "default", "_action": "edit"})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(b'id="selection-editor"', self.client.get(response.location).data)
+        self.assertEqual(self.entries(), [])
+        self.assertEqual(self.client.post(self.url + "/selection/start", data={"game": "test_world", "_action": "base"}).status_code, 403)
+        self.post(self.url + "/lock")
+        self.assertEqual(self.post(self.url + "/selection/start", {"game": "test_world", "_action": "base"}).status_code, 409)
+        self.post(self.url + "/lock")
+        self.post(self.url + "/leave")
+        self.assertEqual(self.post(self.url + "/selection/start", {"game": "test_world", "_action": "base"}).status_code, 403)
+
+    def test_direct_selection_still_validates_world_and_template(self):
+        with patch.object(ap_bridge, "world_error", return_value="World missing"):
+            response = self.post(self.url + "/selection/start", {"game": "test_world", "_action": "base"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.entries(), [])
+        response = self.post(self.url + "/selection/start", {"game": "test_world", "ref": "t:99999", "_action": "base"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.entries(), [])
+
+    def test_single_value_reset_previews_without_committing_other_changes(self):
+        token, _ = self.draft()
+        self.apply(token)
+        before = self.entries()
+        token, page = self.draft()
+        self.assertNotIn(b'name="_inherit"', page.data)
+        response = self.post(self.url + "/selection", MultiDict([
+            ("_draft", token), ("_reset_option", "difficulty"), ("_r", "goal"), ("o.goal", "collect"),
+            ("_r", "difficulty"), ("o.difficulty", "999")]))
+        self.assertEqual(response.status_code, 200)
+        values = yaml.safe_load(self.preview(response))["Test World"]
+        self.assertEqual(values["difficulty"], 3)
+        self.assertEqual(values["goal"], "collect")
+        self.assertEqual(self.entries(), before)
+        self.assertEqual(self.post(self.url + "/selection", {"_draft": self.token(response), "_action": "apply"}).status_code, 302)
+        self.assertEqual(db.loads(self.entries()[0]["option_overrides"]), {"goal": "collect"})
+
+    def test_template_api_explains_actual_differences(self):
+        self.schema["presets"]["Collect"] = {"goal": "collect", "difficulty": 2}
+        templates = self.client.get("/api/games/test_world/templates").get_json()
+        preset = next(t for t in templates if t["ref"] == "preset:Collect")
+        self.assertIn("2 Abweichungen", preset["description"])
+        self.assertEqual(len(preset["summary"]), 2)
+        self.assertTrue(any(name == "Goal" for name, _ in preset["summary"]))
+
     def test_join_and_create_enter_lobby_without_a_game(self):
         friend = self.app.test_client()
         provision_user(self.app, "Friend")

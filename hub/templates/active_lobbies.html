@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Aktive Lobby · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="eyebrow">Gemeinsam losspielen</p><h1>Aktive Lobbys</h1><p class="muted">Für diese Runden sind Verbindungsdaten hinterlegt. Wähle die Runde, in der du spielen möchtest.</p></div></div>
+<p class="small muted">Die Angaben stammen vom Host. Ob ein Server gerade online ist, wird nicht automatisch geprüft.</p>
+<div class="grid">
+{% for connection in connections %}<article class="panel card">
+  <h2>{{ connection.session_name }}</h2><p class="muted small">Seed #{{ connection.build_id }}</p>
+  <p><strong>Server:</strong> <code>{{ connection.host }}</code><br><strong>Port:</strong> {{ connection.port if connection.port else 'Wird ermittelt' }}</p>
+  <p><span class="chip {{ 'ok' if connection.confirmed else 'warn' }}">{{ 'Vom Host bestätigt' if connection.confirmed else 'Noch nicht bestätigt' }}</span></p>
+  {% if connection.room_url %}<p><a href="{{ connection.room_url }}" target="_blank" rel="noopener noreferrer">Archipelago-Raum öffnen ↗</a></p>{% endif %}
+  <a class="btn primary" href="{{ url_for('mvp.play_page', sid=connection.session_id, build_id=connection.build_id) }}">Zur aktiven Lobby</a>
+</article>{% else %}<div class="panel empty-state"><h2>Noch keine aktive Lobby</h2><p>Nach der Generierung trägt der Host unter „Generierte Runden“ die Serveradresse und den Port ein. Danach erscheint „Aktive Lobby“ auch oben in der Navigation.</p><a class="btn" href="{{ url_for('mvp.lobby_list') }}">Zu den Lobbys</a></div>{% endfor %}
+</div>
+{% endblock %}

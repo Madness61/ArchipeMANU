@@ -52,6 +52,13 @@ def migrate():
         """)
 
 
+def next_user_id(conn):
+    """Do not reuse deleted account IDs still present in seed snapshots."""
+    current = conn.execute("SELECT COALESCE(MAX(id),0) FROM users").fetchone()[0]
+    reserved = conn.execute("SELECT value FROM auth_settings WHERE key='user_id_high_water'").fetchone()
+    return max(current, int(reserved[0]) if reserved else 0) + 1
+
+
 def configure(app):
     app.config.update(SESSION_COOKIE_NAME="archipemanu_session", SESSION_COOKIE_HTTPONLY=True,
                       SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=config.COOKIE_SECURE,
@@ -169,8 +176,8 @@ def register():
                 with db.transaction() as conn:
                     conn.execute("BEGIN IMMEDIATE")
                     first_account = not conn.execute("SELECT 1 FROM users LIMIT 1").fetchone()
-                    uid = conn.execute("""INSERT INTO users(username,slot_name,password_hash,is_admin)
-                        VALUES (?,?,?,?)""", (username, yamlgen.clean_slot_name(username),
+                    uid = conn.execute("""INSERT INTO users(id,username,slot_name,password_hash,is_admin)
+                        VALUES (?,?,?,?,?)""", (next_user_id(conn), username, yamlgen.clean_slot_name(username),
                                              password_hash, int(first_account))).lastrowid
             except sqlite3.IntegrityError:
                 error = "Dieser Benutzername ist bereits vergeben. Bestehende Konten bitte über einen Einrichtungscode einrichten."
@@ -251,8 +258,8 @@ def main():
                     conn.execute("BEGIN IMMEDIATE")
                     if conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
                         raise ValueError("Benutzer existieren bereits. Vorhandenen Admin mit setup-account einrichten.")
-                    uid = conn.execute("INSERT INTO users(username,slot_name,is_admin) VALUES (?,?,1)",
-                                       (args.username, yamlgen.clean_slot_name(args.username))).lastrowid
+                    uid = conn.execute("INSERT INTO users(id,username,slot_name,is_admin) VALUES (?,?,?,1)",
+                                       (next_user_id(conn), args.username, yamlgen.clean_slot_name(args.username))).lastrowid
             else:
                 user = db.query("SELECT id FROM users WHERE username=?", (args.username,), one=True)
                 if not user:

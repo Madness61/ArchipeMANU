@@ -1,0 +1,26 @@
+{% if build.status == 'succeeded' %}
+<section class="panel analysis-section" id="completion">
+  <div class="row spread"><h2 style="margin:0">Spielabschluss</h2><span class="chip {{ 'ok' if completion.completed_at else 'warn' }}">{{ 'Abgeschlossen' if completion.completed_at else completion.finished_count ~ ' von ' ~ completion.total ~ ' fertig' }}</span></div>
+  {% if completion.completed_at %}
+    <p class="status-note ok">Alle Spieler haben bestätigt, dass sie fertig sind. Die Lobby ist im Hub abgeschlossen und erscheint nicht mehr unter „Aktive Lobby“.</p>
+    <p class="muted small">Seed, Analyse und Downloads bleiben erhalten. Ein externer Archipelago-Server wird dadurch nicht beendet.</p>
+  {% else %}
+    <p>Hast du dein Spielziel erreicht? Bestätige es hier, sobald du mit deinen Spielen in diesem Seed fertig bist. Wenn alle bestätigt haben, wird die Lobby im Hub automatisch abgeschlossen.</p>
+    <p class="muted small">Der Status wird von den Spielern bestätigt. Der Hub prüft das Spielziel nicht automatisch im Spiel oder auf dem Archipelago-Server.</p>
+  {% endif %}
+  <ul class="summary">
+    {% for player in completion.players %}<li><strong>{{ player.name }}</strong> · {{ player.games|join(', ') }}: <span class="{{ 'muted' if player.deleted else '' }}">{{ 'Account gelöscht – zählt nicht mit' if player.deleted else 'Fertig' if player.finished else 'Spielt noch' }}</span></li>{% endfor %}
+  </ul>
+  {% if not completion.completed_at %}
+    <div class="row">
+      {% if completion.own and hosted %}
+      <form method="post" action="{{ url_for('mvp.finish_game', sid=room.id, build_id=build.id) }}" class="inline" {% if not completion.own.finished %}data-confirm="Bist du mit allen deinen Spielen in diesem Seed fertig? Wenn alle bestätigen, wird die Lobby im Hub abgeschlossen."{% endif %}>
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="finished" value="{{ '0' if completion.own.finished else '1' }}">
+        <button class="{{ '' if completion.own.finished else 'primary' }}">{{ 'Ich spiele doch noch' if completion.own.finished else 'Ich bin fertig' }}</button>
+      </form>
+      {% elif completion.own %}<p class="muted small">Sobald der Host die Verbindung eingerichtet hat, kannst du hier deinen Spielabschluss bestätigen.</p>{% endif %}
+      <form method="get" action="{{ url_for('mvp.play_page', sid=room.id, build_id=build.id, _anchor='completion') }}" class="inline"><button>Spielstatus aktualisieren</button></form>
+    </div>
+  {% endif %}
+</section>
+{% endif %}

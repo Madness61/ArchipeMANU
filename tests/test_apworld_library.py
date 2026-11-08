@@ -82,9 +82,32 @@ class APWorldLibraryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsicherer Pfad"):
             library.inspect_bytes(buffer.getvalue())
 
+    def test_uppercase_module_keeps_its_name_and_original_archive(self):
+        payload = make_world(module="RE4R")
+        first = library.store(payload)
+        self.assertEqual(first["module"], "RE4R")
+        self.assertEqual(first["file"], "RE4R.apworld")
+        self.assertEqual((config.APWORLDS / "RE4R.apworld").read_bytes(), payload)
+        second = library.store(make_world(b"v2", module="RE4R"))
+        library.activate(first["sha256"])
+        self.assertEqual((config.APWORLDS / "RE4R.apworld").read_bytes(), payload)
+        self.assertEqual(len(library.list_versions()), 2)
+        library.deactivate("RE4R")
+        self.assertFalse((config.APWORLDS / "RE4R.apworld").exists())
+        self.assertTrue(library.archived_file(second["sha256"]).is_file())
+
+    def test_case_only_collision_cannot_overwrite_existing_module(self):
+        payload = make_world(module="RE4R")
+        library.store(payload)
+        with self.assertRaisesRegex(ValueError, "kollidiert"):
+            library.store(make_world(b"other", module="re4r"))
+        self.assertEqual((config.APWORLDS / "RE4R.apworld").read_bytes(), payload)
+        self.assertEqual(len(library.list_versions()), 1)
+
     def test_invalid_module_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, "Modulname"):
-            library.inspect_bytes(make_world(module="InvalidModule"))
+        for name in ("Invalid Module", "Invalid-Module", "Invalid.Module", "Bad:Module"):
+            with self.subTest(module=name), self.assertRaisesRegex(ValueError, "Modulordner"):
+                library.inspect_bytes(make_world(module=name))
 
     def test_corrupt_archived_file_cannot_be_activated(self):
         v = library.store(make_world())

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Spielebibliothek · ArchipeMANU{% endblock %}
+{% block title %}Spielebibliothek · {{ app_name }}{% endblock %}
 {% block content %}
 <div class="page-head">
   <div><p class="eyebrow">Ein Spiel für jeden</p><h1>Spielebibliothek</h1><p class="muted">Finde dein Spiel und erfahre, was du zum Mitspielen brauchst: Originalspiel, ROM, Emulator, Mod oder Spielclient.</p></div>
@@ -7,7 +7,7 @@
   <a href="{{ url_for('community.game_add') }}" class="btn primary">+ Spiel hinzufügen</a>
   </div>
 </div>
-<p class="status-note">„Optionen verfügbar“ bedeutet, dass du das Spiel für eine Lobby konfigurieren kannst. Deine lokale Installation und die Voraussetzungen auf dem Generator-Rechner sind damit noch nicht geprüft. Die Anleitung beim jeweiligen Spiel erklärt die nächsten Schritte.</p>
+<p class="status-note">„Für Lobby auswählbar“ bedeutet, dass du das Spiel in einer Lobby auswählen und einstellen kannst. Fürs Spielen können noch Originalspiel, ROM, Emulator oder Mods nötig sein. Benötigt die Generierung eine ROM, muss der Host sie vorher auf dem Rechner einrichten, auf dem dieser Hub die Runde generiert.</p>
 <form method="get" class="panel filter-bar library-filters" role="search" aria-label="Spiele filtern" id="library-filters">
   <label class="search-field">Spiel suchen <input name="q" value="{{ q }}" placeholder="Name oder hinzugefügt von …" type="search"></label>
   <label>Archipelago-Unterstützung<select name="state" aria-label="Archipelago-Unterstützung"><option value="all">Alle Status</option>{% for value,label in support_states.items() %}<option value="{{ value }}" {% if state == value %}selected{% endif %}>{{ label }}</option>{% endfor %}<option value="unloaded" {% if state == 'unloaded' %}selected{% endif %}>Optionen fehlen (alle)</option></select></label>
@@ -31,6 +31,7 @@
     <div class="row genre-tags">{% for tag in item.catalog.genres %}<span class="chip">{{ tag }}</span>{% endfor %}</div>
     <p class="small game-description">{{ item.catalog.description }}</p>
     <p class="small"><strong>Zum Spielen:</strong> {{ item.catalog.setup_label }}</p>
+    {% if item.catalog.host_rom %}<p class="status-note warn small"><strong>Für den Host:</strong> Original-ROM vor der Generierung auf dem Generator-Rechner einrichten.</p>{% endif %}
     <p class="muted small" style="margin:8px 0">
       {{ 'Von ' ~ item.added_by if item.added_by else 'In Archipelago enthalten' }}
     </p>

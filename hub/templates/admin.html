@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Admin · AP YAML Hub{% endblock %}
+{% block title %}Admin · {{ app_name }}{% endblock %}
 {% block content %}
 <h1>Admin</h1>
+<p class="row"><a href="#accounts">Accounts verwalten</a><a href="#rounds">Runden verwalten</a><a href="#seeds">Seeds verwalten</a></p>
 <p class="muted small">Archipelago {{ ap_version }} ·
   Optionen eingelesen: <span id="extract-status" data-url="{{ url_for('admin_status') }}" data-status="{{ status.status }}">
   {% if status.status == 'ok' %}<span class="chip ok">ok</span>
@@ -96,12 +97,13 @@
 <details style="margin-top:12px"><summary class="small muted">Log vom letzten Einlesen</summary><pre class="log">{{ status.log }}</pre></details>
 {% endif %}
 
-<h2>Benutzer</h2>
+<h2 id="accounts">Accounts verwalten</h2>
+<p class="muted small">Beim Löschen werden Anmeldung und Teilnahme entfernt. Gemeinsame Runden, Seeds, Vorlagen, Anleitungen und Spiel-Uploads bleiben erhalten und werden dir übertragen. Bereits exportierte Seeds behalten ihre bisherigen Slotnamen. Dein eigenes Admin-Konto kannst du hier nicht löschen.</p>
 <p class="muted small">Neue Spieler erstellen ihr Konto selbst mit Benutzername und Passwort.</p>
 <p class="muted small">Persönliche Einrichtungscodes nur an den jeweiligen Kontobesitzer weitergeben. Nach der Passwortvergabe werden seine bisherigen Sitzungen beendet.</p>
 <div class="panel table-wrap">
   <table>
-    <tr><th>Name</th><th>Slot</th><th>Rolle</th><th>Rechte</th><th>Kontoeinrichtung</th></tr>
+    <tr><th>Name</th><th>Slot</th><th>Rolle</th><th>Rechte</th><th>Kontoeinrichtung</th><th>Löschen</th></tr>
     {% for u in users %}
     <tr>
       <td>{{ u.username }}</td><td>{{ u.slot_name }}</td><td>{{ 'Admin' if u.is_admin else 'Spieler' }}</td>
@@ -114,8 +116,19 @@
         <input type="hidden" name="_csrf" value="{{ csrf_token }}">
         <button>{{ 'Passwort wiederherstellen' if u.password_hash else 'Einrichtungscode erzeugen' }}</button>
       </form></td>
+      <td>{% if u.id != g.user.id %}<form method="post" action="{{ url_for('admin_delete_account', uid=u.id) }}" class="inline" data-confirm="Konto {{ u.username }} dauerhaft löschen? Anmeldungen und Teilnahme werden entfernt. Gemeinsame Inhalte bleiben erhalten und werden dir übertragen."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="danger small">Account löschen</button></form>{% else %}<span class="muted small">Dein Konto</span>{% endif %}</td>
     </tr>
     {% endfor %}
   </table>
 </div>
+<h2 id="rounds">Runden verwalten</h2>
+<p class="muted small">Eine Runde zu löschen entfernt auch alle zugehörigen Seeds, Analysen, Einladungen, Verbindungsdaten und lokalen Dateien. Auf externen Servern gehostete Räume werden dadurch nicht beendet.</p>
+<div class="panel table-wrap"><table><thead><tr><th>Runde</th><th>Host</th><th>Seeds</th><th>Aktion</th></tr></thead><tbody>
+{% for room in admin_rounds %}<tr><td><a href="{{ url_for('session_view', sid=room.id) }}">{{ room.name }} (#{{ room.id }})</a></td><td>{{ room.owner or 'Kein Host' }}</td><td>{{ room.seed_count }}</td><td><form method="post" action="{{ url_for('admin_delete_round', sid=room.id) }}" class="inline" data-confirm="Runde {{ room.name }} samt allen {{ room.seed_count }} Seeds und Dateien dauerhaft löschen?"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="danger small" {% if room.busy or room.gen_status == 'running' %}disabled{% endif %}>Runde löschen</button>{% if room.busy or room.gen_status == 'running' %}<span class="muted small">Generierung läuft</span>{% endif %}</form></td></tr>{% else %}<tr><td colspan="4" class="muted">Keine Runden vorhanden.</td></tr>{% endfor %}
+</tbody></table></div>
+<h2 id="seeds">Seeds verwalten</h2>
+<p class="muted small">Einzelne Seeds lassen sich einschließlich Analyse, Verbindungsdaten und lokalen Dateien löschen. Die Lobby und ihre Einstellungen bleiben erhalten.</p>
+<div class="panel table-wrap"><table><thead><tr><th>Seed</th><th>Runde</th><th>Status</th><th>Aktion</th></tr></thead><tbody>
+{% for seed in admin_seeds %}<tr><td><a href="{{ url_for('mvp.build_stats', sid=seed.session_id, build_id=seed.id) }}">Seed #{{ seed.id }}</a></td><td>{{ seed.session_name }}</td><td>{{ status_labels.get(seed.status, seed.status) }}</td><td><form method="post" action="{{ url_for('admin_delete_seed', bid=seed.id) }}" class="inline" data-confirm="Seed #{{ seed.id }} samt Analyse, Verbindungsdaten und Dateien dauerhaft löschen? Die Lobby bleibt erhalten."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="danger small" {% if seed.status in ['queued','running'] %}disabled{% endif %}>Seed löschen</button></form></td></tr>{% else %}<tr><td colspan="4" class="muted">Keine Seeds vorhanden.</td></tr>{% endfor %}
+</tbody></table></div>
 {% endblock %}

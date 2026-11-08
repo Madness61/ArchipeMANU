@@ -1,25 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Profil · AP YAML Hub{% endblock %}
+{% block title %}Profil · {{ app_name }}{% endblock %}
 {% block content %}
 <h1>Profil</h1>
-<form method="post" class="panel stack" style="max-width:560px">
+<form method="post" class="panel stack profile-form" style="max-width:560px">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-  <label>Slot-Name (höchstens 16 Zeichen)<br>
-    <input name="slot_name" value="{{ g.user.slot_name }}" maxlength="16" required></label>
+  <div class="profile-setting"><label for="profile-slot-name">Slot-Name (höchstens 16 Zeichen)</label>
+    <input id="profile-slot-name" name="slot_name" value="{{ g.user.slot_name }}" maxlength="16" required></div>
   <p class="small muted" style="margin-top:2px">Wird in jede YAML eingesetzt. Spielst du mehrere Spiele in einer Session,
-    wird automatisch eine Zahl angehängt (Max, Max2 …).</p>
+    wird automatisch eine Zahl angehängt (Max Mustermann, Max Mustermann2 …).</p>
 
   <h2 style="margin-top:8px">Gilt bei mir immer</h2>
   <p class="small muted">Wird auf jede Vorlage angewendet, wenn das Spiel die Option hat.</p>
-  <label>DeathLink<br>
-    <select name="death_link">
+  <div class="profile-setting"><label for="profile-death-link">DeathLink</label>
+    <select id="profile-death-link" name="death_link">
       <option value="" {% if 'death_link' not in overrides %}selected{% endif %}>wie in der Vorlage</option>
       <option value="on" {% if overrides.death_link is sameas true %}selected{% endif %}>immer an</option>
       <option value="off" {% if overrides.death_link is sameas false %}selected{% endif %}>immer aus</option>
-    </select></label>
-  <label>Progression Balancing (0–99)<br>
-    <input name="progression_balancing" value="{{ overrides.progression_balancing if 'progression_balancing' in overrides else '' }}"
-           placeholder="wie in der Vorlage" inputmode="numeric" size="14"></label>
+    </select></div>
+  <div class="profile-setting"><label for="profile-balancing">Progression Balancing (0–99)</label>
+    <input id="profile-balancing" name="progression_balancing" value="{{ overrides.progression_balancing if 'progression_balancing' in overrides else '' }}"
+           placeholder="wie in der Vorlage" inputmode="numeric" size="14"></div>
   <div><button class="primary">Speichern</button></div>
 </form>
 

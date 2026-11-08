@@ -60,6 +60,8 @@ def migrate() -> None:
         columns = {r["name"] for r in conn.execute("PRAGMA table_info(sessions)")}
         if "description" not in columns:
             conn.execute("ALTER TABLE sessions ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+        if "completed_at" not in columns:
+            conn.execute("ALTER TABLE sessions ADD COLUMN completed_at TEXT")
         build_cols = {r["name"] for r in conn.execute("PRAGMA table_info(seed_builds)")}
         if build_cols and "stats_json" not in build_cols:
             conn.execute("ALTER TABLE seed_builds ADD COLUMN stats_json TEXT NOT NULL DEFAULT ''")
@@ -98,10 +100,18 @@ def migrate() -> None:
             trouble TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL,
             author INTEGER NOT NULL REFERENCES users(id)
         );
+        CREATE TABLE IF NOT EXISTS seed_completions(
+            build_id INTEGER NOT NULL REFERENCES seed_builds(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            finished_at TEXT NOT NULL,
+            PRIMARY KEY(build_id,user_id)
+        );
         """)
         build_cols = {r["name"] for r in conn.execute("PRAGMA table_info(seed_builds)")}
         if "stats_json" not in build_cols:
             conn.execute("ALTER TABLE seed_builds ADD COLUMN stats_json TEXT NOT NULL DEFAULT ''")
+        if "completed_at" not in build_cols:
+            conn.execute("ALTER TABLE seed_builds ADD COLUMN completed_at TEXT")
         conn.execute("""UPDATE seed_builds SET status='failed',
             log='Generierung durch Neustart des Servers unterbrochen.',
             finished_at=? WHERE status IN ('running','queued')""", (utc_now(),))
@@ -194,7 +204,7 @@ def entry_world_version(eid):
 @bp.route("/seeds")
 def seed_list():
     _user()
-    rows = db.query("""SELECT b.id, b.session_id, b.status, b.created_at,
+    rows = db.query("""SELECT b.id, b.session_id, b.status, b.created_at, b.completed_at,
         s.name AS session_name FROM seed_builds b
         JOIN sessions s ON s.id=b.session_id
         WHERE (?=1 OR s.created_by=? OR EXISTS (
@@ -272,6 +282,15 @@ def choose_game(sid):
         (sid, g.user["id"]), one=True):
         return redirect(url_for("mvp.lobby_list"))
     return redirect(url_for("session_view", sid=sid, _anchor="game-selection"))
+
+
+@bp.route("/sessions/<int:sid>/selection/start", methods=["POST"])
+def lobby_selection_start(sid):
+    _user()
+    room = _session(sid)
+    _assert_access(room)
+    from . import lobby_selection
+    return lobby_selection.start(room)
 
 
 @bp.route("/sessions/<int:sid>/selection", methods=["POST"])
@@ -359,7 +378,7 @@ def entry_options(eid):
         errors = {k:v for k,v in errors.items() if k in ("_template","requires")}
         errors.update(field_errors)
         pending = True
-        if not errors and request.form.get("_action") != "preview":
+        if not errors and request.form.get("_action") != "preview" and not request.form.get("_reset_option"):
             update_open_entry(eid,"option_overrides=?, ready=0, ready_hash=''",(db.dumps(updated),))
             flash("Deine Einstellungen wurden gespeichert; bitte erneut als bereit markieren.", "info")
             return redirect(url_for("session_view", sid=room["id"]))
@@ -378,6 +397,7 @@ def entry_options(eid):
     selected["values"] = effective
     yaml_preview = entry_yaml(selected,schema,ap_bridge.index().get("ap_version","0.0.0")) if not errors else ""
     return render_template("entry_options.html", entry=entry, room=room, schema=schema,
+                           baseline=baseline,
                            groups=groups, values=effective, errors=errors, yg=yamlgen,
                            expert=expert, yaml_preview=yaml_preview, pending=pending,lobby=True)
 
@@ -557,7 +577,7 @@ def begin_build(sid: int, spoiler: int, race: bool) -> tuple[int | None, list[st
             }
             bid = conn.execute("INSERT INTO seed_builds(session_id,status,snapshot,created_at) VALUES (?,?,?,?)",
                                (sid, "queued", json.dumps(snapshot, ensure_ascii=False), utc_now())).lastrowid
-            conn.execute("UPDATE sessions SET locked=1 WHERE id=?",(sid,))
+            conn.execute("UPDATE sessions SET locked=1,completed_at=NULL WHERE id=?",(sid,))
             conn.commit()
         except Exception:
             conn.rollback()
@@ -568,6 +588,114 @@ def begin_build(sid: int, spoiler: int, race: bool) -> tuple[int | None, list[st
 
 def builds(sid: int):
     return db.query("SELECT * FROM seed_builds WHERE session_id=? ORDER BY id DESC", (sid,))
+
+
+def active_connections():
+    """Latest configured successful seed per room, limited to actual participants/hosts.
+
+    A saved address is not a network probe or a claim that its server is online.
+    """
+    if g.user is None:
+        return []
+    return db.query("""WITH sources AS (
+        SELECT h.id,h.build_id,h.room_url,h.host,h.port,h.confirmed,h.created_at,
+            CAST(strftime('%s',h.created_at) AS REAL) AS stamp FROM hosted_rooms h
+        UNION ALL
+        SELECT l.id,l.build_id,'https://archipelago.gg/room/' || l.room_id,
+            COALESCE(h.host,'archipelago.gg'),h.port,COALESCE(h.confirmed,0),l.created_at,l.created_at
+            FROM live_rooms l LEFT JOIN hosted_rooms h ON h.id=(
+                SELECT MAX(h2.id) FROM hosted_rooms h2 WHERE h2.build_id=l.build_id)
+            WHERE l.active=1),
+        ranked AS (
+          SELECT src.*,b.session_id,b.completed_at,s.name AS session_name,s.created_by,
+            ROW_NUMBER() OVER (PARTITION BY b.session_id ORDER BY src.stamp DESC,src.id DESC) AS position
+          FROM sources src JOIN seed_builds b ON b.id=src.build_id JOIN sessions s ON s.id=b.session_id
+          WHERE b.status='succeeded')
+        SELECT * FROM ranked s WHERE position=1 AND completed_at IS NULL
+        AND (? OR s.created_by=?
+            OR EXISTS (SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.session_id AND lm.user_id=?)
+            OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.session_id AND e.user_id=?))
+        ORDER BY stamp DESC""", (g.user["is_admin"], g.user["id"], g.user["id"], g.user["id"]))
+
+
+@bp.route("/active-lobby")
+def active_lobby():
+    _user()
+    connections = active_connections()
+    if len(connections) == 1:
+        return redirect(url_for("mvp.play_page", sid=connections[0]["session_id"], build_id=connections[0]["build_id"]))
+    return render_template("active_lobbies.html", connections=connections)
+
+
+def completion_state(build):
+    """Manual goal confirmations, one per account in the immutable seed snapshot.
+
+    Current lobby selections may already belong to the next round. Deleted
+    accounts remain visible in the old snapshot but cannot block its completion.
+    """
+    players = {}
+    for slot in db.loads(build["snapshot"]).get("slots", []):
+        uid = slot["player_id"]
+        player = players.setdefault(uid, {"id": uid, "slots": [], "games": []})
+        player["slots"].append(slot["slot"])
+        player["games"].append(slot["game_name"])
+    users = {row["id"]: row["username"] for row in db.query("SELECT id,username FROM users")}
+    confirmations = {row["user_id"]: row["finished_at"] for row in db.query(
+        "SELECT user_id,finished_at FROM seed_completions WHERE build_id=?", (build["id"],))}
+    for uid, player in players.items():
+        player.update(name=users.get(uid, ", ".join(player["slots"])),
+                      deleted=uid not in users, finished=uid in confirmations,
+                      finished_at=confirmations.get(uid))
+    eligible = [p for p in players.values() if not p["deleted"]]
+    own = players.get(g.user["id"]) if g.user else None
+    return dict(players=list(players.values()), total=len(eligible),
+                finished_count=sum(p["finished"] for p in eligible),
+                own=own, completed_at=build["completed_at"])
+
+
+@bp.route("/sessions/<int:sid>/builds/<int:build_id>/finish", methods=["POST"])
+def finish_game(sid, build_id):
+    _assert_access(_session(sid))
+    if request.form.get("finished") not in ("0", "1"):
+        abort(400, "Bitte den Spielstatus ausdrücklich bestätigen oder zurücknehmen.")
+    with _LOCK:
+        conn = db.get()
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            build = db.query("SELECT * FROM seed_builds WHERE id=? AND session_id=?",
+                             (build_id, sid), one=True)
+            if not build:
+                abort(404)
+            state = completion_state(build)
+            if not state["own"] or state["own"]["deleted"]:
+                abort(403, "Nur Spieler mit eigenem Slot können ihr Spielziel bestätigen.")
+            if build["status"] != "succeeded" or not db.query(
+                    "SELECT 1 FROM hosted_rooms WHERE build_id=?", (build_id,), one=True):
+                abort(409, "Die Runde muss zuerst generiert und ihre Verbindung eingerichtet werden.")
+            if not build["completed_at"]:
+                if request.form.get("finished") == "0":
+                    conn.execute("DELETE FROM seed_completions WHERE build_id=? AND user_id=?",
+                                 (build_id, g.user["id"]))
+                else:
+                    conn.execute("INSERT OR IGNORE INTO seed_completions(build_id,user_id,finished_at) VALUES (?,?,?)",
+                                 (build_id, g.user["id"], utc_now()))
+                state = completion_state(build)
+                if state["total"] and state["finished_count"] == state["total"]:
+                    now = utc_now()
+                    conn.execute("UPDATE seed_builds SET completed_at=? WHERE id=?", (now, build_id))
+                    # Finishing an older seed must never close a newer round or
+                    # interrupt a lobby the host has reopened for preparation.
+                    conn.execute("""UPDATE sessions SET completed_at=?,locked=1 WHERE id=? AND locked=1
+                        AND ?=(SELECT MAX(id) FROM seed_builds WHERE session_id=? AND status IN ('queued','running','succeeded'))
+                        AND ?=(SELECT h.build_id FROM hosted_rooms h JOIN seed_builds b ON b.id=h.build_id
+                            WHERE b.session_id=? ORDER BY h.id DESC LIMIT 1)""",
+                                 (now, sid, build_id, sid, build_id, sid))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+    flash("Dein Spielstatus wurde gespeichert.", "info")
+    return redirect(url_for("mvp.play_page", sid=sid, build_id=build_id, _anchor="completion"))
 
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/status")
@@ -660,12 +788,31 @@ def save_hosting(sid, build_id):
         link, host, port = parse_room_form(request.form)
     except ValueError as exc:
         flash(str(exc), "error")
-        return redirect(url_for("session_view", sid=sid))
-    db.execute("""INSERT INTO hosted_rooms(build_id,room_url,host,port,confirmed,entered_by,created_at)
-                  VALUES (?,?,?,?,?,?,?)""",
-               (build_id, link, host, port, int(request.form.get("confirmed") == "1"),
-                g.user["id"], utc_now()))
-    flash("Raumadresse diesem Seed zugeordnet. Alle Teilnehmer können sie unter „Jetzt spielen“ sehen.", "info")
+        return redirect(url_for("session_view", sid=sid, _anchor=f"hosting-{build_id}"))
+    with _LOCK:
+        conn = db.get()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            current = db.query("SELECT completed_at FROM seed_builds WHERE id=?", (build_id,), one=True)
+            if not current or current["completed_at"]:
+                abort(409, "Dieser Seed ist abgeschlossen. Für eine neue Runde einen neuen Seed generieren.")
+            conn.execute("""INSERT INTO hosted_rooms(build_id,room_url,host,port,confirmed,entered_by,created_at)
+                         VALUES (?,?,?,?,?,?,?)""",
+                         (build_id, link, host, port, int(request.form.get("confirmed") == "1"),
+                          g.user["id"], utc_now()))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+    flash("Verbindung gespeichert. Alle Teilnehmer finden diese Runde jetzt oben unter „Aktive Lobby“.", "info")
+    if link:
+        from . import live_api, live_store
+        try:
+            live_api.room_id(link)
+        except ValueError:
+            pass  # Legacy manual tracker/connect links are never fetched.
+        else:
+            live_store.attach(build_id, link, g.user["id"], auto_host=False)
     return redirect(url_for("mvp.play_page", sid=sid, build_id=build_id))
 
 
@@ -696,6 +843,7 @@ def _build_placements(build, distribution):
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/stats")
 def build_stats(sid, build_id):
+    from . import live_store
     room = _session(sid)
     _assert_access(room)
     build = db.query("SELECT * FROM seed_builds WHERE id=? AND session_id=?", (build_id,sid),one=True)
@@ -707,6 +855,7 @@ def build_stats(sid, build_id):
     placements = _build_placements(build, payload)
     return render_template("seed_stats.html", room=room, build=build,
                            hosted=db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1",(build_id,),one=True),
+                           live_connection=live_store.current(build_id),
                            stats=payload, race=bool(metadata.get("race")),
                            overview=stats.game_overview(payload) if payload else [],
                            progression=stats.progression_items(payload, placements) if placements is not None else [],
@@ -776,6 +925,7 @@ def build_item_details(sid, build_id, player_id):
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/play")
 def play_page(sid, build_id):
     from . import game_catalog
+    from . import live_store
     room = _session(sid)
     _assert_access(room)
     build = db.query("SELECT * FROM seed_builds WHERE id=? AND session_id=?", (build_id, sid), one=True)
@@ -792,6 +942,9 @@ def play_page(sid, build_id):
     assets = artifact_files(build_id, build["zip_name"]) if build["status"] == "succeeded" else []
     distribution = _build_distribution(build, snapshot)
     return render_template("play.html", room=room, build=build, hosted=hosted,
+                           live_connection=live_store.current(build_id),
+                           completion=completion_state(build),
+                           can_manage_session=_manager(room),
                            setup_infos={slot["game"]: game_catalog.details(slot["game"], slot["game_name"]) for slot in own},
                            stats=distribution, race=bool(snapshot.get("race")),
                            overview=stats.game_overview(distribution) if distribution else [],

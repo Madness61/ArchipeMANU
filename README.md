@@ -1,4 +1,9 @@
-# AP YAML Hub
+# Multiworld Hub
+
+Das neue [Live-Dashboard](LIVE_DASHBOARD.md) begleitet laufende Runden mit
+gemeinsam gecachten Archipelago-Daten, Spielerkarten, Empfangsmatrix, Verlauf,
+Ereignissen und Vergleichen. Nach dem Upload des Seeds genügt der Raumlink
+unter „Generierte Runden“ oder „Jetzt spielen / Verbindung“.
 
 ### Überarbeitete Oberfläche
 
@@ -8,6 +13,36 @@ Die Bibliothek bietet Suche sowie Status- und Herkunftsfilter. Spieler und Host
 haben getrennte Aktionen; technische Extras bleiben aufklappbar erreichbar.
 Die Analyse zeigt echte Kennzahlen, bewusst aufdeckbare Spoiler und die vom Host
 gespeicherte Verbindung. Plan, Umsetzung und Prüfung: [UI_PLAN.md](UI_PLAN.md).
+
+### Spielauswahl ohne YAML-Editor
+
+Die Lobby bietet **YAML überarbeiten** sowie **Standardwerte übernehmen**
+(bei einer Vorlage: **Vorlage übernehmen**). Die direkte Übernahme speichert
+Spiel, gewählte Vorlage und passende Profilwerte ohne Editor. Danach meldet sich
+der Spieler in der Teilnehmerliste bereit. Bereits gespeicherte Lobby-Anpassungen
+werden beim erneuten direkten Übernehmen durch diese Grundwerte ersetzt.
+
+Vorlagen zeigen eine Beschreibung und konkrete Abweichungen vom Spiel-Standard.
+Im YAML-Editor gelten die angezeigten Werte automatisch; Vererbungs-Häkchen sind
+nicht nötig. **Diesen Wert zurücksetzen** setzt nur die betreffende Anpassung auf
+Vorlage/Profil zurück und lässt andere Änderungen im Entwurf erhalten. Gespeichert
+wird weiterhin erst mit **Auswahl übernehmen** beziehungsweise **Einstellungen
+speichern**.
+
+### Aktive Lobby und Verbindung einrichten
+
+In der Lobby aktualisieren **Teilnehmer aktualisieren** und **Runden aktualisieren**
+den Teilnehmerstatus und die generierten Seeds. Mit JavaScript bleiben offene
+YAML-Entwürfe sowie angefangene Verbindungsformulare dabei erhalten.
+
+Unter **Generierte Runden** sieht der Host bei jedem erfolgreichen Seed ein
+Formular **Raum-Link, Server & Port eintragen**. Nach dem Speichern erscheint der
+Reiter **Aktive Lobby** für Teilnehmer, Host und Admins. Eine eingerichtete Runde
+wird direkt geöffnet; bei mehreren gibt es eine Auswahl. Pro Lobby wird die
+zuletzt gespeicherte Verbindung eines erfolgreichen Seeds verwendet. Ein
+Archipelago-Raum-Link ist optional, damit auch selbst gehostete Spielserver
+eingetragen werden können. Die angezeigten Verbindungen sind Angaben des Hosts,
+keine automatische Prüfung, ob der Spielserver online ist.
 
 ### Automatische Browser-Tests
 
@@ -39,6 +74,23 @@ erstes Passwort mit einem persönlichen Einrichtungscode vom Host.
 Die Migration und die Einrichtung des bisherigen Admins sind in
 [AUTH_MIGRATION.md](AUTH_MIGRATION.md) beschrieben. Die früheren Hinweise zur
 gemeinsamen Anmeldung weiter unten sind damit abgelöst.
+
+### Admin: Accounts, Runden und Seeds löschen
+
+Unter **Admin → Accounts / Runden / Seeds verwalten** lassen sich einzelne
+Datensätze nach Bestätigung löschen. Eine Runde umfasst dabei alle zugehörigen
+Seeds, Analysen, Einladungen, Verbindungsdaten und lokalen Dateien. Ein einzelner
+Seed kann separat gelöscht werden; seine Lobby bleibt erhalten. Extern gehostete
+Archipelago-Räume werden dadurch nicht beendet.
+
+Beim Account-Löschen werden Anmeldungen, Einrichtungscodes und Teilnahmen entfernt.
+Runden, Seeds, Vorlagen, Spiel-Uploads und Anleitungen bleiben erhalten und gehen
+an den ausführenden Admin über. Bestehende Seeds behalten ihre gespeicherten
+Slotnamen. Die übrigen Teilnehmer betroffener Lobbys müssen sich erneut bereit
+melden. Gelöschte Account-IDs werden nicht für Neuregistrierungen wiederverwendet.
+Das eigene Admin-Konto und von laufenden Generierungen betroffene Daten können
+nicht gelöscht werden. Normale Hosts können weiterhin nur Lobbys ohne Seed-Historie
+löschen.
 
 ### Seed-Analyse: Übersicht und Spoiler
 
@@ -294,6 +346,15 @@ Anzeige:
 ### 5. Hosting und lokaler Test
 
 Der Hosting-Ablauf bleibt wie zuvor: ZIP vom Host herunterladen → auf https://archipelago.gg/uploads hochladen → dort `Create Room` → echte Host-/Portdaten und optional Raum-URL im Hub speichern. Es gibt keine behauptete offizielle Upload-API.
+
+Unter „Aktive Lobby“ bestätigt jeder Spieler mit „Ich bin fertig“, dass er sein
+Spielziel für alle eigenen Slots erreicht hat. Das ist eine manuelle Bestätigung;
+der Hub liest keinen Live-Spielabschluss vom Archipelago-Server. Bis alle fertig
+sind, kann man mit „Ich spiele doch noch“ die eigene Bestätigung zurücknehmen.
+Wenn alle Seed-Teilnehmer bestätigt haben, wird die Runde im Hub abgeschlossen
+und aus den aktiven Lobbys entfernt. Seed, Analyse und Downloads bleiben erhalten;
+der externe Archipelago-Server wird nicht gestoppt. Der Host kann die Lobby zur
+Vorbereitung einer neuen Runde wieder öffnen; abgeschlossene Seeds bleiben archiviert.
 
 Unter Windows im geklonten Projektordner (vorher `data/` sichern):
 

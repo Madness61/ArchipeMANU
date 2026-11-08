@@ -1,8 +1,15 @@
 <section class="panel connection-card" id="connection">
+  {% set connection_manager = g.user and (g.user.is_admin or room.created_by == g.user.id) %}
   <div class="row spread"><div><p class="eyebrow">Gemeinsam losspielen</p><h2 style="margin:0">Verbindung zur Runde</h2></div>{% if hosted %}<span class="chip {{ 'ok' if hosted.confirmed else 'warn' }}">{{ 'Vom Host bestätigt' if hosted.confirmed else 'Noch nicht bestätigt' }}</span>{% endif %}</div>
   {% if hosted %}
-    <p class="muted small">Trage diese Adresse im Archipelago-Client deines Spiels ein.</p>
+    <p class="muted small">Verbindung für <strong>{{ room.name }}</strong>, Seed #{{ build.id }}. Trage diese Adresse im Archipelago-Client deines Spiels ein. Ob der Server gerade online ist, wird hier nicht automatisch geprüft.</p>
     <div class="row"><code id="host-address" class="connection-address">{{ hosted.host }}:{{ hosted.port }}</code><button type="button" class="small" data-copy="#host-address">Adresse kopieren</button></div>
     {% if hosted.room_url %}<p><a href="{{ hosted.room_url }}" target="_blank" rel="noopener noreferrer">Archipelago-Raum öffnen ↗</a></p>{% endif %}
+  {% elif connection_manager %}<p class="muted">Du bist Host dieser Runde. Trage hier den Archipelago-Raum-Link, die Serveradresse und den Port ein, damit deine Mitspieler die Verbindung finden.</p>
   {% else %}<p class="muted">Der Host hat für diese Runde noch keine Serveradresse hinterlegt. Sobald die Verbindung eingerichtet ist, findest du sie hier.</p>{% endif %}
+  {% if connection_manager and build.status == 'succeeded' and not build.completed_at %}
+    {% include "live_connect.html" %}
+    {% with hosting_build=build, hosting_sid=room.id, hosting_data=hosted %}{% include "hosting_form.html" %}{% endwith %}
+  {% endif %}
+  {% if live_connection %}<p><a class="btn primary" href="{{ url_for('live.dashboard', sid=room.id, build_id=build.id) }}">Live-Dashboard öffnen</a></p>{% endif %}
 </section>

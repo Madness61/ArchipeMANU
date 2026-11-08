@@ -14,7 +14,7 @@
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   {% for key,message in errors.items() %}<p class="err">{{ key }}: {{ message }}</p>{% endfor %}
   {% for group, opts in groups.items() %}
-    <details class="group" open>
+    <details class="group">
       <summary>{{ group }} ({{ opts|length }})</summary>
       {% for opt in opts %}{{ field(opt) }}{% endfor %}
     </details>

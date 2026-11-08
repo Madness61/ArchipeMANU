@@ -11,7 +11,7 @@ import zipfile
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, session,
                    url_for)
 
-from . import ap_bridge, config, db, yamlgen, mvp, community, auth
+from . import ap_bridge, config, db, yamlgen, mvp, community, auth, live_store, live_routes
 
 app = Flask(__name__)
 app.teardown_appcontext(db.close)
@@ -174,11 +174,17 @@ def can_edit_template(row) -> bool:
     return g.user["is_admin"] or row["created_by"] == g.user["id"]
 
 
+def template_info(template):
+    return {"ref": template["ref"], "name": template["name"], "source": template["source"],
+            "description": template["description"], "summary": template["summary"],
+            "is_default": template["is_default"], "compatible": not bool(template["errors"])}
+
+
 def templates_for(schema: dict) -> list[dict]:
     slug = schema["slug"]
     default_ref = group_default_ref(slug)
-    result = [{"ref": "default", "name": "Standard", "source": "APWorld",
-               "description": "Alle Optionen auf den Standardwerten der APWorld.", "values": {}}]
+    result = [{"ref": "default", "name": "Spiel-Standard", "source": "APWorld",
+               "description": "Die Voreinstellungen dieses Spiels, ohne zusätzliche Vorlage. Gespeicherte Profilwerte werden automatisch berücksichtigt.", "values": {}}]
     for name, values in schema["presets"].items():
         result.append({"ref": f"preset:{name}", "name": name, "source": "APWorld-Preset", "description": "",
                        "values": values})
@@ -205,6 +211,9 @@ def templates_for(schema: dict) -> list[dict]:
                            "description":"Original-YAML bleibt in der Spielebibliothek herunterladbar.","values":{},"unavailable":True})
     for t in result:
         t["summary"] = yamlgen.summarize(schema, t["values"])
+        if not t["description"]:
+            t["description"] = (f"{len(t['summary'])} Abweichungen vom Spiel-Standard. Die konkreten Werte stehen unten."
+                                if t["summary"] else "Diese Vorlage entspricht dem Spiel-Standard.")
         t["is_default"] = t["ref"] == default_ref
         t["errors"] = yamlgen.validate_values(schema,t["values"])
         t["errors"].update(yamlgen.validate_requirements(schema,t.get("requires",{}),ap_bridge.index().get("ap_version","0.0.0")))
@@ -284,10 +293,11 @@ def can_manage_session(row) -> bool:
 
 @app.context_processor
 def inject_globals():
-    return {"ap_ready": ap_bridge.ap_ready(), "extract": ap_bridge.extract_status(),
+    return {"app_name": config.APP_NAME, "ap_ready": ap_bridge.ap_ready(), "extract": ap_bridge.extract_status(),
+            "active_connections": mvp.active_connections(),
             "games_index": ap_bridge.index()["games"],
-            "status_labels":{"queued":"Wird vorbereitet", "running":"Wird generiert", "succeeded":"Bereit zum Spielen",
-                             "failed":"Fehlgeschlagen", "done":"Bereit zum Spielen", "error":"Fehlgeschlagen"}}
+            "status_labels":{"queued":"Wird vorbereitet", "running":"Wird generiert", "succeeded":"Generiert",
+                             "failed":"Fehlgeschlagen", "done":"Generiert", "error":"Fehlgeschlagen"}}
 
 
 # --- Dashboard & games -------------------------------------------------------------------------
@@ -403,8 +413,7 @@ def set_game_default(slug):
 @login_required
 def api_templates(slug):
     schema = get_schema(slug)
-    return jsonify([{"ref": t["ref"], "name": t["name"], "source": t["source"], "is_default": t["is_default"],"compatible":not bool(t["errors"])}
-                    for t in templates_for(schema)])
+    return jsonify([template_info(t) for t in templates_for(schema)])
 
 
 @app.route("/api/games/<slug>/names")
@@ -621,13 +630,20 @@ def session_create():
 @app.route("/sessions/<int:sid>")
 @login_required
 def session_view(sid, selection=None):
+    from . import game_catalog
     row = get_session(sid)
     mvp._assert_access(row)
     entries = session_entries(sid)
     for e in entries:
         e["summary"] = yamlgen.summarize(ap_bridge.schema(e["game"]), e["values"]) if e["installed"] else []
     games = sorted(ap_bridge.index()["games"].items(), key=lambda kv: kv[1]["game"].casefold())
-    history = mvp.builds(sid)
+    history = [dict(build) for build in mvp.builds(sid)]
+    hosting = {row["build_id"]: dict(row) for row in db.query("""SELECT h.* FROM hosted_rooms h
+        JOIN seed_builds b ON b.id=h.build_id WHERE b.session_id=?
+        AND h.id=(SELECT MAX(latest.id) FROM hosted_rooms latest WHERE latest.build_id=h.build_id)""", (sid,))}
+    for build in history:
+        build["hosting"] = hosting.get(build["id"])
+        build["live_connection"] = live_store.current(build["id"])
     check_build = next((b for b in history if b["status"] == "succeeded"), None)
     check_data = mvp._build_distribution(check_build) if check_build else None
     check_snapshot = db.loads(check_build["snapshot"]) if check_data else {}
@@ -660,6 +676,8 @@ def session_view(sid, selection=None):
     selected_schema = ap_bridge.schema(selected_game) if selected_game else None
     selection_templates = selection["templates"] if selection else templates_for(selected_schema) if selected_schema else []
     selected_ref = selection["ref"] if selection else own_entry["template_ref"] if own_entry else ""
+    template_ref = selected_ref or (group_default_ref(selected_game) if selected_game else "")
+    selected_template = next((t for t in selection_templates if t["ref"] == template_ref), None)
     joined_ids = {u["user_id"] for u in guests} | {e["user_id"] for e in entries}
     ready_users = {uid for uid in joined_ids if any(e["user_id"] == uid for e in entries)
                    and all(e["ready_valid"] and e["template_found"] for e in entries if e["user_id"] == uid)}
@@ -672,10 +690,13 @@ def session_view(sid, selection=None):
     all_ready = bool(entries) and not waiting
     step = 2 if selection else 4 if own_entry and own_entry["ready_valid"] else 3 if own_entry else 1
     return render_template("session.html", s=row, entries=entries, games=games,
+                           host_rom_requirements=game_catalog.host_rom_requirements(entries),
                            manage=can_manage_session(row), build_history=history,
                            lobby_guests=guests, is_member=is_member,
                            selection=selection, selected_game=selected_game, selected_ref=selected_ref,
                            selection_templates=selection_templates, yg=yamlgen,
+                           selected_template=selected_template,
+                           selection_template_info=[template_info(t) for t in selection_templates],
                            ready_count=len(ready_users), member_count=len(joined_ids), waiting=waiting,
                            all_ready=all_ready, own_entry=own_entry, preparation_step=step,
                            world_versions=ap_bridge.list_apworld_versions())
@@ -795,7 +816,7 @@ def session_lock(sid):
                 flash("Während der Generierung kann die Lobby nicht geöffnet oder geschlossen werden.", "error")
                 return redirect(url_for("session_view", sid=sid))
             locked = db.query("SELECT locked FROM sessions WHERE id=?", (sid,), one=True)["locked"]
-            conn.execute("UPDATE sessions SET locked=? WHERE id=?", (0 if locked else 1, sid))
+            conn.execute("UPDATE sessions SET locked=?,completed_at=NULL WHERE id=?", (0 if locked else 1, sid))
             if locked:
                 conn.execute("UPDATE entries SET ready=0,ready_hash='' WHERE session_id=?", (sid,))
             conn.commit()
@@ -836,6 +857,8 @@ def session_delete(sid):
     row = get_session(sid)
     if not can_manage_session(row):
         abort(403)
+    if g.user["is_admin"]:
+        return admin_delete_round(sid)
     if db.query("SELECT 1 FROM seed_builds WHERE session_id=? LIMIT 1", (sid,), one=True):
         flash("Sessions mit Seed-Historie bleiben erhalten und können nicht gelöscht werden.", "error")
         return redirect(url_for("session_view", sid=sid))
@@ -915,10 +938,44 @@ def session_download(sid):
 @admin_required
 def admin():
     users = db.query("SELECT * FROM users ORDER BY username")
+    rounds = db.query("""SELECT s.*,u.username AS owner,
+        (SELECT COUNT(*) FROM seed_builds b WHERE b.session_id=s.id) AS seed_count,
+        (SELECT COUNT(*) FROM seed_builds b WHERE b.session_id=s.id AND b.status IN ('queued','running')) AS busy
+        FROM sessions s LEFT JOIN users u ON u.id=s.created_by ORDER BY s.id DESC""")
+    seeds = db.query("""SELECT b.id,b.session_id,b.status,b.created_at,s.name AS session_name
+        FROM seed_builds b JOIN sessions s ON s.id=b.session_id ORDER BY b.id DESC""")
     return render_template("admin.html", apworlds=ap_bridge.list_apworlds(),
+                           admin_rounds=rounds, admin_seeds=seeds,
                            apworld_versions=ap_bridge.list_apworld_versions(), users=users,
                            failed=ap_bridge.index().get("failed", {}), status=ap_bridge.extract_status(),
                            ap_version=ap_bridge.index().get("ap_version"))
+
+
+@app.route("/admin/users/<int:uid>/delete", methods=["POST"])
+@admin_required
+def admin_delete_account(uid):
+    from . import admin_deletion
+    name = admin_deletion.delete_account(uid, g.user["id"])
+    flash(f"Konto „{name}“ gelöscht und alle Anmeldungen widerrufen. Gemeinsame Inhalte wurden dir übertragen; betroffene Runden müssen ihre Einstellungen erneut bestätigen.", "info")
+    return redirect(url_for("admin", _anchor="accounts"))
+
+
+@app.route("/admin/sessions/<int:sid>/delete", methods=["POST"])
+@admin_required
+def admin_delete_round(sid):
+    from . import admin_deletion
+    name = admin_deletion.delete_round(sid)
+    flash(f"Runde „{name}“ samt Seeds, Verbindungsdaten und lokalen Dateien gelöscht.", "info")
+    return redirect(url_for("admin", _anchor="rounds"))
+
+
+@app.route("/admin/seeds/<int:bid>/delete", methods=["POST"])
+@admin_required
+def admin_delete_seed(bid):
+    from . import admin_deletion
+    admin_deletion.delete_seed(bid)
+    flash(f"Seed #{bid} samt Analyse, Verbindungsdaten und lokalen Dateien gelöscht. Die Lobby bleibt erhalten.", "info")
+    return redirect(url_for("admin", _anchor="seeds"))
 
 
 @app.route("/admin/apworlds", methods=["POST"])
@@ -1020,12 +1077,15 @@ def create_app() -> Flask:
     auth.migrate()
     mvp.migrate()
     community.migrate()
+    live_store.migrate()
     if "mvp" not in app.blueprints:
         app.register_blueprint(mvp.bp)
     if "community" not in app.blueprints:
         app.register_blueprint(community.bp)
     if "auth" not in app.blueprints:
         app.register_blueprint(auth.bp)
+    if "live" not in app.blueprints:
+        app.register_blueprint(live_routes.bp)
     app.secret_key = config.secret_key()
     auth.configure(app)
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024

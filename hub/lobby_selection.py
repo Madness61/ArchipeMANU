@@ -63,20 +63,25 @@ def _assert_current(state, schema):
 
 def editor(room):
     """GET creates a signed form draft; no entries or readiness flags are written."""
-    from .app import capture_template, group_default_ref, entry_preset
-
     slug = request.args.get("game", "")
     if not slug:
         return None
+    state, schema = _draft_state(room, slug, request.args.get("ref"))
+    return _render(state, schema)
+
+
+def _draft_state(room, slug, selected_ref=None, reuse=True):
+    from .app import capture_template, group_default_ref, entry_preset
+
     schema = ap_bridge.schema(slug)
     if schema is None:
         abort(404, "Diese APWorld ist nicht verfügbar oder noch nicht eingelesen.")
     existing = _existing(room["id"])
-    if "ref" in request.args:
-        ref = request.args.get("ref") or group_default_ref(slug)
+    if selected_ref is not None:
+        ref = selected_ref or group_default_ref(slug)
     else:
         ref = existing["template_ref"] if existing and existing["game"] == slug else group_default_ref(slug)
-    same = existing and existing["game"] == slug and existing["template_ref"] == ref
+    same = reuse and existing and existing["game"] == slug and existing["template_ref"] == ref
     try:
         if same:
             label, values, found, requirements = entry_preset(schema, existing)
@@ -92,7 +97,49 @@ def editor(room):
              "sha": (existing["selected_apworld_sha"] or _active_sha(slug)) if same else _active_sha(slug),
              "schema_hash": _hash(schema), "profile_hash": _profile_hash(),
              "selection_hash": _selection_hash(existing), "slot": _slot(room["id"], existing)}
-    return _render(state, schema)
+    return state, schema
+
+
+def _save(state, updated):
+    """Same atomic validation for a signed draft and a direct template selection."""
+    with ap_bridge.ap_lock:
+        conn = db.get()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            _assert_current(state, ap_bridge.schema(state["game"]))
+            existing = _existing(state["sid"])
+            args = (state["game"], state["ref"], state["sha"], state["snapshot"], db.dumps(updated))
+            if existing:
+                conn.execute("""UPDATE entries SET game=?,template_ref=?,selected_apworld_sha=?,
+                    template_snapshot=?,option_overrides=?,ready=0,ready_hash='' WHERE id=?""", (*args, existing["id"]))
+            else:
+                conn.execute("""INSERT INTO entries(game,template_ref,selected_apworld_sha,
+                    template_snapshot,option_overrides,session_id,user_id) VALUES (?,?,?,?,?,?,?)""",
+                             (*args, state["sid"], g.user["id"]))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def start(room):
+    """Choose between editing a draft and saving its base values without an editor."""
+    from .app import session_view
+
+    action = request.form.get("_action", "edit")
+    if action not in ("edit", "base"):
+        abort(400)
+    slug = request.form.get("game", "")
+    state, schema = _draft_state(room, slug, request.form.get("ref", ""), reuse=action == "edit")
+    _assert_current(state, schema)
+    if action == "edit":
+        return redirect(url_for("session_view", sid=room["id"], game=slug, ref=state["ref"], _anchor="game-selection"))
+    result = _render(state, schema)
+    if result["errors"]:
+        return session_view(room["id"], selection=result), 400
+    _save(state, {})
+    flash("Die Werte aus deiner Auswahl sind gespeichert, ohne die YAML zu öffnen. Melde dich jetzt bei deiner Teilnahme bereit.", "info")
+    return redirect(url_for("session_view", sid=room["id"], _anchor="participants-section"))
 
 
 def _render(state, schema, errors=None):
@@ -114,6 +161,7 @@ def _render(state, schema, errors=None):
                 "requirements": snapshot.get("requires", {})}
     preview = entry_yaml(selected, schema, ap_bridge.index().get("ap_version", "0.0.0")) if not issues else ""
     return {"schema": schema, "values": values, "errors": issues, "groups": groups,
+            "baseline": user_values(schema, snapshot["values"], g.user),
             "draft": _signer().dumps(state), "yaml_preview": preview, "ref": state["ref"],
             "templates": templates_for(schema)}
 
@@ -130,7 +178,7 @@ def submit(sid):
         abort(403)
     schema = ap_bridge.schema(state["game"])
     _assert_current(state, schema)
-    action = request.form.get("_action", "apply")
+    action = "preview" if request.form.get("_reset_option") else request.form.get("_action", "apply")
     if action not in ("apply", "preview", "reset", "download"):
         abort(400)
     snapshot = db.loads(state["snapshot"])
@@ -142,26 +190,7 @@ def submit(sid):
     state["overrides"] = updated
     result = _render(state, schema, errors)
     if not result["errors"] and action == "apply":
-        # Recheck under a write lock so leaving, locking, or another tab cannot race the save.
-        with ap_bridge.ap_lock:
-            conn = db.get()
-            try:
-                conn.execute("BEGIN IMMEDIATE")
-                _assert_current(state, ap_bridge.schema(state["game"]))
-                existing = _existing(sid)
-                args = (state["game"], state["ref"], state["sha"], state["snapshot"], db.dumps(updated))
-                if existing:
-                    conn.execute("""UPDATE entries SET game=?,template_ref=?,selected_apworld_sha=?,
-                        template_snapshot=?,option_overrides=?,ready=0,ready_hash='' WHERE id=?""",
-                                 (*args, existing["id"]))
-                else:
-                    conn.execute("""INSERT INTO entries(game,template_ref,selected_apworld_sha,
-                        template_snapshot,option_overrides,session_id,user_id) VALUES (?,?,?,?,?,?,?)""",
-                                 (*args, sid, g.user["id"]))
-                conn.commit()
-            except Exception:
-                conn.rollback()
-                raise
+        _save(state, updated)
         flash("Dein Spiel und deine Einstellungen sind gespeichert. Klicke jetzt bei deiner Teilnahme auf „Bereit“.", "info")
         return redirect(url_for("session_view", sid=sid))
     if not result["errors"] and action == "download":

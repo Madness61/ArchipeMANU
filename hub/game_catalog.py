@@ -16,9 +16,22 @@ SETUP_TYPES = {
     "unknown": "Einrichtung noch undokumentiert",
 }
 SUPPORT_STATES = {
-    "loaded": "Optionen verfügbar",
+    "loaded": "Für Lobby auswählbar",
     "loading": "Aktiv, Optionen fehlen",
     "inactive": "APWorld inaktiv",
+}
+
+# Verified generator-side ROM reads in the bundled AP 0.6.8 integrations.
+# Other ROM games may create procedure patches without reading the original.
+HOST_ROM_REQUIRED = {
+    "alttp": "A Link to the Past: japanische Original-ROM, Version 1.0",
+    "smw": "Super Mario World: US-Original-ROM (Super Mario World (USA).sfc)",
+    "lufia2ac": "Lufia II: Rise of the Sinistrals: US-Original-ROM",
+    "mmbn3": "MegaMan Battle Network 3 Blue: US-Original-ROM",
+    "yoshisisland": "Yoshi's Island: englische Original-ROM, Version 1.0",
+    "oot": "Ocarina of Time: US-Original-ROM, Version 1.0",
+    "tloz": "The Legend of Zelda: US-Original-ROM, Version 1.0 PRG0",
+    "soe": "Secret of Evermore: US-Original-ROM",
 }
 
 # slug | genres | setup | description | required game/version/tools | specific setup
@@ -113,6 +126,37 @@ for _line in _DATA.strip().splitlines():
     CATALOG[_slug] = dict(genres=_genres.split(","), setup_type=_mode,
                           description=_description, requirements=[_required], steps=[_steps])
 
+CATALOG.update({
+    "borderlands_tps": dict(
+        genres=["Shooter", "Action-Rollenspiel", "Koop"], setup_type="mod",
+        description="Erkunde den Mond Elpis mit Schwerelosigkeits-Sprüngen, Charakterfähigkeiten und zufälliger Beute.",
+        requirements=["Borderlands: The Pre-Sequel für PC; DLC-Auswahl in der YAML auf die eigenen Inhalte abstimmen.",
+                      "BL2/TPS Mod Manager (Python SDK), coroutines und BouncyLootGod.sdkmod; APWorld und Mod aus einer passenden Veröffentlichung."],
+        steps=["Spielstände sichern. Den Python SDK Mod Manager gemäß seiner Anleitung für The Pre-Sequel installieren.",
+               "coroutines zuerst in sdk_mods installieren, das Spiel starten und prüfen, dass die Abhängigkeit geladen ist. Danach das Spiel schließen.",
+               "BouncyLootGod.sdkmod aus den Releases nach BorderlandsPreSequel/sdk_mods kopieren. Im Mod Manager aktivieren und das Spiel wieder schließen.",
+               "Der Host benötigt borderlands_tps.apworld zur Generierung. Vor dem Spielen den zugehörigen Client im Archipelago Launcher starten und mit Server:Port und dem exakten Slotnamen verbinden. Erst danach das Spiel mit aktiviertem Mod starten; die falsche Startreihenfolge kann Probleme verursachen."]),
+    "pseudoregalia": dict(
+        genres=["Metroidvania", "Jump ’n’ Run", "Action-Adventure"], setup_type="mod",
+        description="Erschließe eine dreidimensionale Traumwelt durch neue Bewegungsfähigkeiten und präzise Sprünge.",
+        requirements=["Pseudoregalia für Steam und pseudoregalia-archipelago.zip aus einer zur APWorld passenden Veröffentlichung.",
+                      "Für APWorld/Mod 0.11.0 die normale Spielversion verwenden: Full Gold wird nicht unterstützt. Steam Deck/Linux benötigt die zusätzlichen Schritte der Entwickler-Anleitung."],
+        steps=["Den gesamten Steam-Spielordner Pseudoregalia als separate Kopie sichern, etwa Pseudoregalia_AP. Den Mod in dieser Kopie einrichten.",
+               "pseudoregalia-archipelago.zip direkt in den kopierten Spielordner entpacken. Es darf kein zusätzlicher gleichnamiger Unterordner entstehen. Prüfe die Datei pseudoregalia/Content/Paks/AP_Randomizer_p.pak.",
+               "Die modifizierte pseudoregalia.exe starten, im Hauptmenü eine neue Datei anlegen und Server:Port, Slotname sowie gegebenenfalls Passwort eingeben. Mit Start verbinden.",
+               "Client-Einstellungen unter Optionen → Mods anpassen und mit Apply speichern. PseudoMenuMod ist inkompatibel; weitere Mods einzeln auf Verträglichkeit prüfen."]),
+    "RE4R": dict(
+        genres=["Horror", "Survival", "Shooter", "Action-Adventure"], setup_type="mod",
+        description="Leons Rettungsmission als Multiworld mit geteilten Gegenständen; optional mit The Mercenaries.",
+        requirements=["Resident Evil 4 Remake (2023) auf Steam inklusive Separate Ways und Treasure Map: Expansion laut Entwickler-Anleitung; RE4R AP Wizard passend zur APWorld.",
+                      "Windows ist die unterstützte Zielplattform, Linux experimentell. Beta: Spielstände sichern und regelmäßig speichern.",
+                      "Host: Die Entwickler-Anleitung nennt ausschließlich Archipelago 0.6.7 zur Generierung. Kompatibilität vor der Runde prüfen; der Hub stellt die Archipelago-Version nicht automatisch um."],
+        steps=["Die Release-ZIP des RE4R AP Wizard in einen neuen leeren Ordner entpacken. RE4R.AP.Launcher.exe starten und fehlende Komponenten unter Setup Status installieren lassen.",
+               "Unter Join a Multiworld die Einstellungen vorbereiten. Für diesen Hub muss der Host die passende RE4R.apworld installiert haben; dieselben YAML-Werte und denselben Slotnamen für die Runde verwenden.",
+               "Nach Generierung und Serverstart die Raumadresse und den Slotnamen im Wizard eintragen und den Spiel-Patch erstellen lassen. Der Wizard richtet REFramework, Client und Welt-Patch ein.",
+               "Danach das Spiel starten; mit Einfügen das Archipelago-Fenster öffnen und unter Server die Verbindung prüfen. Schwierigkeit und Included Content müssen zur YAML passen. Separate Ways ist als Spielinhalt noch nicht unterstützt; bei reinem Mercenaries entfällt der Kampagnen-Patch."]),
+})
+
 _SOURCES = json.loads(Path(__file__).with_name("game_catalog_sources.json").read_text(encoding="utf-8"))
 
 
@@ -126,6 +170,7 @@ def details(slug, name):
                      requirements=["Eine zur APWorld passende Spielversion und der vom Entwickler angegebene Client oder Mod. Die Anforderungen sind hier noch nicht dokumentiert."],
                      steps=["Die Anleitung des APWorld-Entwicklers prüfen und Spiel, Client sowie Mod in passenden Versionen installieren. Den Host um die genaue Quelle bitten, falls sie beim Upload fehlt."])
     return {**entry, "setup_label": SETUP_TYPES[entry["setup_type"]],
+            "host_rom": HOST_ROM_REQUIRED.get(slug),
             "documented": slug in CATALOG, "guide_url": source.get("guide_url", ""),
             "source_url": source.get("source_url", ""), "links": source.get("links", []),
             "common_steps": [
@@ -133,6 +178,18 @@ def details(slug, name):
                 "Nach erfolgreicher Generierung die eigenen Slotdateien aus der Runde herunterladen, soweit die Spielanleitung solche Dateien verlangt. Der Host richtet außerdem einen erreichbaren Multiworld-Server ein.",
                 "Den Spielclient oder Mod mit Serveradresse einschließlich Port, dem exakten Slotnamen und gegebenenfalls dem Raumpasswort verbinden. Diese Daten stehen bei der generierten Runde. Erst mit eingerichteter Spielinstallation und Verbindung kannst du mitspielen.",
             ]}
+
+
+def host_rom_requirements(entries):
+    """One reminder per selected game, regardless of how many players chose it."""
+    result = {}
+    for entry in entries:
+        slug = entry["game"]
+        info = details(slug, entry["game_name"])
+        if info["host_rom"] or info["setup_type"] == "rom":
+            result[slug] = {"slug": slug, "name": entry["game_name"],
+                            "required": info["host_rom"], "guide_url": info["guide_url"]}
+    return list(result.values())
 
 
 def enrich(rows):
