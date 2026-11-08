@@ -12,6 +12,7 @@ import argparse
 import json
 import logging
 import os
+import random
 import sys
 from inspect import cleandoc
 
@@ -63,6 +64,7 @@ def describe_option(key, option, group, Options):
         "doc": doc,
         "group": group,
         "simple": bool(Options.Visibility.simple_ui & option.visibility),
+        "supports_weighting":bool(option.supports_weighting),
     }
     default = getattr(option, "default", None)
 
@@ -74,6 +76,9 @@ def describe_option(key, option, group, Options):
             default = option.name_lookup[default]
         info.update(kind="textchoice" if issubclass(option, Options.TextChoice) else "choice",
                     choices=choices, default=default)
+        info["aliases"] = {name:option.name_lookup[value] for name,value in option.options.items()
+                           if value in option.name_lookup}
+        info["choice_values"] = {str(value):name for value,name in option.name_lookup.items()}
     elif issubclass(option, Options.Range):
         info.update(kind="range", min=option.range_start, max=option.range_end, default=default)
         if issubclass(option, Options.NamedRange) and option.special_range_names:
@@ -83,9 +88,9 @@ def describe_option(key, option, group, Options):
     elif issubclass(option, Options.OptionCounter):
         info.update(kind="counter", default=jsonable(default), min=option.min, max=option.max)
     elif issubclass(option, Options.OptionDict):
-        info.update(kind="raw", default=jsonable(default))
+        info.update(kind="raw", container="dict", default=jsonable(default))
     elif issubclass(option, Options.ItemLinks):
-        info.update(kind="raw", default=jsonable(default))
+        info.update(kind="raw", container="list", default=jsonable(default))
     elif issubclass(option, (Options.OptionSet, Options.OptionList)):
         info.update(kind="set" if issubclass(option, Options.OptionSet) else "list", default=jsonable(default))
     else:
@@ -162,6 +167,35 @@ def extract(out_dir: str) -> None:
     print(f"Extracted {len(index['games'])} games, {len(index['failed'])} failed.")
 
 
+def validate_player_files(players):
+    """Check every possible selected value with the actual AP option classes."""
+    import yaml
+    from pathlib import Path
+    from worlds import AutoWorldRegister
+    from BaseClasses import PlandoOptions
+    state = random.getstate()
+    try:
+        for path in sorted(Path(players).glob("*.yaml")):
+            document = yaml.safe_load(path.read_text(encoding="utf-8"))
+            game = document["game"]
+            world = AutoWorldRegister.world_types[game]
+            options = world.options_dataclass.type_hints
+            for key,value in document[game].items():
+                if key not in options:
+                    raise ValueError(f"{path.name} – {key}: Option existiert in der aktiven APWorld nicht.")
+                option = options[key]
+                candidates = ([k for k,w in value.items() if w > 0] if isinstance(value,dict)
+                              else value) if option.supports_weighting and isinstance(value,(list,dict)) else [value]
+                for candidate in candidates:
+                    try:
+                        parsed = option.from_any(candidate)
+                        parsed.verify(world,document["name"],PlandoOptions.bosses)
+                    except Exception as exc:
+                        raise ValueError(f"{path.name} – {key}: {exc}") from exc
+    finally:
+        random.setstate(state)
+
+
 def generate(players: str, out: str, spoiler: int, race: bool) -> None:
     sys.argv = ["Generate.py", "--player_files_path", players, "--outputpath", out,
                 "--spoiler", str(spoiler)] + (["--race"] if race else [])
@@ -171,6 +205,7 @@ def generate(players: str, out: str, spoiler: int, race: bool) -> None:
     import Generate
     from Main import main as ERmain
 
+    validate_player_files(players)
     args, seed = Generate.main()
     multiworld = ERmain(args, seed)
     if race:

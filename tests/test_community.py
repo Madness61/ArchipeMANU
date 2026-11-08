@@ -2,14 +2,16 @@
 import io
 import json
 import os
+import re
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from hub import ap_bridge, config, db, stats
+from hub import ap_bridge, community, config, db, stats
 from hub.app import create_app
+from auth_helpers import provision_user, TEST_PASSWORD
 
 SCHEMA = {
     "game":"Test World", "slug":"test_world", "version":"1.0",
@@ -63,7 +65,8 @@ class CommunityTests(unittest.TestCase):
         return client.post(url,data={"_csrf":token,**(body or {})},**kwargs)
 
     def login(self,client,name):
-        response=self.post(client,"/login",{"username":name})
+        provision_user(self.app, name, is_admin=name == "Host")
+        response=self.post(client,"/login",{"username":name,"password":TEST_PASSWORD})
         self.assertEqual(response.status_code,302)
 
     def test_open_lobby_join_then_game_selection_without_player_limit(self):
@@ -73,15 +76,19 @@ class CommunityTests(unittest.TestCase):
         with self.app.app_context():
             lobby=db.query("SELECT * FROM sessions ORDER BY id DESC LIMIT 1",one=True)
             sid=lobby["id"]
-        self.assertIn(f"/sessions/{sid}/choose",response.location)
+        self.assertEqual(f"/sessions/{sid}",response.location)
         self.login(self.friend,"Friend")
         self.assertEqual(self.friend.get("/lobbies").status_code,200)
         self.assertEqual(self.friend.get(f"/sessions/{sid}").status_code,200)
         self.assertEqual(self.friend.get(f"/sessions/{sid}/choose").status_code,302)
-        self.assertEqual(self.post(self.friend,f"/sessions/{sid}/join").status_code,302)
-        chosen=self.friend.get(f"/sessions/{sid}/choose")
-        self.assertEqual(chosen.status_code,200)
-        self.assertIn(b"Test World",chosen.data)
+        joined=self.post(self.friend,f"/sessions/{sid}/join")
+        self.assertEqual(joined.status_code,302)
+        self.assertEqual(joined.location,f"/sessions/{sid}")
+        self.assertEqual(self.friend.get(f"/sessions/{sid}/choose").location,f"/sessions/{sid}#game-selection")
+        chosen=self.friend.get(f"/sessions/{sid}")
+        self.assertIn(b"Deine Spielauswahl",chosen.data)
+        with self.app.app_context():
+            self.assertFalse(db.query("SELECT * FROM entries WHERE session_id=?",(sid,)))
         self.assertEqual(self.post(self.friend,f"/sessions/{sid}/entries",{"game":"test_world"}).status_code,302)
         self.assertEqual(self.post(self.friend,f"/sessions/{sid}/entries",{"game":"test_world"}).status_code,302)
         with self.app.app_context():
@@ -89,6 +96,107 @@ class CommunityTests(unittest.TestCase):
             count=db.query("SELECT count(*) AS n FROM entries WHERE session_id=? AND user_id=?",
                            (sid,friend["id"]),one=True)["n"]
             self.assertEqual(count,1)
+
+    def test_world_progress_is_authenticated_and_does_not_leak_admin_logs(self):
+        self.assertEqual(self.friend.get("/api/worlds/status").status_code,302)
+        self.login(self.host,"Host")
+        self.login(self.friend,"Friend")
+        with patch.object(ap_bridge,"extract_status",return_value={"status":"queued","log":"private worker details"}):
+            response = self.friend.get("/api/worlds/status")
+            self.assertEqual(response.get_json(),{"status":"queued"})
+        self.assertEqual(self.friend.get("/admin/status").status_code,403)
+
+    def test_ui_dashboard_uses_joined_members_and_own_round_access(self):
+        self.login(self.host,"Host")
+        self.login(self.friend,"Friend")
+        self.post(self.host,"/sessions",{"name":"Our open round"})
+        self.post(self.friend,"/sessions/1/join")
+        with self.app.app_context():
+            sid = db.execute("INSERT INTO sessions(name,created_by,locked) VALUES ('Private closed round',2,1)")
+            db.execute("INSERT INTO lobby_members(session_id,user_id) VALUES (?,2)",(sid,))
+        host_page = self.host.get("/")
+        self.assertEqual(host_page.status_code,200)
+        self.assertIn(b"Our open round",host_page.data)
+        self.assertIn(b"2 Teilnehmer",host_page.data)
+        self.assertNotIn(b"Private closed round",host_page.data)
+        self.assertEqual(re.findall(rb'class="metric">(\d+)</div>',host_page.data),[b"1",b"1",b"2"])
+        self.assertIn(b"Private closed round",self.friend.get("/").data)
+
+    def test_ui_library_combines_search_type_and_status_filters(self):
+        self.login(self.host,"Host")
+        rows = [dict(slug="one",name="Built-in One",version="1",installed=True,custom=False,added_by="",versions=[],active=False),
+                dict(slug="two",name="Custom Ready",version="2",installed=True,custom=True,added_by="Host",versions=[],active=True),
+                dict(slug="three",name="Custom Waiting",version="3",installed=False,custom=True,added_by="Friend",versions=[],active=False)]
+        with patch.object(community,"all_games",side_effect=lambda search="":[r for r in rows if search.lower() in r["name"].lower()]):
+            page = self.host.get("/games?q=Custom&kind=custom&state=ready")
+            self.assertEqual(page.status_code,200)
+            self.assertIn(b"Custom Ready",page.data)
+            cards = re.findall(r'<article\b([^>]*)>(.*?)</article>', page.get_data(as_text=True), re.S)
+            visible = [body for attrs, body in cards if ' hidden' not in attrs]
+            self.assertEqual(len(visible), 1)
+            self.assertIn("Custom Ready", visible[0])
+            self.assertIn(b"1 von 3 Spielen",page.data)
+            self.assertIn(b"Keine passenden Spiele",self.host.get("/games?q=Custom&kind=builtin").data)
+            self.assertEqual(self.host.get("/games?state=invalid").status_code,400)
+
+    def test_library_genres_setup_filters_and_inactive_setup_page(self):
+        self.login(self.host, "Host")
+        rows = [dict(slug="smw", name="Super Mario World", version="1", installed=True,
+                     custom=False, added_by="", versions=[], active=True),
+                dict(slug="aquaria", name="Aquaria", version="1", installed=True,
+                     custom=False, added_by="", versions=[], active=True),
+                dict(slug="unknown", name="Future Game", version="1", installed=False,
+                     custom=True, added_by="Friend", active=False,
+                     versions=[dict(sha256="a" * 64, version="1", username="Friend", active=False,
+                                    yaml_file="", source_url="https://example.org/future-setup")])]
+        with patch.object(community, "all_games", return_value=rows):
+            page = self.host.get("/games?genre=Metroidvania&setup=mod&state=loaded")
+            self.assertEqual(page.status_code, 200)
+            cards = re.findall(r'<article\b([^>]*)>(.*?)</article>', page.get_data(as_text=True), re.S)
+            visible = [body for attrs, body in cards if ' hidden' not in attrs]
+            self.assertEqual(len(visible), 1)
+            self.assertIn("Aquaria", visible[0])
+            self.assertIn(b"1 von 3 Spielen", page.data)
+            self.assertNotIn(b">Spielbereit<", page.data)
+            self.assertEqual(self.host.get("/games?genre=imaginary").status_code, 400)
+            self.assertEqual(self.host.get("/games?setup=imaginary").status_code, 400)
+            setup = self.host.get("/games/smw/setup")
+            self.assertIn(b"Super Mario World (USA).sfc", setup.data)
+            self.assertIn(b"Generator-Rechner", setup.data)
+            unknown = self.host.get("/games/unknown/setup")
+            self.assertEqual(unknown.status_code, 200)
+            self.assertIn(b"https://example.org/future-setup", unknown.data)
+            self.assertIn(b"Einrichtung noch", unknown.data)
+            self.assertEqual(self.host.get("/games/nonexistent/setup").status_code, 404)
+
+    def test_ui_host_waits_for_player_without_game_and_members_have_no_host_controls(self):
+        self.login(self.host,"Host")
+        self.login(self.friend,"Friend")
+        self.post(self.host,"/sessions",{"name":"UI readiness"})
+        self.post(self.friend,"/sessions/1/join")
+        self.post(self.host,"/sessions/1/entries",{"game":"test_world"})
+        with self.app.app_context():
+            eid = db.query("SELECT id FROM entries",one=True)["id"]
+        self.post(self.host,f"/entries/{eid}/ready",{"ready":"1"})
+        host_page = self.host.get("/sessions/1")
+        self.assertIn(b"1 von 2 bereit",host_page.data)
+        self.assertIn(b"Friend: Spiel fehlt",host_page.data)
+        self.assertRegex(host_page.get_data(as_text=True),r'<button class="primary" disabled>Runde generieren</button>')
+        member_page = self.friend.get("/sessions/1")
+        self.assertNotIn(b'id="host-controls"',member_page.data)
+        self.assertNotIn(b"Lobby verwalten",member_page.data)
+        self.assertEqual(self.post(self.friend,"/sessions/1/generate").status_code,403)
+
+    def test_ui_game_page_displays_saved_guide_and_presets(self):
+        self.login(self.host,"Host")
+        with self.app.app_context():
+            db.execute("INSERT INTO game_guides(slug,steps,updated_at,author) VALUES ('test_world',?,'today',1)",
+                       ("Install the test client and connect.",))
+        page = self.host.get("/games/test_world")
+        self.assertEqual(page.status_code,200)
+        self.assertIn(b"Install the test client and connect.",page.data)
+        self.assertIn(b"Vorlagen f",page.data)
+        self.assertIn(b"Standard",page.data)
 
     def test_member_upload_activates_and_loads_without_admin_approval(self):
         self.login(self.host,"Host")
@@ -293,7 +401,7 @@ class CommunityTests(unittest.TestCase):
             self.assertFalse(db.query("SELECT 1 FROM lobby_members WHERE session_id=? AND user_id=?",
                                       (sid,uid),one=True))
 
-    def test_generated_lobby_stays_closed(self):
+    def test_generated_lobby_can_be_reopened_by_host(self):
         self.login(self.host,"Host")
         self.post(self.host,"/sessions",{"name":"Finished"})
         with self.app.app_context():
@@ -304,8 +412,11 @@ class CommunityTests(unittest.TestCase):
         unlock=self.post(self.host,f"/sessions/{sid}/lock")
         self.assertEqual(unlock.status_code,302)
         with self.app.app_context():
-            self.assertEqual(db.query("SELECT locked FROM sessions WHERE id=?", (sid,),one=True)["locked"],1)
+            self.assertEqual(db.query("SELECT locked FROM sessions WHERE id=?", (sid,),one=True)["locked"],0)
+            self.assertEqual(db.query("SELECT count(*) AS n FROM seed_builds WHERE session_id=?", (sid,),one=True)["n"],1)
         self.login(self.friend,"Friend")
+        self.assertEqual(self.post(self.friend,f"/sessions/{sid}/lock").status_code,403)
+        self.post(self.host,f"/sessions/{sid}/lock")
         self.assertEqual(self.post(self.friend,f"/sessions/{sid}/join").status_code,409)
 
     def test_real_placement_aggregate_and_race_redaction(self):
@@ -351,7 +462,7 @@ class CommunityTests(unittest.TestCase):
         with self.app.app_context():
             sid = db.execute("INSERT INTO sessions(name,created_by,locked) VALUES ('Drilldown',1,1)")
             bid = db.execute("""INSERT INTO seed_builds(session_id,status,snapshot,created_at,stats_json)
-                VALUES (?,'succeeded','{}','today',?)""", (sid,json.dumps(distribution)))
+                VALUES (?,'succeeded','{"slots":[]}','today',?)""", (sid,json.dumps(distribution)))
         folder = config.SESSIONS / "_seeds" / str(bid) / "output"
         folder.mkdir(parents=True)
         path = folder / "item_placements.json"
@@ -369,8 +480,9 @@ class CommunityTests(unittest.TestCase):
         ]
         base, bid, path = self.analytics_fixture(rows)
         overview = self.host.get(base)
-        self.assertNotIn(b"Spoiler Sword",overview.data)
+        self.assertIn(b"Spoiler Sword",overview.data)
         self.assertNotIn(b"Secret Chest",overview.data)
+        self.assertNotIn(b"in der Welt von",overview.data)
         self.assertNotIn(b'class="matrix"',overview.data)
         detail_url = base + "/items/1"
         detail = self.host.get(detail_url)
@@ -407,6 +519,75 @@ class CommunityTests(unittest.TestCase):
             self.assertEqual(response.status_code,200)
             self.assertIn(b"Keine konkreten Itemdaten",response.data)
             self.assertIn("Wie viele Items hat jedes Spiel?".encode(),self.host.get(base).data)
+            self.assertIn("keine vollständige, verifizierte Itemliste".encode(),self.host.get(base).data)
+            self.assertEqual(self.host.get(base + "/progression/0").status_code,404)
+
+    def test_progression_reveals_worlds_on_demand_and_protects_race_and_access(self):
+        self.login(self.host,"Host")
+        self.login(self.friend,"Friend")
+        rows = [
+            {"finder":2,"recipient":1,"category":"progression","item_id":10,"item":"Progression Key",
+             "location_id":20,"location":"Hidden Boss"},
+            {"finder":1,"recipient":1,"category":"progression","item_id":10,"item":"Progression Key",
+             "location_id":21,"location":"<script>Hidden Chest</script>"},
+            {"finder":1,"recipient":2,"category":"useful","item_id":11,"item":"Useful Potion",
+             "location_id":22,"location":"Secret Room"},
+        ]
+        base,bid,path = self.analytics_fixture(rows)
+        overview = self.host.get(base)
+        self.assertIn(b"Progression Key",overview.data)
+        self.assertNotIn(b"Useful Potion",overview.data)
+        self.assertNotIn(b"Hidden Boss",overview.data)
+        self.assertNotIn(b"in der Welt von",overview.data)
+        reveal = base + "/progression/0"
+        response = self.host.get(reveal,headers={"Accept":"application/json"})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.get_json(),{"worlds":[
+            {"id":2,"name":"Friend","game":"Game B","count":1,"locations":[{"id":20,"name":"Hidden Boss"}]},
+            {"id":1,"name":"Host","game":"Game A","count":1,"locations":[{"id":21,"name":"<script>Hidden Chest</script>"}]}]})
+        self.assertEqual(response.headers["Cache-Control"],"no-store")
+        self.assertIn(b"Hidden Boss",response.data)
+        fallback = self.host.get(reveal)
+        self.assertIn(b"Hidden Boss",fallback.data)
+        self.assertIn(b"&lt;script&gt;Hidden Chest&lt;/script&gt;",fallback.data)
+        self.assertNotIn(b"<script>Hidden Chest</script>",fallback.data)
+        self.assertIn(b"Game B",fallback.data)
+        self.assertEqual(self.host.get(base + "/progression/2").status_code,404)
+        self.assertEqual(self.host.get(base + "/progression/999").status_code,404)
+        self.assertEqual(self.app.test_client().get(reveal).status_code,401)
+        self.assertEqual(self.friend.get(reveal).status_code,403)
+        with self.app.app_context():
+            sid = db.query("SELECT session_id FROM seed_builds WHERE id=?",(bid,),one=True)["session_id"]
+            db.execute("INSERT INTO lobby_members(session_id,user_id) VALUES (?,2)",(sid,))
+        self.assertEqual(self.friend.get(reveal).status_code,200)
+        with self.app.app_context():
+            db.execute("UPDATE seed_builds SET snapshot=? WHERE id=?",('{"race":true,"slots":[]}',bid))
+        self.assertEqual(self.host.get(reveal).status_code,403)
+        self.assertNotIn(b"Progression Key",self.host.get(base).data)
+
+    def test_play_page_uses_verified_counts_and_handles_missing_data_and_race(self):
+        self.login(self.host,"Host")
+        rows = [{"finder":2,"recipient":1,"category":"progression","item_id":10,"item":"Key",
+                 "location_id":20,"location":"Secret Chest"}]
+        base,bid,path = self.analytics_fixture(rows)
+        play = base.removesuffix("/stats") + "/play"
+        page = self.host.get(play)
+        self.assertEqual(page.status_code,200)
+        self.assertIn(b'id="check-analysis"',page.data)
+        self.assertIn(b"Checks mit platziertem Item",page.data)
+        self.assertIn(b"1 platzierte Items insgesamt",page.data)
+        self.assertNotIn(b"Exakte Check-Zahlen",page.data)
+        self.assertNotIn(b"Secret Chest",page.data)
+        with self.app.app_context():
+            db.execute("UPDATE seed_builds SET stats_json='invalid' WHERE id=?",(bid,))
+        missing = self.host.get(play)
+        self.assertIn(b"keine verifizierten Statistikdaten gespeichert",missing.data)
+        self.assertNotIn(b'id="check-analysis"',missing.data)
+        with self.app.app_context():
+            db.execute("UPDATE seed_builds SET snapshot=? WHERE id=?",('{"race":true,"slots":[]}',bid))
+        race = self.host.get(play)
+        self.assertIn(b"Race-Modus",race.data)
+        self.assertNotIn(b'id="check-analysis"',race.data)
 
     def test_item_details_paginate_and_search_all_rows(self):
         self.login(self.host,"Host")

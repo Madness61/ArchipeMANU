@@ -3,14 +3,15 @@
 {% block content %}
 <div class="panel" style="max-width:420px;margin:40px auto">
   <h1>Anmelden</h1>
-  <p class="muted">Einfach deinen Namen eingeben. Gibt es ihn noch nicht, wird er angelegt.</p>
+  <p class="muted">Melde dich mit deinem persönlichen Konto an.</p>
   <form method="post" class="stack">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-    <div><label>Name<br><input name="username" required maxlength="32" autofocus style="width:100%"></label></div>
-    {% if needs_password %}
-    <div><label>Gruppen-Passwort<br><input name="password" type="password" required style="width:100%"></label></div>
-    {% endif %}
-    <button class="primary">Weiter</button>
+    <div><label>Benutzername<br><input name="username" autocomplete="username" required maxlength="32" autofocus style="width:100%"></label></div>
+    <div><label>Persönliches Passwort<br><input name="password" type="password" autocomplete="current-password" required maxlength="1024" style="width:100%"></label></div>
+    <button class="primary">Anmelden</button>
   </form>
+  <p><a href="{{ url_for('auth.register') }}">Konto erstellen</a></p>
+  <p class="small"><a href="{{ url_for('auth.setup_password') }}">Bestehendes Konto einrichten / Passwort wiederherstellen</a><br>
+    <span class="muted">Dafür benötigst du einen persönlichen Einrichtungscode vom Host.</span></p>
 </div>
 {% endblock %}

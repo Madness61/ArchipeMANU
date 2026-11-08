@@ -1,0 +1,8 @@
+<section class="panel connection-card" id="connection">
+  <div class="row spread"><div><p class="eyebrow">Gemeinsam losspielen</p><h2 style="margin:0">Verbindung zur Runde</h2></div>{% if hosted %}<span class="chip {{ 'ok' if hosted.confirmed else 'warn' }}">{{ 'Vom Host bestätigt' if hosted.confirmed else 'Noch nicht bestätigt' }}</span>{% endif %}</div>
+  {% if hosted %}
+    <p class="muted small">Trage diese Adresse im Archipelago-Client deines Spiels ein.</p>
+    <div class="row"><code id="host-address" class="connection-address">{{ hosted.host }}:{{ hosted.port }}</code><button type="button" class="small" data-copy="#host-address">Adresse kopieren</button></div>
+    {% if hosted.room_url %}<p><a href="{{ hosted.room_url }}" target="_blank" rel="noopener noreferrer">Archipelago-Raum öffnen ↗</a></p>{% endif %}
+  {% else %}<p class="muted">Der Host hat für diese Runde noch keine Serveradresse hinterlegt. Sobald die Verbindung eingerichtet ist, findest du sie hier.</p>{% endif %}
+</section>

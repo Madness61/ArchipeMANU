@@ -2,10 +2,11 @@
 {% block title %}Seed-Analyse · ArchipeMANU{% endblock %}
 {% block content %}
 <p class="small"><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
-<div class="row spread">
-  <div><h1>Seed-Analyse #{{ build.id }}</h1><p class="muted">{{ room.name }} · {{ build.created_at[:16] }}</p></div>
-  <span class="chip {{ 'ok' if build.status == 'succeeded' else 'warn' }}">{{ build.status }}</span>
+<div class="page-head">
+  <div><p class="eyebrow">Eure Runde in Zahlen</p><h1>Seed-Analyse #{{ build.id }}</h1><p class="muted">{{ room.name }} · {{ build.created_at[:16] }}</p></div>
+  <span class="chip {{ 'ok' if build.status == 'succeeded' else 'warn' }}">{{ status_labels.get(build.status,build.status) }}</span>
 </div>
+{% include "connection.html" %}
 {% if race %}
 <div class="flash info" style="margin-top:16px">Race-Modus: Itemverteilung wird zum Schutz der spoilerfreien Runde nicht veröffentlicht.</div>
 {% elif not stats %}
@@ -15,12 +16,13 @@
 </div>
 {% else %}
 <p class="muted" style="margin:12px 0">Deine Runde in Zahlen. Verteilungen und Fundorte bleiben verborgen, bis du die Spoiler öffnest.</p>
-<div class="grid metric-grid" style="margin:18px 0">
-  <div class="panel"><span class="muted small">Spiele</span><div class="metric">{{ overview|length }}</div></div>
-  <div class="panel"><span class="muted small">Spieler</span><div class="metric">{{ stats.players|length }}</div></div>
-  <div class="panel"><span class="muted small">Platzierte Items insgesamt</span><div class="metric">{{ stats.total_placements }}</div></div>
+<div class="metric-grid">
+  <div class="panel"><span class="metric-icon" aria-hidden="true">▦</span><div><span class="muted small">Spiele</span><div class="metric">{{ overview|length }}</div></div></div>
+  <div class="panel"><span class="metric-icon" aria-hidden="true">☺</span><div><span class="muted small">Spieler</span><div class="metric">{{ stats.players|length }}</div></div></div>
+  <div class="panel"><span class="metric-icon" aria-hidden="true">◇</span><div><span class="muted small">Platzierte Items insgesamt</span><div class="metric">{{ stats.total_placements }}</div></div></div>
 </div>
-<h2>Wie viele Items hat jedes Spiel?</h2>
+<div class="anchor-links" aria-label="Bereiche der Analyse"><a href="#overview">Übersicht</a><a href="#progression">Progression-Items</a><a href="#spoilers">Itemverteilung & Spoiler</a></div>
+<h2 id="overview">Wie viele Items hat jedes Spiel?</h2>
 <p class="muted small">„Items für das Spiel“ zählt die Items für seine Spieler, unabhängig vom Fundort. „Items in seinen Welten“ zählt die dort platzierten Items für alle Spieler. Mehrere Slots desselben Spiels werden zusammengefasst.</p>
 <div class="panel table-wrap">
   <table>
@@ -42,6 +44,33 @@
     <tr><td>{{ p.name }}</td><td>{{ game.name }}</td><td>{{ p['items'] }}</td><td>{{ p.locations }}</td></tr>
   {% endfor %}{% endfor %}</tbody></table>
 </details>
+<section class="analysis-section" id="progression">
+  <h2>Progression-Items pro Spiel</h2>
+  <p class="muted small">Diese Items sind von der APWorld als Progression markiert. Die Liste zeigt die Items für die Spieler des jeweiligen Spiels. Konkrete Check-Namen, Spieler und Fundwelten werden erst beim Aufdecken angezeigt.</p>
+  {% if not progression_available %}
+  <div class="panel"><p class="muted">Für diesen Seed ist keine vollständige, verifizierte Itemliste gespeichert. Die Übersicht bleibt verfügbar; konkrete Progression-Items lassen sich damit nicht anzeigen.</p></div>
+  {% else %}
+  {% for game in progression %}
+  <details class="panel analysis-section progression-game" open>
+    <summary>{{ game.name }} · {{ game.count }} Progression-Items</summary>
+    <ul class="progression-items">
+      {% for item in game['items'] %}
+      <li class="progression-item">
+        <div><strong>{{ item.name }}</strong>{% if item.count > 1 %} <span class="chip">× {{ item.count }}</span>{% endif %}
+          <span class="muted small">für {{ item.recipient.name }}</span></div>
+        {% set reveal_url = url_for('mvp.reveal_progression_world', sid=room.id, build_id=build.id, placement_id=item.id) %}
+        <details class="progression-reveal" data-progression-url="{{ reveal_url }}">
+          <summary>Fundorte aufdecken</summary>
+          <div class="progression-world" aria-live="polite"></div>
+          <a class="small progression-fallback" href="{{ reveal_url }}">Fundorte auf eigener Seite anzeigen</a>
+        </details>
+      </li>
+      {% else %}<li class="muted">Keine platzierten Progression-Items für dieses Spiel.</li>{% endfor %}
+    </ul>
+  </details>
+  {% endfor %}
+  {% endif %}
+</section>
 <div class="panel analysis-section" id="spoilers">
   <h2 style="margin-top:0">Genauer hinschauen</h2>
   <p class="muted">Hier erfährst du, wer Items für wen findet. Die Itemlisten können konkrete Items und ihre Fundorte verraten.</p>

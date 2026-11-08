@@ -1,48 +1,23 @@
 {% extends "base.html" %}
+{% from "ui.html" import lobby_card with context %}
+{% block title %}Übersicht · ArchipeMANU{% endblock %}
 {% block content %}
-<div class="row spread">
-  <div>
-    <h1>Hallo {{ g.user.username }}</h1>
-    <p class="muted">Gemeinsame Spielebibliothek, offene Lobbys und Multiworld-Statistiken.</p>
-  </div>
-  <div class="hero-actions">
-    <a class="btn primary" href="{{ url_for('mvp.lobby_list') }}">Offene Lobbys ansehen →</a>
-    <a class="btn" href="{{ url_for('games') }}">Spielebibliothek</a>
-    <form method="post" action="{{ url_for('session_create') }}" class="row">
-  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-      <input name="name" placeholder="Name, z. B. Samstag" maxlength="80">
-      <button>Neue Session</button>
-    </form>
+<div class="panel hero">
+  <div><p class="eyebrow">Zusammen spielen</p><h1>Hallo {{ g.user.username }}</h1>
+    <p class="muted">Dein nächster Spieleabend beginnt hier. Tritt einer Lobby bei, wähle dein Spiel und bereite gemeinsam mit deinen Freunden eine Runde vor.</p>
+    <div class="hero-actions"><a class="btn primary" href="{{ url_for('mvp.lobby_list') }}">Offene Lobbys ansehen →</a><a class="btn" href="{{ url_for('games') }}">Spiele entdecken</a></div>
   </div>
 </div>
-
-<div class="metric-grid">
-  <div class="panel"><span class="muted small">Spiele in der Bibliothek</span><div class="metric">{{ games_total }}</div></div>
-  <div class="panel"><span class="muted small">Offene Lobbys</span><div class="metric">{{ open_total }}</div></div>
-  <div class="panel"><span class="muted small">Registrierte Spieler</span><div class="metric">{{ players_total }}</div></div>
+<div class="metric-grid" aria-label="Deine Gruppe in Zahlen">
+  <div class="panel"><span class="metric-icon" aria-hidden="true">▦</span><div><span class="muted small">Spiele in der Bibliothek</span><div class="metric">{{ games_total }}</div></div></div>
+  <div class="panel"><span class="metric-icon" aria-hidden="true">↗</span><div><span class="muted small">Offene Lobbys</span><div class="metric">{{ open_total }}</div></div></div>
+  <div class="panel"><span class="metric-icon" aria-hidden="true">☺</span><div><span class="muted small">Mitspieler</span><div class="metric">{{ players_total }}</div></div></div>
 </div>
-<h2>Sessions</h2>
-{% if sessions %}
-<div class="panel table-wrap">
-  <table>
-    <tr><th>Name</th><th>Spieler</th><th>Status</th><th>Angelegt</th></tr>
-    {% for s in sessions %}
-    <tr>
-      <td><a href="{{ url_for('session_view', sid=s.id) }}">{{ s.name }}</a> <span class="muted small">von {{ s.username }}</span></td>
-      <td>{{ s.n }}</td>
-      <td>
-        {% if s.gen_status == 'done' %}<span class="chip ok">generiert</span>
-        {% elif s.gen_status == 'running' %}<span class="chip warn">generiert …</span>
-        {% elif s.gen_status == 'error' %}<span class="chip err">Fehler</span>
-        {% elif s.locked %}<span class="chip">gesperrt</span>
-        {% else %}<span class="chip">offen</span>{% endif %}
-      </td>
-      <td class="muted small">{{ s.created_at[:16] }}</td>
-    </tr>
-    {% endfor %}
-  </table>
-</div>
-{% else %}
-<p class="muted">Noch keine Sessions. Leg oben eine an oder klick bei einem Spiel auf „Ich spiele das“.</p>
-{% endif %}
+<div class="section-head"><div><h2>Meine Runden</h2><p class="muted small">Hier geht es für dich weiter.</p></div><a class="small" href="{{ url_for('mvp.seed_list') }}">Abgeschlossene Seeds ansehen →</a></div>
+{% if own_rooms %}<div class="grid" id="own-rounds">{% for s in own_rooms %}{{ lobby_card(s) }}{% endfor %}</div>
+{% else %}<div class="panel empty-state"><h3>Deine erste Runde wartet</h3><p>Tritt einer offenen Lobby bei oder lade deine Freunde in eine eigene Runde ein.</p><a class="btn" href="{{ url_for('mvp.lobby_list') }}#new-lobby">Eine Lobby erstellen</a></div>{% endif %}
+<div class="section-head"><div><h2>Offene Lobbys</h2><p class="muted small">Such dir eine Runde aus. Dein Spiel wählst du erst danach.</p></div><a class="small" href="{{ url_for('mvp.lobby_list') }}">Alle Lobbys →</a></div>
+{% if open_rooms %}<div class="grid" id="open-lobbies">{% for s in open_rooms %}{{ lobby_card(s) }}{% endfor %}</div>
+{% else %}<div class="panel empty-state"><h3>Noch keine offene Lobby</h3><p>Starte eine neue Runde. Deine Freunde können anschließend dazukommen.</p><a class="btn primary" href="{{ url_for('mvp.lobby_list') }}#new-lobby">Lobby erstellen</a></div>{% endif %}
+<div class="quick-guide"><strong>Zum ersten Mal dabei?</strong><span>1. Einer Lobby beitreten</span><span>2. Spiel & Einstellungen wählen</span><span>3. Bereit melden – der Host startet die Runde</span></div>
 {% endblock %}

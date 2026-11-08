@@ -7,34 +7,35 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+<a class="skip-link" href="#main-content">Zum Inhalt springen</a>
 <header class="top">
   <div class="inner">
-    <a class="brand" href="{{ url_for('index') }}"><span class="brand-symbol">A</span> ArchipeMANU <small>GAME HUB</small></a>
+    <a class="brand" href="{{ url_for('index') }}"><span class="brand-symbol" aria-hidden="true">A</span> ArchipeMANU</a>
     {% if g.user %}
-    <nav>
-      <a href="{{ url_for('games') }}">Spielebibliothek</a>
-       <a href="{{ url_for('mvp.lobby_list') }}">Lobbys</a>
-       <a href="{{ url_for('mvp.seed_list') }}">Seed-Analyse</a>
-      <a href="{{ url_for('index') }}">Übersicht</a>
-      <a href="{{ url_for('import_view') }}">YAML importieren</a>
-      {% if g.user.is_admin %}<a href="{{ url_for('admin') }}">Admin</a>{% endif %}
+    <nav aria-label="Hauptnavigation">
+      {% set current = request.endpoint or '' %}
+      <a href="{{ url_for('index') }}" {% if current == 'index' %}aria-current="page"{% endif %}>Übersicht</a>
+      <a href="{{ url_for('games') }}" {% if current in ('games','game','template_new','template_edit','import_view') or current.startswith('community.') %}aria-current="page"{% endif %}>Spielebibliothek</a>
+      <a href="{{ url_for('mvp.lobby_list') }}" {% if current in ('mvp.lobby_list','session_view','mvp.entry_options','mvp.lobby_selection_submit') %}aria-current="page"{% endif %}>Lobbys</a>
+      <a href="{{ url_for('mvp.seed_list') }}" {% if current in ('mvp.seed_list','mvp.build_stats','mvp.play_page','mvp.build_item_details','mvp.reveal_progression_world') %}aria-current="page"{% endif %}>Seed-Analyse</a>
     </nav>
     <div class="me">
-      <a href="{{ url_for('profile') }}" title="Profil">{{ g.user.username }} · Slot „{{ g.user.slot_name }}“</a>
+      {% if g.user.is_admin %}<a href="{{ url_for('admin') }}" class="admin-link" {% if current == 'admin' %}aria-current="page"{% endif %}>Admin</a>{% endif %}
+      <a href="{{ url_for('profile') }}" class="profile-link" title="Profil und persönliche Einstellungen">{{ g.user.username }}</a>
       <form class="inline" method="post" action="{{ url_for('logout') }}">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish small">Abmelden</button></form>
     </div>
     {% endif %}
   </div>
 </header>
-<main class="inner">
+<main class="inner" id="main-content" tabindex="-1">
   {% if g.user and not ap_ready %}
-    <div class="flash error">Archipelago ist auf diesem Server noch nicht eingerichtet. Bitte <code>setup.ps1</code> ausführen (siehe README).</div>
-  {% elif g.user and extract.status == 'running' %}
-    <div class="flash info">Die Spiel-Optionen werden gerade eingelesen … das dauert meist unter einer Minute.</div>
+    <div class="flash error" role="status">Die Spiele sind noch nicht eingerichtet. {% if g.user.is_admin %}Führe einmal <code>setup.ps1</code> aus; die Anleitung steht in der README.{% else %}Bitte gib dem Administrator Bescheid.{% endif %}</div>
+  {% elif g.user and extract.status in ('queued','running') %}
+    <div class="flash info" id="world-extract-status" role="status" data-url="{{ url_for('world_status') }}" data-status="{{ extract.status }}">Die Spiel-Optionen werden gerade eingelesen … das dauert meist unter einer Minute.</div>
   {% endif %}
   {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div class="flash {{ category }}">{{ message }}</div>
+    <div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</div>
   {% endfor %}
   {% block content %}{% endblock %}
 </main>

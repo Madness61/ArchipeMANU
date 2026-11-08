@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Registrieren · ArchipeMANU{% endblock %}
+{% block content %}
+<div class="panel" style="max-width:460px;margin:40px auto">
+  <h1>Konto erstellen</h1>
+  <p class="muted">Wähle einen Benutzernamen und dein eigenes Passwort. Danach bist du direkt angemeldet.</p>
+  <p class="small muted">Bei einer neuen Installation wird das erste Konto Administrator. Weitere Konten sind Spieler.</p>
+  <form method="post" class="stack">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <div><label>Benutzername<br><input name="username" autocomplete="username" minlength="3" maxlength="32" required></label></div>
+    <div><label>Passwort<br><input name="password" type="password" autocomplete="new-password" maxlength="1024" required></label></div>
+    <button class="primary">Registrieren</button>
+  </form>
+  <p><a href="{{ url_for('login') }}">Zur Anmeldung</a></p>
+</div>
+{% endblock %}

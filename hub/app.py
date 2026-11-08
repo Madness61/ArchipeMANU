@@ -1,6 +1,8 @@
 import functools
+import hashlib
 import hmac
 import io
+import re
 import secrets
 import shutil
 import threading
@@ -9,7 +11,7 @@ import zipfile
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, session,
                    url_for)
 
-from . import ap_bridge, config, db, yamlgen, mvp, community
+from . import ap_bridge, config, db, yamlgen, mvp, community, auth
 
 app = Flask(__name__)
 app.teardown_appcontext(db.close)
@@ -25,7 +27,8 @@ def check_csrf():
         return
     expected = session.get("_csrf", "")
     provided = request.form.get("_csrf") or request.headers.get("X-CSRF-Token", "")
-    if not expected or not provided or not hmac.compare_digest(expected, provided):
+    if (not isinstance(expected, str) or not expected or not provided or len(provided) > 128
+            or not hmac.compare_digest(expected.encode("utf-8"), provided.encode("utf-8"))):
         abort(403, "Ungültiger Sicherheitstoken. Bitte die Seite aktualisieren und erneut versuchen.")
 
 
@@ -38,9 +41,17 @@ def csrf_context():
 
 @app.before_request
 def load_user():
-    g.user = None
-    if "uid" in session:
-        g.user = db.query("SELECT * FROM users WHERE id = ?", (session["uid"],), one=True)
+    auth.load_user()
+
+
+@app.after_request
+def protect_account_responses(response):
+    if (getattr(g, "user", None) is not None or request.endpoint in ("login", "logout", "admin_setup_account")
+            or (request.endpoint or "").startswith("auth.")):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 def login_required(view):
@@ -64,35 +75,12 @@ def admin_required(view):
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        if not username or len(username) > 32:
-            flash("Bitte einen Namen mit höchstens 32 Zeichen eingeben.", "error")
-        elif config.GROUP_PASSWORD and not hmac.compare_digest(password, config.GROUP_PASSWORD):
-            flash("Gruppen-Passwort falsch.", "error")
-        else:
-            user = db.query("SELECT * FROM users WHERE username = ?", (username,), one=True)
-            if user is None:
-                first = db.query("SELECT COUNT(*) AS n FROM users", one=True)["n"] == 0
-                uid = db.execute("INSERT INTO users (username, slot_name, is_admin) VALUES (?, ?, ?)",
-                                 (username, yamlgen.clean_slot_name(username), int(first)))
-                if first:
-                    flash("Du bist der erste Benutzer und damit Admin.", "info")
-            else:
-                uid = user["id"]
-            session.clear()
-            session["uid"] = uid
-            session.permanent = True
-            target = request.args.get("next", "")
-            return redirect(target if target.startswith("/") and not target.startswith("//") else url_for("index"))
-    return render_template("login.html", needs_password=bool(config.GROUP_PASSWORD))
+    return auth.login()
 
 
 @app.route("/logout", methods=["POST"])
 def logout():
-    session.clear()
-    return redirect(url_for("login"))
+    return auth.logout()
 
 
 # --- Helpers -----------------------------------------------------------------------------------
@@ -118,10 +106,68 @@ def resolve_template(schema: dict, ref: str) -> tuple[str, dict, bool]:
     elif ref.startswith("t:") and ref[2:].isdigit():
         row = db.query("SELECT * FROM templates WHERE id = ? AND game = ?", (int(ref[2:]), schema["slug"]), one=True)
         if row:
+            actor = getattr(g,"user",None)
+            if not row["shared"] and not (actor and (actor["is_admin"] or actor["id"] == row["created_by"])):
+                return "Persönliche Vorlage nicht zugänglich",{},False
+            if row["immutable"]:
+                if hashlib.sha256(row["source_yaml"].encode("utf-8")).hexdigest() != row["source_sha256"]:
+                    return "Originalvorlage verändert",{},False
+                originals,issues = yamlgen.import_yaml(row["source_yaml"],{schema["slug"]:{"game":schema["game"]}},lambda _:schema)
+                original = next((p for p in originals if p["slug"] == schema["slug"]
+                                 and p["values"] == db.loads(row["vals"])
+                                 and p["requires"] == db.loads(row["requirements"])),None)
+                if not original:
+                    return "Originalvorlage verändert oder inkompatibel",{},False
             return f"Vorlage „{row['name']}“", db.loads(row["vals"]), True
+    elif ref.startswith("c:"):
+        preset = uploaded_preset(schema,ref[2:])
+        if preset:
+            return preset["name"],preset["values"],True
     elif ref == "default":
         return "Standard (APWorld)", {}, True
     return "Standard (APWorld)", {}, False
+
+
+def uploaded_preset(schema, sha):
+    if not re.fullmatch(r"[0-9a-f]{64}",sha):
+        return None
+    row = db.query("SELECT * FROM community_games WHERE sha256=? AND module=? AND yaml_file=sha256",
+                   (sha,schema["slug"]),one=True)
+    if not row:
+        return None
+    try:
+        data = (config.DATA / "community" / sha / "options.yaml").read_bytes()
+        if len(data) > community.YAML_LIMIT or hashlib.sha256(data).hexdigest() != row["yaml_sha256"]:
+            return None
+        results, errors = yamlgen.import_yaml(data.decode("utf-8"),{schema["slug"]:{"game":schema["game"]}},lambda _:schema)
+        if errors or len(results) != 1:
+            return None
+        return {**results[0],"name":f"Upload · {row['display_name']} · {sha[:8]}"}
+    except (OSError,UnicodeError,ValueError):
+        return None
+
+
+def capture_template(schema, ref):
+    label, values, found = resolve_template(schema,ref)
+    if not found:
+        raise ValueError("Die gewählte Vorlage fehlt oder ist nicht mit dem APWorld-Schema kompatibel.")
+    requirements = {}
+    if ref.startswith("t:"):
+        requirements = db.loads(db.query("SELECT requirements FROM templates WHERE id=?",(int(ref[2:]),),one=True)["requirements"])
+    elif ref.startswith("c:"):
+        requirements = uploaded_preset(schema,ref[2:])["requires"]
+    return db.dumps({"ref":ref,"game":schema["slug"],"label":label,"values":values,"requires":requirements})
+
+
+def entry_preset(schema, entry):
+    if entry["template_snapshot"]:
+        snapshot = db.loads(entry["template_snapshot"])
+        if snapshot.get("ref") == entry["template_ref"] and snapshot.get("game") == entry["game"]:
+            return snapshot["label"],snapshot["values"],True,snapshot.get("requires",{})
+        return "Ungültiger Vorlagen-Snapshot",{},False,{}
+    label,values,found = resolve_template(schema,entry["template_ref"])
+    requirements = db.loads(capture_template(schema,entry["template_ref"]))["requires"] if found else {}
+    return label,values,found,requirements
 
 
 def can_edit_template(row) -> bool:
@@ -144,10 +190,26 @@ def templates_for(schema: dict) -> list[dict]:
         result.append({"ref": f"t:{row['id']}", "id": row["id"], "name": row["name"],
                        "source": "Gruppe" if row["shared"] else "Persönlich", "owner": row["username"],
                        "description": row["description"], "values": db.loads(row["vals"]),
-                       "editable": can_edit_template(row), "updated_at": row["updated_at"]})
+                       "editable": can_edit_template(row), "updated_at": row["updated_at"],
+                       "has_source":bool(row["source_yaml"]),"source_hash":row["source_sha256"],
+                       "requires":db.loads(row["requirements"]),
+                       "unavailable":bool(row["immutable"] and not resolve_template(schema,f"t:{row['id']}")[2])})
+        result[-1]["editable"] = bool(result[-1]["editable"] and not row["immutable"])
+    for row in db.query("SELECT sha256,display_name FROM community_games WHERE module=? AND yaml_file=sha256",(slug,)):
+        preset = uploaded_preset(schema,row["sha256"])
+        if preset:
+            result.append({"ref":"c:"+row["sha256"],"name":preset["name"],"source":"Upload",
+                           "description":"Unveränderte hochgeladene YAML-Vorlage", "values":preset["values"],"requires":preset["requires"]})
+        else:
+            result.append({"ref":"c:"+row["sha256"],"name":"Upload · "+row["display_name"],"source":"Upload",
+                           "description":"Original-YAML bleibt in der Spielebibliothek herunterladbar.","values":{},"unavailable":True})
     for t in result:
         t["summary"] = yamlgen.summarize(schema, t["values"])
         t["is_default"] = t["ref"] == default_ref
+        t["errors"] = yamlgen.validate_values(schema,t["values"])
+        t["errors"].update(yamlgen.validate_requirements(schema,t.get("requires",{}),ap_bridge.index().get("ap_version","0.0.0")))
+        if t.get("unavailable"):
+            t["errors"]["_source"] = "Die Originalvorlage fehlt, wurde verändert oder passt nicht zum APWorld-Schema."
     result.sort(key=lambda t: not t["is_default"])
     return result
 
@@ -156,9 +218,9 @@ def open_sessions():
     return db.query("SELECT * FROM sessions WHERE locked=0 ORDER BY id DESC")
 
 
-def user_values(schema: dict, template_values: dict, user) -> dict:
+def user_values(schema: dict, template_values: dict, user, lobby_values=None) -> dict:
     overrides = yamlgen.global_overrides_for(schema, db.loads(user["overrides"]))
-    return yamlgen.layer(schema, template_values, overrides)
+    return yamlgen.effective_values(schema, template_values, overrides, lobby_values)
 
 
 def session_entries(session_id: int) -> list[dict]:
@@ -171,20 +233,24 @@ def session_entries(session_id: int) -> list[dict]:
     active = {v["module"]:v["sha256"] for v in ap_bridge.list_apworld_versions() if v["active"]}
     for e in entries:
         e["slot"] = slots[e["id"]]
-        e["installed"] = e["game"] in games
+        schema = ap_bridge.schema(e["game"])
+        e["installed"] = e["game"] in games and schema is not None
+        e["_schema"] = schema
         e["game_name"] = games.get(e["game"], {}).get("game", e["game"])
-        e["game_version"] = (ap_bridge.schema(e["game"]) or {}).get("version", "") if e["installed"] else ""
+        e["game_version"] = (schema or {}).get("version", "")
         e["active_world_sha"] = active.get(e["game"], "")
         e["requested_world_sha"] = e["selected_apworld_sha"] or e["active_world_sha"]
+        e["world_error"] = ap_bridge.world_error(e["game"],e["requested_world_sha"])
+        e["schema_fingerprint"] = hashlib.sha256(db.dumps(schema or {}).encode("utf-8")).hexdigest()
+        e["requirements"] = {}
         if e["installed"]:
-            schema = ap_bridge.schema(e["game"])
-            e["template_label"], tvalues, e["template_found"] = resolve_template(schema, e["template_ref"])
-            e["values"] = user_values(schema, yamlgen.layer(schema, tvalues, db.loads(e["option_overrides"])), e)
+            e["template_label"], tvalues, e["template_found"], e["requirements"] = entry_preset(schema,e)
+            e["values"] = user_values(schema,tvalues,e,db.loads(e["option_overrides"]))
         else:
             e["template_label"], e["values"], e["template_found"] = "–", {}, False
         e["ready_valid"] = bool(e["ready"] and e["ready_hash"]
             and e["ready_hash"] == mvp.slot_fingerprint(e)
-            and e["requested_world_sha"] == e["active_world_sha"])
+            and not e["world_error"])
     return entries
 
 
@@ -194,11 +260,15 @@ def session_yamls(entries: list[dict]) -> list[tuple[str, str]]:
     for e in entries:
         if not e["installed"]:
             continue
-        schema = ap_bridge.schema(e["game"])
-        text = yamlgen.player_yaml(e["slot"], schema, e["values"], f"{schema['game']} – {e['template_label']}",
-                                   ap_version)
+        schema = e.get("_schema") or ap_bridge.schema(e["game"])
+        text = entry_yaml(e,schema,ap_version)
         files.append((f"{e['slot']}.yaml", text))
     return files
+
+
+def entry_yaml(entry,schema,ap_version):
+    return yamlgen.player_yaml(entry["slot"],schema,entry["values"],
+                              f"{schema['game']} – {entry['template_label']}",ap_version,entry.get("requirements",{}))
 
 
 def get_session(session_id: int):
@@ -215,7 +285,9 @@ def can_manage_session(row) -> bool:
 @app.context_processor
 def inject_globals():
     return {"ap_ready": ap_bridge.ap_ready(), "extract": ap_bridge.extract_status(),
-            "games_index": ap_bridge.index()["games"]}
+            "games_index": ap_bridge.index()["games"],
+            "status_labels":{"queued":"Wird vorbereitet", "running":"Wird generiert", "succeeded":"Bereit zum Spielen",
+                             "failed":"Fehlgeschlagen", "done":"Bereit zum Spielen", "error":"Fehlgeschlagen"}}
 
 
 # --- Dashboard & games -------------------------------------------------------------------------
@@ -223,10 +295,18 @@ def inject_globals():
 @app.route("/")
 @login_required
 def index():
-    sessions = db.query(
-        "SELECT s.*, u.username, (SELECT COUNT(*) FROM entries e WHERE e.session_id = s.id) AS n "
-        "FROM sessions s LEFT JOIN users u ON u.id = s.created_by ORDER BY s.locked, s.id DESC LIMIT 10")
-    return render_template("index.html", sessions=sessions,
+    sessions = db.query("""SELECT s.*,u.username AS host_name,
+        (SELECT COUNT(*) FROM lobby_members lm WHERE lm.session_id=s.id) AS member_count,
+        (SELECT COUNT(*) FROM entries e WHERE e.session_id=s.id) AS game_count,
+        (s.created_by=? OR EXISTS (SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.id AND lm.user_id=?)
+         OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?)) AS is_member
+        FROM sessions s LEFT JOIN users u ON u.id=s.created_by
+        WHERE s.locked=0 OR s.created_by=? OR EXISTS (
+            SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.id AND lm.user_id=?)
+            OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?)
+        ORDER BY s.id DESC""", (g.user["id"],)*6)
+    return render_template("index.html", open_rooms=[s for s in sessions if not s["locked"]][:6],
+                           own_rooms=[s for s in sessions if s["is_member"]][:6],
                            games_total=len(community.all_games()),
                            open_total=db.query("SELECT COUNT(*) AS n FROM sessions WHERE locked=0", one=True)["n"],
                            players_total=db.query("SELECT COUNT(*) AS n FROM users", one=True)["n"])
@@ -235,17 +315,53 @@ def index():
 @app.route("/games")
 @login_required
 def games():
+    from . import game_catalog
     q = request.args.get("q", "").strip()
-    rows = community.all_games(q)
-    return render_template("games.html", rows=rows, q=q, total=len(community.all_games()))
+    library = game_catalog.enrich(community.all_games())
+    kind = request.args.get("kind", "all")
+    state = request.args.get("state", "all")
+    # Preserve old bookmarks without continuing to call installed options 'ready'.
+    state = {"ready": "loaded", "pending": "unloaded"}.get(state, state)
+    genre = request.args.get("genre", "all")
+    setup = request.args.get("setup", "all")
+    genres = sorted({g for row in library for g in row["catalog"]["genres"]})
+    setup_types = {key: label for key, label in game_catalog.SETUP_TYPES.items()
+                   if any(row["catalog"]["setup_type"] == key for row in library)}
+    if (kind not in ("all", "builtin", "custom")
+            or state not in ("all", "unloaded", *game_catalog.SUPPORT_STATES)
+            or genre not in ("all", *genres) or setup not in ("all", *setup_types)):
+        abort(400, "Unbekannter Spielefilter.")
+    rows = [row for row in library if game_catalog.matches(
+        row, q, kind, "all" if state == "unloaded" else state, genre, setup)
+        and (state != "unloaded" or not row["installed"])]
+    return render_template("games.html", rows=rows, library=library, q=q, kind=kind,
+                           state=state, genre=genre, setup=setup, genres=genres,
+                           setup_types=setup_types, support_states=game_catalog.SUPPORT_STATES,
+                           total=len(library))
 
+
+
+@app.route("/games/<slug>/setup")
+@login_required
+def game_setup(slug):
+    from . import game_catalog
+    item = next((row for row in game_catalog.enrich(community.all_games()) if row["slug"] == slug), None)
+    if item is None:
+        abort(404)
+    return render_template("game_setup.html", item=item, game_info=item["catalog"],
+                           support_label=game_catalog.SUPPORT_STATES[item["support_state"]],
+                           guide=db.query("SELECT * FROM game_guides WHERE slug=?", (slug,), one=True))
 
 
 @app.route("/games/<slug>")
 @login_required
 def game(slug):
+    from . import game_catalog
     schema = get_schema(slug)
+    item = next((row for row in game_catalog.enrich(community.all_games()) if row["slug"] == slug), None)
     return render_template("game.html", schema=schema, templates=templates_for(schema), sessions=open_sessions(),
+                           game_info=item["catalog"] if item else game_catalog.details(slug, schema["game"]),
+                           guide=db.query("SELECT * FROM game_guides WHERE slug=?",(slug,),one=True),
                            preselect=request.args.get("session", type=int))
 
 
@@ -253,10 +369,17 @@ def game(slug):
 @login_required
 def game_yaml(slug):
     schema = get_schema(slug)
-    label, tvalues, _found = resolve_template(schema, request.args.get("ref", "default"))
+    try:
+        preset = db.loads(capture_template(schema,request.args.get("ref","default")))
+        issue = ap_bridge.world_error(slug)
+        if issue:
+            raise ValueError(issue)
+        text = yamlgen.player_yaml(yamlgen.clean_slot_name(g.user["slot_name"]),schema,
+                   user_values(schema,preset["values"],g.user),f"{schema['game']} – {preset['label']}",
+                   ap_bridge.index().get("ap_version","0.0.0"),preset["requires"])
+    except ValueError as exc:
+        abort(409,str(exc))
     slot = yamlgen.clean_slot_name(g.user["slot_name"])
-    text = yamlgen.player_yaml(slot, schema, user_values(schema, tvalues, g.user), f"{schema['game']} – {label}",
-                               ap_bridge.index().get("ap_version", "0.0.0"))
     return send_file(io.BytesIO(text.encode("utf-8")), mimetype="text/yaml", as_attachment=True,
                      download_name=f"{slot}-{slug}.yaml")
 
@@ -280,7 +403,7 @@ def set_game_default(slug):
 @login_required
 def api_templates(slug):
     schema = get_schema(slug)
-    return jsonify([{"ref": t["ref"], "name": t["name"], "source": t["source"], "is_default": t["is_default"]}
+    return jsonify([{"ref": t["ref"], "name": t["name"], "source": t["source"], "is_default": t["is_default"],"compatible":not bool(t["errors"])}
                     for t in templates_for(schema)])
 
 
@@ -289,6 +412,13 @@ def api_templates(slug):
 def api_names(slug):
     schema = get_schema(slug)
     return jsonify({"items": schema["items"], "locations": schema["locations"]})
+
+
+@app.route("/api/worlds/status")
+@login_required
+def world_status():
+    # Group members need progress only; extraction logs remain admin-only.
+    return jsonify(status=ap_bridge.extract_status().get("status","never"))
 
 
 # --- Templates ---------------------------------------------------------------------------------
@@ -322,8 +452,10 @@ def template_new(slug):
     schema = get_schema(slug)
     base_ref = request.values.get("from", "default")
     base_label, base_values, _found = resolve_template(schema, base_ref)
+    if not _found:
+        abort(409,"Die Ausgangsvorlage fehlt oder ist nicht kompatibel. Es wurde keine Ersatzvorlage verwendet.")
     if request.method == "POST":
-        values, errors = yamlgen.parse_form(schema, request.form, base_values)
+        values, errors = yamlgen.parse_form(schema, request.form, base_values,keep_defaults=True)
         name = request.form.get("name", "").strip()
         shared = request.form.get("shared") == "1"
         if not name:
@@ -332,9 +464,10 @@ def template_new(slug):
             flash("Bitte die markierten Felder korrigieren.", "error")
             return render_form(schema, values, errors=errors, name=name,
                                description=request.form.get("description", ""), shared=shared)
-        tid = db.execute("INSERT INTO templates (game, name, description, vals, created_by, shared) "
-                         "VALUES (?, ?, ?, ?, ?, ?)",
-                         (slug, name, request.form.get("description", ""), db.dumps(values), g.user["id"], int(shared)))
+        requirements = db.loads(capture_template(schema,base_ref))["requires"]
+        tid = db.execute("INSERT INTO templates (game, name, description, vals, created_by, shared,requirements) "
+                         "VALUES (?, ?, ?, ?, ?, ?,?)",
+                         (slug, name, request.form.get("description", ""), db.dumps(values), g.user["id"], int(shared),db.dumps(requirements)))
         flash(f"Vorlage „{name}“ gespeichert.", "info")
         return redirect(url_for("game", slug=slug, _anchor=f"t-{tid}"))
     suggested = "" if base_ref == "default" else f"{base_label.split('„')[-1].rstrip('“')} (angepasst)"
@@ -347,12 +480,12 @@ def template_edit(tid):
     row = db.query("SELECT * FROM templates WHERE id = ?", (tid,), one=True)
     if row is None:
         abort(404)
-    if not can_edit_template(row):
+    if not can_edit_template(row) or row["immutable"]:
         return redirect(url_for("template_new", slug=row["game"], **{"from": f"t:{tid}"}))
     schema = get_schema(row["game"])
     current = db.loads(row["vals"])
     if request.method == "POST":
-        values, errors = yamlgen.parse_form(schema, request.form, current)
+        values, errors = yamlgen.parse_form(schema, request.form, current, keep_defaults=True)
         name = request.form.get("name", "").strip()
         shared = request.form.get("shared") == "1"
         if not name:
@@ -387,6 +520,18 @@ def template_delete(tid):
     return redirect(url_for("game", slug=row["game"]))
 
 
+@app.route("/templates/<int:tid>/source")
+@login_required
+def template_source(tid):
+    row = db.query("SELECT * FROM templates WHERE id=?",(tid,),one=True)
+    if not row or not row["source_yaml"]:
+        abort(404)
+    if not row["shared"] and not can_edit_template(row):
+        abort(403)
+    return send_file(io.BytesIO(row["source_yaml"].encode("utf-8")),as_attachment=True,
+                     download_name=f"template-{tid}.yaml",mimetype="text/yaml")
+
+
 # --- Import ------------------------------------------------------------------------------------
 
 @app.route("/import", methods=["GET", "POST"])
@@ -394,18 +539,33 @@ def template_delete(tid):
 def import_view():
     results, errors = [], []
     if request.method == "POST":
-        texts = [f.read().decode("utf-8", errors="replace") for f in request.files.getlist("files") if f.filename]
+        texts = []
+        for upload in request.files.getlist("files"):
+            if not upload.filename:
+                continue
+            try:
+                data = upload.stream.read(community.YAML_LIMIT+1)
+                if len(data) > community.YAML_LIMIT:
+                    raise ValueError("YAML-Datei ist größer als 512 KiB.")
+                texts.append(data.decode("utf-8"))
+            except (ValueError,UnicodeError) as exc:
+                errors.append(f"{upload.filename}: {exc}")
         if request.form.get("text", "").strip():
             texts.append(request.form["text"])
         shared = request.form.get("shared") == "1"
         index = ap_bridge.index()["games"]
         for text in texts:
+            if len(text.encode("utf-8")) > community.YAML_LIMIT:
+                errors.append("YAML-Vorlage ist größer als 512 KiB.")
+                continue
             found, errs = yamlgen.import_yaml(text, index, ap_bridge.schema)
             errors += errs
             for r in found:
                 r["id"] = db.execute(
-                    "INSERT INTO templates (game, name, description, vals, created_by, shared) VALUES (?, ?, ?, ?, ?, ?)",
-                    (r["slug"], r["name"][:80], "Importiert", db.dumps(r["values"]), g.user["id"], int(shared)))
+                    """INSERT INTO templates (game,name,description,vals,created_by,shared,source_yaml,source_sha256,requirements,immutable)
+                       VALUES (?,?,?,?,?,?,?,?,?,1)""",
+                    (r["slug"], r["name"][:80], "Unveränderter YAML-Import", db.dumps(r["values"]), g.user["id"], int(shared),
+                     text,hashlib.sha256(text.encode("utf-8")).hexdigest(),db.dumps(r["requires"])))
                 results.append(r)
         if not texts:
             errors.append("Keine Datei und kein Text angegeben.")
@@ -420,17 +580,26 @@ def profile():
     overrides = db.loads(g.user["overrides"])
     if request.method == "POST":
         slot = yamlgen.clean_slot_name(request.form.get("slot_name", ""))
-        overrides = {}
+        overrides = dict(overrides)
+        overrides.pop("death_link",None)
+        overrides.pop("progression_balancing",None)
         if request.form.get("death_link") in ("on", "off"):
             overrides["death_link"] = request.form["death_link"] == "on"
         pb = request.form.get("progression_balancing", "").strip()
         if pb:
             try:
-                overrides["progression_balancing"] = max(0, min(99, int(pb)))
+                value = int(pb)
+                if not 0 <= value <= 99:
+                    raise ValueError()
+                overrides["progression_balancing"] = value
             except ValueError:
                 flash("Progression Balancing muss eine Zahl zwischen 0 und 99 sein.", "error")
+                return redirect(url_for("profile"))
         db.execute("UPDATE users SET slot_name = ?, overrides = ? WHERE id = ?",
                    (slot, db.dumps(overrides), g.user["id"]))
+        db.execute("""UPDATE entries SET ready=0,ready_hash='' WHERE session_id IN
+            (SELECT e.session_id FROM entries e JOIN sessions s ON s.id=e.session_id
+             WHERE s.locked=0 AND e.user_id=?)""",(g.user["id"],))
         flash("Profil gespeichert.", "info")
         return redirect(url_for("profile"))
     mine = db.query("SELECT * FROM templates WHERE created_by = ? ORDER BY game, name", (g.user["id"],))
@@ -446,12 +615,12 @@ def session_create():
     sid = db.execute("INSERT INTO sessions (name, created_by) VALUES (?, ?)", (name[:80], g.user["id"]))
     db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
                (sid,g.user["id"]))
-    return redirect(url_for("mvp.choose_game", sid=sid))
+    return redirect(url_for("session_view", sid=sid))
 
 
 @app.route("/sessions/<int:sid>")
 @login_required
-def session_view(sid):
+def session_view(sid, selection=None):
     row = get_session(sid)
     mvp._assert_access(row)
     entries = session_entries(sid)
@@ -459,22 +628,64 @@ def session_view(sid):
         e["summary"] = yamlgen.summarize(ap_bridge.schema(e["game"]), e["values"]) if e["installed"] else []
     games = sorted(ap_bridge.index()["games"].items(), key=lambda kv: kv[1]["game"].casefold())
     history = mvp.builds(sid)
+    check_build = next((b for b in history if b["status"] == "succeeded"), None)
+    check_data = mvp._build_distribution(check_build) if check_build else None
+    check_snapshot = db.loads(check_build["snapshot"]) if check_data else {}
+    for entry in entries:
+        entry["generated_checks"] = None
+        if check_data:
+            slot = next((v for v in check_snapshot.get("slots", [])
+                         if v["player_id"] == entry["user_id"] and v["slot"] == entry["slot"]
+                         and v["game"] == entry["game"]), None)
+            player = next((v for v in check_data["players"] if slot and v["name"] == slot["slot"]
+                           and v["game"] == slot["game_name"]), None)
+            if player:
+                entry["generated_checks"] = check_data["location_totals"][str(player["id"]) ]
+                entry["checks_current"] = slot.get("configuration_hash") == mvp.slot_fingerprint(entry)
+                entry["checks_build_id"] = check_build["id"]
     guests = db.query("""SELECT u.username, u.id AS user_id, e.id AS entry_id
         FROM lobby_members m JOIN users u ON u.id=m.user_id
         LEFT JOIN entries e ON e.session_id=m.session_id AND e.user_id=m.user_id
         WHERE m.session_id=? GROUP BY u.id ORDER BY u.username""", (sid,))
     is_member = bool(db.query("SELECT 1 FROM lobby_members WHERE session_id=? AND user_id=?",
                               (sid,g.user["id"]),one=True))
+    own_entry = next((e for e in entries if e["user_id"] == g.user["id"]), None)
+    selected_game = request.args.get("game", own_entry["game"] if own_entry else "")
+    if is_member and not row["locked"]:
+        from . import lobby_selection
+        if selection is None:
+            selection = lobby_selection.editor(row)
+    if selection:
+        selected_game = selection["schema"]["slug"]
+    selected_schema = ap_bridge.schema(selected_game) if selected_game else None
+    selection_templates = selection["templates"] if selection else templates_for(selected_schema) if selected_schema else []
+    selected_ref = selection["ref"] if selection else own_entry["template_ref"] if own_entry else ""
+    joined_ids = {u["user_id"] for u in guests} | {e["user_id"] for e in entries}
+    ready_users = {uid for uid in joined_ids if any(e["user_id"] == uid for e in entries)
+                   and all(e["ready_valid"] and e["template_found"] for e in entries if e["user_id"] == uid)}
+    waiting = []
+    for uid in sorted(joined_ids):
+        user_entries = [e for e in entries if e["user_id"] == uid]
+        name = next((u["username"] for u in guests if u["user_id"] == uid), user_entries[0]["username"] if user_entries else "Spieler")
+        if uid not in ready_users:
+            waiting.append({"name":name,"reason":"Spiel fehlt" if not user_entries else "Einstellungen prüfen" if any(e["world_error"] or not e["template_found"] for e in user_entries) else "Noch nicht bereit"})
+    all_ready = bool(entries) and not waiting
+    step = 2 if selection else 4 if own_entry and own_entry["ready_valid"] else 3 if own_entry else 1
     return render_template("session.html", s=row, entries=entries, games=games,
                            manage=can_manage_session(row), build_history=history,
                            lobby_guests=guests, is_member=is_member,
+                           selection=selection, selected_game=selected_game, selected_ref=selected_ref,
+                           selection_templates=selection_templates, yg=yamlgen,
+                           ready_count=len(ready_users), member_count=len(joined_ids), waiting=waiting,
+                           all_ready=all_ready, own_entry=own_entry, preparation_step=step,
                            world_versions=ap_bridge.list_apworld_versions())
 
 
 @app.route("/games/<slug>/play", methods=["POST"])
 @login_required
 def game_play(slug):
-    """'Ich spiele das' from the game page: join an open session, or start a new one."""
+    """Open the lobby draft with this game/preset; only Apply creates a slot."""
+    get_schema(slug)
     target = request.form.get("session", "new")
     if target == "new":
         sid = db.execute("INSERT INTO sessions (name, created_by) VALUES (?, ?)", ("Spielabend", g.user["id"]))
@@ -484,7 +695,14 @@ def game_play(slug):
         sid = int(target)
     else:
         abort(400)
-    return entry_add(sid)
+    row = get_session(sid)
+    mvp._assert_access(row)
+    if row["locked"]:
+        abort(409, "Die Lobby ist bereits geschlossen.")
+    db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
+               (sid, g.user["id"]))
+    return redirect(url_for("session_view", sid=sid, game=slug,
+                            ref=request.form.get("ref") or group_default_ref(slug), _anchor="game-selection"))
 
 
 @app.route("/sessions/<int:sid>/entries", methods=["POST"])
@@ -505,18 +723,23 @@ def entry_add(sid):
     _label, _values, found = resolve_template(schema, ref)
     if not found:
         abort(400)
+    snapshot = capture_template(schema,ref)
     sha = next((v["sha256"] for v in ap_bridge.list_apworld_versions()
                 if v["active"] and v["module"] == slug), "")
     existing = db.query("SELECT id FROM entries WHERE session_id=? AND user_id=?",
                         (sid,g.user["id"]),one=True)
     if existing:
-        db.execute("""UPDATE entries SET game=?, template_ref=?, selected_apworld_sha=?,
-                   option_overrides='{}', ready=0, ready_hash='' WHERE id=?""",
-                   (slug,ref,sha,existing["id"]))
+        mvp.update_open_entry(existing["id"],"""game=?, template_ref=?, selected_apworld_sha=?,
+                   template_snapshot=?, option_overrides='{}', ready=0, ready_hash=''""",(slug,ref,sha,snapshot))
     else:
-        db.execute("""INSERT INTO entries
-                   (session_id, user_id, game, template_ref, selected_apworld_sha)
-                   VALUES (?, ?, ?, ?, ?)""", (sid, g.user["id"], slug, ref, sha))
+        conn = db.get()
+        changed = conn.execute("""INSERT INTO entries
+                   (session_id, user_id, game, template_ref, selected_apworld_sha,template_snapshot)
+                   SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM sessions WHERE id=? AND locked=0)""",
+                   (sid, g.user["id"], slug, ref, sha,snapshot,sid)).rowcount
+        conn.commit()
+        if changed != 1:
+            abort(409,"Die Lobby wurde inzwischen gesperrt.")
     flash(f"Du spielst {schema['game']} in „{row['name']}“.", "info")
     return redirect(url_for("session_view", sid=sid))
 
@@ -551,7 +774,8 @@ def entry_template(eid):
         schema = get_schema(entry["game"])
         ref = request.form.get("ref", "default")
         if resolve_template(schema, ref)[2]:
-            db.execute("UPDATE entries SET template_ref = ?, ready=0, ready_hash='' WHERE id = ?", (ref, eid))
+            mvp.update_open_entry(eid,"template_ref=?,template_snapshot=?, ready=0, ready_hash=''",
+                                  (ref,capture_template(schema,ref)))
     return redirect(url_for("session_view", sid=entry["session_id"]))
 
 
@@ -561,13 +785,25 @@ def session_lock(sid):
     row = get_session(sid)
     if not can_manage_session(row):
         abort(403)
-    # Closed generated lobbies cannot accept new players: clone to start a new seed.
-    has_build = db.query("SELECT 1 FROM seed_builds WHERE session_id=? AND status IN ('queued','running','succeeded') LIMIT 1",
-                         (sid,), one=True)
-    if row["locked"] and has_build:
-        flash("Diese Lobby hat bereits einen Seed. Bitte stattdessen die Lobby klonen.", "error")
-        return redirect(url_for("session_view", sid=sid))
-    db.execute("UPDATE sessions SET locked = ? WHERE id = ?", (0 if row["locked"] else 1, sid))
+    with mvp._LOCK:
+        conn = db.get()
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            if db.query("SELECT 1 FROM seed_builds WHERE session_id=? AND status IN ('queued','running') LIMIT 1",
+                        (sid,), one=True):
+                conn.rollback()
+                flash("Während der Generierung kann die Lobby nicht geöffnet oder geschlossen werden.", "error")
+                return redirect(url_for("session_view", sid=sid))
+            locked = db.query("SELECT locked FROM sessions WHERE id=?", (sid,), one=True)["locked"]
+            conn.execute("UPDATE sessions SET locked=? WHERE id=?", (0 if locked else 1, sid))
+            if locked:
+                conn.execute("UPDATE entries SET ready=0,ready_hash='' WHERE session_id=?", (sid,))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+    if locked:
+        flash("Die Lobby ist wieder offen. Spiel und YAML-Einstellungen können geändert werden. Alle müssen sich erneut bereit melden. Vorhandene Seeds bleiben erhalten.", "info")
     return redirect(url_for("session_view", sid=sid))
 
 
@@ -586,10 +822,10 @@ def session_clone(sid):
         db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
                    (new_id,e["user_id"]))
         db.execute("""INSERT INTO entries
-                   (session_id,user_id,game,template_ref,selected_apworld_sha,option_overrides)
-                   VALUES (?,?,?,?,?,?)""",
+                   (session_id,user_id,game,template_ref,selected_apworld_sha,option_overrides,template_snapshot)
+                   VALUES (?,?,?,?,?,?,?)""",
                    (new_id,e["user_id"],e["game"],e["template_ref"],
-                    e["selected_apworld_sha"],e["option_overrides"]))
+                    e["selected_apworld_sha"],e["option_overrides"],e["template_snapshot"]))
     flash("Session mit denselben Spielern, Spielen und Vorlagen angelegt.", "info")
     return redirect(url_for("session_view", sid=new_id))
 
@@ -651,7 +887,7 @@ def session_generate(sid):
         for msg in errors[:12]:
             flash(msg, "error")
     else:
-        flash(f"Seed-Generierung #{build_id} gestartet; ursprüngliche Einstellungen eingefroren.", "info")
+        flash(f"Eure Runde wird erstellt (Seed #{build_id}). Eure bestätigten Einstellungen werden dafür verwendet.", "info")
     return redirect(url_for("session_view", sid=sid))
 
 
@@ -768,16 +1004,30 @@ def admin_status():
     return jsonify(ap_bridge.extract_status())
 
 
+@app.route("/admin/users/<int:uid>/setup", methods=["POST"])
+@admin_required
+def admin_setup_account(uid):
+    user = db.query("SELECT * FROM users WHERE id=?", (uid,), one=True)
+    if not user:
+        abort(404)
+    token = auth.issue_setup(uid, reset=True)
+    return render_template("account_code.html", code=token, account=user)
+
+
 def create_app() -> Flask:
     config.ensure_dirs()
     db.init()
+    auth.migrate()
     mvp.migrate()
     community.migrate()
     if "mvp" not in app.blueprints:
         app.register_blueprint(mvp.bp)
     if "community" not in app.blueprints:
         app.register_blueprint(community.bp)
+    if "auth" not in app.blueprints:
+        app.register_blueprint(auth.bp)
     app.secret_key = config.secret_key()
+    auth.configure(app)
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
     if ap_bridge.ap_ready() and not (config.SCHEMAS / "index.json").exists():
         ap_bridge.start_extract()

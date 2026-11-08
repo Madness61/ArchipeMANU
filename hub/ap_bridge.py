@@ -183,7 +183,19 @@ def extract() -> bool:
         tmp = config.DATA / "schemas.new"
         shutil.rmtree(tmp, ignore_errors=True)
         ok, log = _run(["extract", "--out", str(tmp)], config.EXTRACT_TIMEOUT)
-        if ok and (tmp / "index.json").exists():
+        if ok:
+            try:
+                extracted = json.loads((tmp / "index.json").read_text(encoding="utf-8"))
+                for slug in extracted["games"]:
+                    world_file = config.APWORLDS / f"{slug}.apworld"
+                    schema_file = tmp / f"{slug}.json"
+                    data = json.loads(schema_file.read_text(encoding="utf-8"))
+                    data["world_sha256"] = hashlib.sha256(world_file.read_bytes()).hexdigest() if world_file.is_file() else ""
+                    apworld_library._write_atomic(schema_file,json.dumps(data,ensure_ascii=False).encode("utf-8"))
+            except (OSError,ValueError,KeyError,TypeError) as exc:
+                ok = False
+                log += f"\nUnvollständige oder ungültige Optionsschemas: {exc}"
+        if ok:
             shutil.rmtree(config.SCHEMAS, ignore_errors=True)
             tmp.rename(config.SCHEMAS)
         _write_status(status="ok" if ok else "error", finished=time.time(), log=log[-20000:])
@@ -241,7 +253,12 @@ def _load_json(path: Path) -> dict | None:
     cached = _schema_cache.get(str(path))
     if cached and cached[0] == mtime:
         return cached[1]
-    data = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError,ValueError):
+        return None
+    if not isinstance(data,dict):
+        return None
     _schema_cache[str(path)] = (mtime, data)
     return data
 
@@ -254,6 +271,20 @@ def schema(slug: str) -> dict | None:
     if slug not in index()["games"]:
         return None
     return _load_json(config.SCHEMAS / f"{slug}.json")
+
+
+def world_error(slug, requested_sha=""):
+    data = schema(slug)
+    if data is None:
+        return "APWorld oder eingelesenes Optionsschema fehlt."
+    active = next((v["sha256"] for v in list_apworld_versions() if v["active"] and v["module"] == slug),"")
+    if requested_sha and requested_sha != active:
+        return "Die gewählte APWorld-Version fehlt oder ist nicht aktiv. Gewünschte Version aktivieren und Optionen neu einlesen."
+    if data.get("custom") and not active:
+        return "Die Custom-APWorld ist nicht aktiv oder fehlt."
+    if active and data.get("world_sha256") != active:
+        return "Das Optionsschema gehört nicht zur aktiven APWorld-Version. Optionen neu einlesen."
+    return ""
 
 
 # --- Generation --------------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 {% block title %}{{ schema.game }} · AP YAML Hub{% endblock %}
 {% block content %}
 <p class="small"><a href="{{ url_for('games') }}">← Spiele</a></p>
-<div class="row spread">
+<div class="page-head">
   <div>
     <h1>{{ schema.game }}</h1>
     <p class="muted small">
@@ -19,11 +19,10 @@
   </div>
 </div>
 
-<p class="muted">Wähle eine Vorlage und klick auf <b>Ich spiele das</b>. Dein Slot-Name
-(„{{ g.user.slot_name }}“) und deine persönlichen Einstellungen aus dem <a href="{{ url_for('profile') }}">Profil</a>
-werden automatisch eingesetzt.</p>
+{% include "game_setup_panel.html" %}
+<div class="section-head"><div><h2>Vorlagen für deine Einstellungen</h2><p class="muted small">Wähle eine Vorlage und eine Lobby. Die Einstellungen kannst du dort noch ändern, bevor du sie übernimmst.</p></div></div>
 
-<div class="stack">
+<div class="preset-grid">
 {% for t in templates %}
   <div class="panel card" id="{{ 't-%s'|format(t.id) if t.id else t.ref }}">
     <h3>
@@ -33,6 +32,7 @@ werden automatisch eingesetzt.</p>
       {% if t.owner %}<span class="muted small">von {{ t.owner }}</span>{% endif %}
     </h3>
     {% if t.description %}<p class="muted small" style="margin:4px 0 0">{{ t.description }}</p>{% endif %}
+    {% for key,message in t.errors.items() %}<p class="err small">{{ key }}: {{ message }}</p>{% endfor %}
     {% if t.summary %}
       <ul class="summary">
         {% for name, val in t.summary[:8] %}<li>{{ name }}: {{ val }}</li>{% endfor %}
@@ -45,18 +45,21 @@ werden automatisch eingesetzt.</p>
       <form method="post" action="{{ url_for('game_play', slug=schema.slug) }}" class="row">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
         <input type="hidden" name="ref" value="{{ t.ref }}">
-        <select name="session" aria-label="Session">
+        <select name="session" aria-label="Lobby">
           {% for s in sessions %}
             <option value="{{ s.id }}" {% if preselect == s.id %}selected{% endif %}>{{ s.name }} (#{{ s.id }})</option>
           {% endfor %}
-          <option value="new">Neue Session anlegen</option>
+          <option value="new">Neue Lobby anlegen</option>
         </select>
-        <button class="primary">Ich spiele das</button>
+        <button class="primary" {% if t.errors %}disabled{% endif %}>Ich spiele das</button>
       </form>
+    </div>
+    <details class="technical-options"><summary>Vorlage anpassen oder herunterladen</summary><div class="actions">
       <a class="btn" href="{{ url_for('game_yaml', slug=schema.slug, ref=t.ref) }}">Nur YAML</a>
       {% if t.editable %}
         <a class="btn" href="{{ url_for('template_edit', tid=t.id) }}">Bearbeiten</a>
       {% endif %}
+      {% if t.has_source %}<a class="btn" href="{{ url_for('template_source',tid=t.id) }}" title="SHA-256: {{ t.source_hash }}">Original-YAML</a>{% endif %}
       <a class="btn" href="{{ url_for('template_new', slug=schema.slug, **{'from': t.ref}) }}">Anpassen (Kopie)</a>
       {% if g.user.is_admin and not t.is_default and t.source != 'Persönlich' %}
         <form method="post" action="{{ url_for('set_game_default', slug=schema.slug) }}" class="inline">
@@ -72,7 +75,7 @@ werden automatisch eingesetzt.</p>
           <button class="linkish small danger">Löschen</button>
         </form>
       {% endif %}
-    </div>
+    </div></details>
   </div>
 {% endfor %}
 </div>

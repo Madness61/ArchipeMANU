@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from hub import ap_bridge, config, mvp, yamlgen
 from hub.app import create_app
+from auth_helpers import provision_user, TEST_PASSWORD
 
 
 SCHEMA = {
@@ -49,6 +50,9 @@ class MVPTests(unittest.TestCase):
 
     def post(self, url, data, client=None, **kwargs):
         client = client or self.client
+        if url == "/login" and "username" in data:
+            provision_user(self.app, data["username"], is_admin=data["username"] == "Host")
+            data = {**data, "password": TEST_PASSWORD}
         client.get("/login")
         with client.session_transaction() as sess:
             csrf = sess["_csrf"]

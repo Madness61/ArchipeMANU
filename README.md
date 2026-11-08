@@ -1,5 +1,45 @@
 # AP YAML Hub
 
+### Überarbeitete Oberfläche
+
+Dunkle Navigation, helle Karten und ein klarer Ablauf für die gemeinsame Runde:
+Übersicht → Lobby → Spiel und Einstellungen → Bereit → Generierung durch den Host.
+Die Bibliothek bietet Suche sowie Status- und Herkunftsfilter. Spieler und Host
+haben getrennte Aktionen; technische Extras bleiben aufklappbar erreichbar.
+Die Analyse zeigt echte Kennzahlen, bewusst aufdeckbare Spoiler und die vom Host
+gespeicherte Verbindung. Plan, Umsetzung und Prüfung: [UI_PLAN.md](UI_PLAN.md).
+
+### Automatische Browser-Tests
+
+Playwright bedient die Website mit getrennten Spieler-Sitzungen: Registrierung,
+gemeinsame APWorld-Bibliothek, Aktivierung, Lobby, YAML-Optionen, Bereitschaft,
+simulierter Seed-Build und Statistik. Alle Daten liegen in temporären
+Verzeichnissen; der produktive `data`-Ordner wird nicht verwendet.
+Nach einmaliger Einrichtung starten mit `.\test-browser.ps1` oder
+`python -m browser_tests`. Einrichtung, Fehlerartefakte und CI:
+[BROWSER_TESTS.md](BROWSER_TESTS.md).
+
+### Verlässliche YAML-Konfiguration
+
+Die Priorität ist **APWorld-Standard → Vorlage → Spielerprofil → Lobby-Änderungen**.
+Lobby-Werte haben immer Vorrang, auch explizite Rücksetzungen auf Standardwerte.
+Hochgeladene YAMLs erscheinen als unveränderliche Presets. Eine Auswahl wird im
+Lobby-Slot fixiert; Änderungen an der Vorlage gelten erst nach erneuter Auswahl.
+Vorschau und Generator verwenden denselben vollständigen YAML-Export.
+Details zur Prüfung, Migration und zu gewichteten Optionen:
+[YAML_CONFIGURATION.md](YAML_CONFIGURATION.md).
+
+### Persönliche Benutzerkonten
+
+Jeder Spieler registriert sich mit Benutzername und eigenem Passwort, ohne
+Einladungscode oder Mindestlänge. Bei leerem Benutzerbestand wird das erste Konto
+automatisch Admin; alle weiteren Registrierungen erhalten Spielerrechte.
+Bestehende Benutzer und Adminrechte bleiben erhalten; Altkonten vergeben ihr
+erstes Passwort mit einem persönlichen Einrichtungscode vom Host.
+Die Migration und die Einrichtung des bisherigen Admins sind in
+[AUTH_MIGRATION.md](AUTH_MIGRATION.md) beschrieben. Die früheren Hinweise zur
+gemeinsamen Anmeldung weiter unten sind damit abgelöst.
+
 ### Seed-Analyse: Übersicht und Spoiler
 
 Die Analyse zeigt zunächst die Anzahl der Spiele, Spieler und platzierten Items.
@@ -7,10 +47,21 @@ Pro Spiel erscheinen die Items für seine Spieler, ihr Anteil an der Runde und
 die Itemplatzierungen in seinen Welten. Mehrere Slots desselben Spiels werden
 zusammengefasst; eine Aufschlüsselung nach Spielern ist aufklappbar.
 
+**„Progression-Items pro Spiel“** listet die vom Generator als Progression
+markierten Items mit Empfänger und Anzahl auf. Mehrere Exemplare desselben Items
+für denselben Spieler werden zusammengefasst. **„Fundorte aufdecken“** lädt erst
+beim Aufklappen den konkreten Check-Namen, Spieler und Spiel für jedes Exemplar.
+Ohne JavaScript führt ein Link zur Fundort-Anzeige.
+
 Erst **„Spoiler anzeigen & Details erkunden“** blendet die Verteilung zwischen
 Spielern, Itemklassen und Links zu konkreten Itemlisten ein. Diese lassen sich
 nach Empfänger oder Fundwelt durchsuchen, mit höchstens 50 Einträgen pro Seite.
-Die Startansicht liefert diese Spoiler nicht im HTML mit.
+Die Startansicht liefert weder Fundwelten noch konkrete Fundorte im HTML mit.
+
+Die Spielseite zeigt unter „Check-Analyse“ die tatsächlich erfassten Checks mit
+platziertem Item pro Spiel. Events, Startinventar und Item-Link-Gruppenslots werden
+nicht gezählt. Der alte feste Hinweis auf fehlende Daten wurde entfernt; fehlende
+Statistikdaten und Race-Modus werden anhand des jeweiligen Seeds angezeigt.
 
 Neu erzeugte Seeds speichern neben `item_distribution.json` auch
 `item_placements.json` mit Itemnamen, Fundorten und Empfängern. Die Detailansicht
@@ -53,7 +104,10 @@ Voraussetzungen: Git und Python 3.11–3.13.
 .\start.ps1
 ```
 
-Dann <http://127.0.0.1:8080> öffnen. Wer sich zuerst anmeldet, wird Admin.
+Bei einer neuen Installation <http://127.0.0.1:8080/register> öffnen. Das erste
+registrierte Konto wird automatisch Admin; weitere Konten sind normale Spieler.
+Bei bestehenden Installationen stattdessen `setup-account` verwenden, siehe
+[Kontomigration](AUTH_MIGRATION.md).
 
 `setup.ps1` legt die Archipelago-Quellen (Standard: Version 0.6.8) und eine Python-Umgebung unter
 `%USERPROFILE%\.ap-yaml-hub` an. Ein kurzer Pfad ist nötig, weil Windows sonst an zu langen Dateipfaden scheitert.
@@ -65,13 +119,15 @@ Mit `.\setup.ps1 -ApVersion 0.6.9` wechselt ihr die Version.
 ## Für die Gruppe freigeben
 
 ```powershell
-$env:HUB_PASSWORD = "geheim"
 .\start.ps1 -Public
 ```
 
-Es gibt keine Passwörter pro Benutzer, nur ein gemeinsames Gruppen-Passwort. Stellt die Seite am besten nicht
-offen ins Internet, sondern nutzt z. B. Tailscale, ZeroTier oder ein VPN. APWorlds sind Python-Code und laufen
-auf dem Server, deshalb dürfen nur Admins sie hochladen.
+Neue Spieler erstellen ihr Konto mit Benutzername und frei gewähltem, nicht leerem
+Passwort. Es gibt keinen Einladungscode, keine Freigabe und keine Mindestlänge
+für Passwörter. Nach der Registrierung ist man direkt angemeldet; später meldet
+man sich mit denselben Zugangsdaten an. Außerhalb von localhost HTTPS verwenden und
+`HUB_COOKIE_SECURE=1` setzen. Die APWorld-Ausführung bleibt auf dem privaten Host
+ohne Sandbox; auch angemeldete Mitspieler können APWorlds hochladen.
 
 ## Wie es funktioniert
 
@@ -79,13 +135,14 @@ auf dem Server, deshalb dürfen nur Admins sie hochladen.
 APWorld-Standard          ← was das Spiel mitbringt
   └─ Vorlage              ← Gruppe oder persönlich
        └─ Profil          ← "bei mir immer DeathLink aus"
-            = YAML mit deinem Slot-Namen
+            └─ Lobby      ← individuelle Änderungen für diese Runde
+                 = YAML mit deinem Slot-Namen
 ```
 
-- Vorlagen speichern nur Werte, die vom APWorld-Standard abweichen. Ändert ein APWorld-Update die
-  Standardwerte, gelten automatisch die neuen.
-- Ein Session-Eintrag verweist auf die Vorlage. Wird die Vorlage geändert, bevor die Session gesperrt ist,
-  gilt die neue Fassung.
+- Explizite Vorlagenwerte bleiben erhalten, auch wenn sie dem APWorld-Standard entsprechen.
+  Ein World-Update erfordert eine neue Prüfung der Bereitschaft.
+- Ein Session-Eintrag besitzt eine fixierte Kopie der gewählten Vorlage.
+  Für eine neue Fassung die Vorlage ausdrücklich erneut auswählen.
 - Eine hochgeladene APWorld mit demselben Modulnamen wie ein eingebautes Spiel (z. B. `dark_souls_3.apworld`)
   ersetzt die eingebaute Version.
 - Mehrere Einträge desselben Spielers in einer Session bekommen automatisch `Max`, `Max2` usw.
@@ -96,8 +153,12 @@ APWorld-Standard          ← was das Spiel mitbringt
 |---|---|---|
 | `AP_HOME` | `%USERPROFILE%\.ap-yaml-hub` | Ort für Archipelago-Quellen und Python-Umgebung |
 | `HUB_DATA` | `.\data` | Datenbank, APWorlds, erzeugte Dateien |
-| `HUB_PASSWORD` | leer | Gruppen-Passwort |
+| `HUB_COOKIE_SECURE` | `0` | `1` bei HTTPS: Session-Cookies nur verschlüsselt übertragen |
 | `HUB_GENERATE_TIMEOUT` | `900` | Sekunden bis zum Abbruch der Generierung |
+
+Alte Werte für `HUB_INVITE_CODE` und `HUB_PASSWORD` werden ignoriert. Bestehende
+Konten und ihre Rechte bleiben erhalten. Für Altkonten ohne persönliches Passwort
+bleibt die einmalige [Kontoeinrichtung](AUTH_MIGRATION.md) verfügbar.
 
 ## Tests
 
@@ -210,7 +271,9 @@ Wird die optionale YAML-Vorlage hochgeladen, bleibt sie als **unverändertes Ori
 
 **Lobbys** listet alle offenen und geschlossenen Runden für angemeldete Gruppenmitglieder auf. Jeder kann selbst eine Lobby erstellen. Eine offene Lobby lässt beliebig viele Beitritte zu – keine feste Teilnehmeranzahl und kein Einladungscode erforderlich. Der bisherige optionale Einladungslink bleibt aus Kompatibilitätsgründen erhalten.
 
-Ablauf: **Lobby ansehen → Mitmachen → eigenes Spiel wählen → Slotoptionen konfigurieren → Bereitschaft bestätigen**. Pro Spieler wird in einer neuen Lobby **ein aktiver Spielslot** geführt. Ein Wechsel aktualisiert den bestehenden Slot, statt einen zweiten zu erzeugen. Solange die Lobby offen ist, darf jeder seine Auswahl ändern.
+Ablauf: **Mitmachen → direkt in die Lobby, zunächst ohne Spiel → unter „Deine Spielauswahl“ ein Spiel und eine Vorlage wählen → „YAML erstellen / bearbeiten“ → Einstellungen prüfen und ändern → „Auswahl übernehmen“ → Bereitschaft bestätigen**. Auch eine neu erstellte Lobby beginnt ohne Spielslot.
+
+Der YAML-Editor öffnet sich direkt in der Lobby. Vorschau, Download, Zurücksetzen und Abbrechen ändern die gespeicherte Auswahl nicht. Erst „Auswahl übernehmen“ speichert Spiel, fixierte Vorlage und Einstellungen gemeinsam und setzt die Bereitschaft zurück. Pro Spieler wird in einer neuen Lobby **ein aktiver Spielslot** geführt. Ein Wechsel aktualisiert den bestehenden Slot, statt einen zweiten zu erzeugen; die bisherige Auswahl bleibt bis zur Übernahme erhalten.
 
 Der Host darf den Seed nur erzeugen, wenn **alle beigetretenen Mitspieler ein Spiel gewählt haben** und sämtliche vorhandenen Slots nach der Konfigurationsprüfung bereit sind. Wer noch kein Spiel gewählt hat, wird in der Lobby gesondert angezeigt. Die Generierung schließt die Lobby; sie kann nach einem erfolgreichen Seed nicht wieder geöffnet werden. Für weitere Mitspieler oder eine neue Konfiguration eine neue Runde erstellen bzw. klonen.
 

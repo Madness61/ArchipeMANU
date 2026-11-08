@@ -1,0 +1,79 @@
+{% macro field(opt) %}
+  {% set key = opt.key %}
+  {% set cur = values[key] if key in values else opt.default %}
+  {% set fid = 'f-' ~ key %}
+  <div class="opt {% if key in values and cur != opt.default %}changed{% endif %}">
+    <input type="hidden" name="_r" value="{{ key }}">
+    <label class="name" for="{{ fid }}">{{ opt.name }}
+      {% if key in values and cur != opt.default %}<span class="chip small">geändert</span>{% endif %}</label>
+
+    {% if yg.raw_mode(opt, cur) %}
+      {% if opt.kind != 'raw' %}<input type="hidden" name="m.{{ key }}" value="raw">
+        <p class="small muted">Gewichteter Wert (Archipelago-Syntax). Leeren, um den Standard zu nutzen.</p>{% endif %}
+      <textarea id="{{ fid }}" name="o.{{ key }}" rows="4" placeholder="YAML">{{ request.form.get('o.' ~ key, yg.dump(cur).strip()) }}</textarea>
+
+    {% elif opt.kind == 'toggle' %}
+      <label><input id="{{ fid }}" type="checkbox" name="o.{{ key }}" value="1" {% if cur is sameas true %}checked{% endif %}> an</label>
+
+    {% elif opt.kind == 'choice' %}
+      <select id="{{ fid }}" name="o.{{ key }}">
+        {% for name, label in opt.choices %}
+          <option value="{{ name }}" {% if name == cur %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+
+    {% elif opt.kind == 'textchoice' %}
+      <input id="{{ fid }}" name="o.{{ key }}" value="{{ cur if cur is not none else '' }}" list="dl-{{ key }}" style="min-width:240px">
+      <datalist id="dl-{{ key }}">{% for name, label in opt.choices %}<option value="{{ name }}">{{ label }}</option>{% endfor %}</datalist>
+
+    {% elif opt.kind == 'range' %}
+      <div class="row">
+        <input type="range" min="{{ opt.min }}" max="{{ opt.max }}" value="{{ cur if cur is number else opt.min }}" data-sync="{{ fid }}" aria-label="{{ opt.name }}">
+        <input id="{{ fid }}" type="number" step="1" name="o.{{ key }}" value="{{ cur }}" size="6">
+        {% if opt.special %}
+          <select data-set="{{ fid }}" aria-label="Spezialwerte">
+            <option value="">Spezialwert …</option>
+            {% for sname, sval in opt.special.items() %}<option value="{{ sval }}">{{ sname }} ({{ sval }})</option>{% endfor %}
+          </select>
+        {% endif %}
+        <span class="muted small">{{ opt.min }}–{{ opt.max }}</span>
+      </div>
+
+    {% elif opt.kind == 'text' %}
+      <input id="{{ fid }}" name="o.{{ key }}" value="{{ cur if cur is not none else '' }}" style="width:100%">
+
+    {% elif yg.checkbox_mode(opt) %}
+      <div class="checks">
+        {% for vk in opt.valid_keys %}
+          <label><input type="checkbox" name="o.{{ key }}" value="{{ vk }}" {% if cur and vk in cur %}checked{% endif %}> {{ vk }}</label>
+        {% endfor %}
+      </div>
+
+    {% else %}
+      <textarea id="{{ fid }}" name="o.{{ key }}" rows="3"
+        placeholder="{{ 'Ein Eintrag pro Zeile, Format „Name: Anzahl“' if opt.kind == 'counter' else 'Ein Eintrag pro Zeile' }}">{{ yg.form_text(opt, cur) }}</textarea>
+      {% if opt['items'] or opt['locations'] or opt.valid_keys %}
+      <div class="row small" style="margin-top:4px">
+        <input class="name-picker" data-target="{{ fid }}" data-counter="{{ 1 if opt.kind == 'counter' else 0 }}"
+               data-source="{{ 'items' if opt['items'] else 'locations' if opt['locations'] else '' }}"
+               data-keys="{{ opt.valid_keys|join('\n') }}" placeholder="Name suchen …" style="min-width:240px">
+        <button type="button" class="name-add">Hinzufügen</button>
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {% if not yg.raw_mode(opt, cur) %}
+    <details class="small" style="margin-top:8px" {% if request.form.get('m.' ~ key) == 'raw' %}open{% endif %}>
+      <summary>Gewichte oder komplexen YAML-Wert eingeben</summary>
+      <label><input type="checkbox" name="m.{{ key }}" value="raw" {% if request.form.get('m.' ~ key) == 'raw' %}checked{% endif %}>
+        Diesen YAML-Wert verwenden (ersetzt das Feld oben)</label>
+      <textarea name="y.{{ key }}" rows="4" aria-label="YAML für {{ opt.name }}">{{ request.form.get('y.' ~ key, yg.dump(cur).strip()) }}</textarea>
+      <p class="muted">Gewichte für einzelne Werte: <code>wert: 50</code>. Alle Gewichte müssen ganze Zahlen sein; mindestens eines muss positiv sein.</p>
+    </details>
+    {% endif %}
+    {% if lobby %}<label class="small muted"><input type="checkbox" name="_inherit" value="{{ key }}"> Für diesen Wert wieder Vorlage/Profil übernehmen</label>{% endif %}
+
+    {% if errors[key] %}<div class="err">{{ errors[key] }}</div>{% endif %}
+    {% if opt.doc %}<div class="doc" title="Klicken zum Aufklappen">{{ opt.doc }}</div>{% endif %}
+  </div>
+{% endmacro %}

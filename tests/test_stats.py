@@ -31,6 +31,27 @@ class OverviewTests(unittest.TestCase):
         data = stats.aggregate_placements([{"id":1,"name":"A","game":"Test"}], [])
         self.assertEqual(stats.game_overview(data)[0]["share"], 0)
 
+    def test_progression_groups_copies_by_recipient_and_keeps_worlds_out_of_the_list(self):
+        players = [{"id":1,"name":"A","game":"Same Game"},
+                   {"id":2,"name":"B","game":"Same Game"},
+                   {"id":3,"name":"C","game":"Other Game"}]
+        rows = [{"finder":finder,"recipient":recipient,"category":category,"item_id":10,"item":"Key",
+                 "location_id":index,"location":f"Check {index}"}
+                for index,(finder,recipient,category) in enumerate(((1,1,"progression"),(3,1,"progression"),
+                                                   (3,1,"progression"),(2,2,"progression"),(1,3,"useful")))]
+        distribution = stats.aggregate_placements(players,[(r["finder"],r["recipient"],r["category"]) for r in rows])
+        groups = {g["name"]:g for g in stats.progression_items(distribution,rows)}
+        self.assertEqual(groups["Other Game"]["items"],[])
+        self.assertEqual(groups["Same Game"]["count"],4)
+        entries = groups["Same Game"]["items"]
+        self.assertEqual([(item["recipient"]["name"],item["count"]) for item in entries],[("A",3),("B",1)])
+        self.assertTrue(all("finder" not in item and "worlds" not in item for item in entries))
+        worlds = stats.progression_worlds(distribution,rows,entries[0]["id"])
+        self.assertEqual([(world["name"],world["game"],world["count"]) for world in worlds],
+                         [("A","Same Game",1),("C","Other Game",2)])
+        self.assertEqual(worlds[0]["locations"],[{"id":0,"name":"Check 0"}])
+        self.assertEqual(worlds[1]["locations"],[{"id":1,"name":"Check 1"},{"id":2,"name":"Check 2"}])
+
 
 class RunnerStatisticsTests(unittest.TestCase):
     def test_named_placements_match_summary_and_race_writes_no_analytics(self):
@@ -61,7 +82,8 @@ class RunnerStatisticsTests(unittest.TestCase):
             "Main":SimpleNamespace(main=lambda args, seed: world),
             "BaseClasses":SimpleNamespace(ItemClassification=Classification),
         }
-        with tempfile.TemporaryDirectory() as folder, patch.dict(sys.modules, modules), patch.object(sys, "argv", []):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(sys.modules, modules), patch.object(sys, "argv", []), \
+                patch.object(ap_runner,"validate_player_files"):
             ap_runner.generate("players", folder, 1, False)
             summary = json.loads((Path(folder) / "item_distribution.json").read_text())
             details = json.loads((Path(folder) / "item_placements.json").read_text())
