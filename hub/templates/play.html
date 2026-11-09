@@ -29,6 +29,7 @@
 {% else %}<p>Du hast in diesem Seed keinen eigenen Slot.</p>{% endif %}
 
 {% include "connection.html" %}
+{% if not race and build.status == 'succeeded' %}<section class="panel analysis-section"><div class="row spread"><div><p class="eyebrow">Archipelago-Textclient</p><h2>Itemprotokoll & Befehle</h2><p class="muted">Sieh, wer wem welche Items schickt. Verbinde deinen eigenen Slot für Chat, empfangene Items und Hinweise.</p></div><a class="btn primary" href="{{ url_for('console.page',sid=room.id,build_id=build.id) }}">Live-Konsole öffnen</a></div></section>{% endif %}
 <div class="section-head" id="play-files"><div><p class="eyebrow">Deine Spieldateien</p><h2>Benötigte Dateien</h2></div></div>
 {% if build.status == 'succeeded' %}
 <p><a class="btn primary" href="{{ url_for('mvp.build_download', sid=room.id, build_id=build.id) }}">Multiworld-ZIP herunterladen</a></p>

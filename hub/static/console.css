@@ -1,0 +1,8 @@
+.console-log{background:#0d1424;color:#dbe5f7;border:1px solid #2d3b55;border-radius:14px;min-height:260px;max-height:540px;overflow:auto;padding:18px;font:13px/1.7 ui-monospace,Consolas,monospace;margin:16px 0}
+.console-line{display:grid;grid-template-columns:75px minmax(0,1fr);gap:12px;padding:7px 0;border-bottom:1px solid #273149}
+.console-line time{color:#8f9fb9}.console-line span{white-space:pre-wrap;overflow-wrap:anywhere}
+.console-log .muted{color:#9dacbf}
+.console-items span{color:#9ee8ca}.console-chat span{color:#d8ceff}.console-sent span{color:#aebfdc}
+#console-connect{align-items:end;gap:14px}#console-connect label,.console-filters label{display:flex;flex-direction:column;gap:6px;min-width:0}
+.console-filters{align-items:end;gap:14px}.console-command{align-items:end}.console-command label{display:flex;flex:1;flex-direction:column;gap:7px;min-width:0}
+@media(max-width:650px){#console-connect label{width:100%}#console-connect button{flex:1}.console-line{grid-template-columns:1fr;gap:2px}.console-line time{font-size:11px}.console-command button{width:100%}.console-filters>*{flex:1;min-width:140px}.console-log{padding:12px}}

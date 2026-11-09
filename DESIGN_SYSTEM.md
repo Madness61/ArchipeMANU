@@ -2,8 +2,10 @@
 
 Das Frontend ist eine gemeinsame Gaming-Lounge für Vorbereitung, Spielstart
 und Live-Fortschritt. Flask, Jinja, Endpunkte und die vorhandenen Formulare
-bleiben die Grundlage. Es gibt keine neuen Datenbankmigrationen und keine
-zusätzlichen Frontend-Abhängigkeiten.
+bleiben die Grundlage. Zusätzliche Frontend-Abhängigkeiten sind nicht nötig.
+Eine additive Tabelle game_metadata speichert eigene Beschreibungen, Genres
+und Tags unabhängig von APWorld-Versionen. Bestehende Katalogwerte bleiben
+als Rückfall erhalten; vorhandene Spiel- und Rundendaten werden nicht ersetzt.
 
 ## Farbe und Typografie
 
@@ -57,6 +59,9 @@ auch durch Text vermittelt. Hover-Bewegungen bleiben klein.
 Desktop: feste linke Sidebar mit Dashboard, Spielebibliothek, Lobbys,
 aktiven Runden und Seed-Analysen. Profil und Administration sind getrennt.
 Die aktive Seite hat einen farbigen Hintergrund und Randindikator.
+Der angemeldete Inhaltsbereich nutzt die gesamte Breite neben der Sidebar,
+auch bei 2560 und 3840 px. Dashboard-Bereiche verteilen sich auf verfügbare
+Spalten; kurze Formulare behalten eine lesbare eigene Maximalbreite.
 
 Dashboard: Eine echte laufende oder vorbereitete Runde steht im Vordergrund.
 Die Hauptaktion ergibt sich aus Spielauswahl, Bereitschaft, Generierung und
@@ -134,3 +139,11 @@ Aufnahmen von Dashboard, Katalog, Lobby, Editor, Spielstart, Verwaltung und
 Live-Ansicht wurden visuell kontrolliert. Die Browser-Prüfung verwendet echte
 Flask-Routen mit isolierten Testdaten und einem Testgenerator; sie ersetzt
 keinen Verbindungs- und Spieltest mit echten Archipelago-Spielclients.
+
+Ergänzung vom 09.11.2026: volle Desktop-Breite bis 3840 px, editierbare
+Katalogmetadaten und persönlicher Logik-Tracker. Die Python-Suite umfasst
+185 erfolgreiche Tests; 13 Browser-Szenarien decken zusätzlich Katalog,
+Konsole und Logikansicht ab. Der echte UT-Subprozess wurde separat mit APQuest
+geprüft: zwei erreichbare Checks ohne Items, sechs mit Zielausrüstung sowie
+korrekter Wechsel in Go-Mode. Der Browser-Logiktest verwendet kontrollierte
+API-Antworten und prüft Darstellung, Filter und ausdrückliche Spoilerfreigabe.

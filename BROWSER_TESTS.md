@@ -1,5 +1,26 @@
 # Automatische Browser-Tests
 
+## Erweiterung vom 9. November 2026: Archipelago-Konsole
+
+Nach der Transportkorrektur: **181 Python-Tests erfolgreich (58,8 Sekunden)**;
+der Konsolen-Browserablauf erneut erfolgreich (17,1 Sekunden). Automatische
+Transporterkennung bevorzugt WSS; der Status zeigt WS/WSS. Der Browser prüft
+zusätzlich die erneute Anmeldung nach falschem Raumpasswort und das Entfernen
+der alten Fehlermeldung. Die lokale Testattrappe verwendet ausdrücklich WS.
+
+Die Suite umfasst jetzt 12 Browser-Szenarien. Der zusätzliche Konsolentest
+verbindet die echte Backend-WebSocket-Anbindung mit einem eigenen lokalen
+Archipelago-Protokollserver: Item-Sendung Bob → Alice mit Item- und Check-Namen,
+Chat, `/hint`, `/received`, private Antworten, sichere Textausgabe, Filter,
+Trennen und mobile Darstellung. Der Spielclient wird nicht simuliert gesteuert;
+es werden keine echten Spieler kontaktiert oder Spielchecks abgeschickt.
+
+Gesamtergebnis: **175 Python-Tests erfolgreich (60,7 Sekunden)** und
+**12 Browser-Szenarien erfolgreich (114,8 Sekunden)**. Ein im Gesamtlauf
+gefundener Beschriftungsfehler im Katalog-Editor ist korrigiert. Screenshots:
+`test-results/browser/logs/test_console_items_commands_private_hints_and_mobile-chromium-/`.
+API und Einrichtung: [ARCHIPELAGO_CONSOLE.md](ARCHIPELAGO_CONSOLE.md).
+
 Die Playwright-Tests bedienen die echte Flask-Website mit Chromium. Formulare,
 Anmeldung, Cookies, CSRF, Uploads, Datenbank, Hintergrundjobs und JavaScript bleiben
 aktiv. Ausschließlich Archipelago-Schemaextraktion und Seed-Generierung werden

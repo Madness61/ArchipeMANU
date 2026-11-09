@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 import yaml
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, send_file, url_for
 
-from . import ap_bridge, apworld_library, config, db
+from . import ap_bridge, apworld_library, config, db, game_catalog
 
 bp = Blueprint("community", __name__)
 YAML_LIMIT = 512 * 1024
@@ -34,6 +34,14 @@ def migrate():
             approved INTEGER NOT NULL DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS community_game_modules ON community_games(module);
+        CREATE TABLE IF NOT EXISTS game_metadata(
+            module TEXT PRIMARY KEY,
+            description TEXT NOT NULL DEFAULT '',
+            genres TEXT NOT NULL DEFAULT '[]',
+            tags TEXT NOT NULL DEFAULT '[]',
+            author INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         """)
         columns = {r["name"] for r in conn.execute("PRAGMA table_info(community_games)")}
         if "yaml_sha256" not in columns:
@@ -91,9 +99,73 @@ def all_games(search=""):
         item["active"] = module in active_modules
         for version in item["versions"]:
             version["active"] = version["sha256"] in active_hashes
+    metadata = {row["module"]: dict(row) for row in db.query("SELECT * FROM game_metadata")}
+    owned_modules = {row["module"] for row in uploads if g.get("user") and row["created_by"] == g.user["id"]}
+    for item in library.values():
+        item["metadata"] = metadata.get(item["slug"], {})
+        item["can_edit_metadata"] = bool(g.get("user") and (g.user["is_admin"] or item["slug"] in owned_modules))
     return sorted([v for v in library.values() if
                    search.casefold() in (v["name"] + " " + v["slug"] + " " + v["added_by"]).casefold()],
                   key=lambda v: v["name"].casefold())
+
+
+def parse_metadata(form):
+    description = form.get("description", "").strip()
+    if len(description) > 1500:
+        raise ValueError("Die Beschreibung darf höchstens 1500 Zeichen enthalten.")
+    def labels(key, maximum):
+        result, seen = [], set()
+        for raw in re.split(r"[,;\n]", form.get(key, "")):
+            label = " ".join(raw.split())
+            if not label:
+                continue
+            if label.casefold() == "all":
+                raise ValueError("Der Begriff 'all' ist für die Filterauswahl reserviert.")
+            if len(label) > 40 or any(ord(char) < 32 for char in label):
+                raise ValueError("Genres und Tags dürfen jeweils höchstens 40 Zeichen enthalten.")
+            if label.casefold() not in seen:
+                result.append(label)
+                seen.add(label.casefold())
+        if len(result) > maximum:
+            raise ValueError(f"Bitte höchstens {maximum} {key.title()} angeben.")
+        return result
+    return dict(description=description, genres=labels("genres", 12), tags=labels("tags", 20))
+
+
+def save_metadata(slug, values):
+    db.execute("""INSERT INTO game_metadata(module,description,genres,tags,author)
+        VALUES (?,?,?,?,?) ON CONFLICT(module) DO UPDATE SET
+        description=excluded.description,genres=excluded.genres,tags=excluded.tags,
+        author=excluded.author,updated_at=CURRENT_TIMESTAMP""",
+        (slug, values["description"], db.dumps(values["genres"]), db.dumps(values["tags"]), g.user["id"]))
+
+
+@bp.route("/games/<slug>/metadata/edit", methods=["GET", "POST"])
+def metadata_edit(slug):
+    if not g.user:
+        return redirect(url_for("login", next=request.path))
+    item = next((row for row in game_catalog.enrich(all_games()) if row["slug"] == slug), None)
+    if item is None:
+        abort(404)
+    if not item["can_edit_metadata"]:
+        abort(403)
+    values = dict(description=item["catalog"]["description"],
+                  genres=", ".join(item["catalog"]["genres"] if item["catalog"]["genres"] != ["Noch nicht zugeordnet"] else []),
+                  tags=", ".join(item["catalog"]["tags"]))
+    if request.method == "POST":
+        values = request.form
+        if request.form.get("_action") == "reset":
+            db.execute("DELETE FROM game_metadata WHERE module=?", (slug,))
+            flash("Eigene Katalogangaben zurückgesetzt.", "info")
+        else:
+            try:
+                save_metadata(slug, parse_metadata(request.form))
+            except ValueError as exc:
+                flash(str(exc), "error")
+                return render_template("game_metadata.html", item=item, values=values), 400
+            flash("Beschreibung, Genres und Tags gespeichert.", "info")
+        return redirect(url_for("game" if item["installed"] else "game_setup", slug=slug))
+    return render_template("game_metadata.html", item=item, values=values)
 
 
 def valid_yaml(data: bytes, game_name: str):
@@ -128,6 +200,7 @@ def game_add():
     source = request.form.get("source_url", "").strip()
     label = request.form.get("name", "").strip()
     try:
+        metadata = parse_metadata(request.form)
         data = archive.stream.read(apworld_library.MAX_UPLOAD + 1)
         info = apworld_library.inspect_bytes(data)
         if not label:
@@ -146,6 +219,10 @@ def game_add():
             yaml_data = yaml_upload.stream.read(YAML_LIMIT + 1)
             valid_yaml(yaml_data, info["game"] or label)
         # Save only after all inputs pass validation.
+        has_metadata = bool(metadata["description"] or metadata["genres"] or metadata["tags"])
+        existing_module = next((row for row in all_games() if row["slug"] == info["module"]), None)
+        if has_metadata and existing_module and not existing_module["can_edit_metadata"]:
+            raise ValueError("Katalogangaben bestehender Spiele können nur der Uploader oder ein Admin ändern.")
         with ap_bridge.ap_lock:
             if db.query("SELECT 1 FROM community_games WHERE sha256=?", (info["sha256"],), one=True):
                 raise ValueError("Diese APWorld-Version ist bereits in der Bibliothek vorhanden.")
@@ -162,6 +239,9 @@ def game_add():
                      VALUES (?,?,?,?,?,?,?,1,?)""",
                        (info["sha256"], info["module"], label, info["version"],
                         g.user["id"], yaml_relative, source, hashlib.sha256(yaml_data).hexdigest() if yaml_data else ""))
+            # New APWorld versions without metadata never erase existing catalog edits.
+            if has_metadata:
+                save_metadata(info["module"], metadata)
     except (ValueError, OSError) as exc:
         flash(str(exc), "error")
         return render_template("community_add.html"), 400

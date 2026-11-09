@@ -3,6 +3,7 @@
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='live.css') }}">
 <p class="small live-back-link"><a href="{{ url_for('mvp.play_page', sid=room.id, build_id=build.id) }}">← Zur Runde & Verbindung</a></p>
+{% if not race %}<div class="row live-tools"><a class="btn" href="{{ url_for('logic.page',sid=room.id,build_id=build.id) }}">Logik-Tracker öffnen</a><a class="btn" href="{{ url_for('console.page',sid=room.id,build_id=build.id) }}">Itemprotokoll, Chat & Befehle öffnen</a></div>{% endif %}
 <div id="live-dashboard" data-url="{{ url_for('live.data', sid=room.id, build_id=build.id) }}" data-refresh-url="{{ url_for('live.refresh', sid=room.id, build_id=build.id) }}" data-csrf="{{ csrf_token }}" data-linked="{{ '1' if linked else '0' }}">
   <section class="live-hero">
     <div><p class="eyebrow"><span class="live-dot" aria-hidden="true"></span> Multiworld live</p><h1>{{ room.name }}</h1><p>Ein gemeinsamer Abend. Jede Welt zählt.</p><div class="live-hero-meta"><span>Seed #{{ build.id }}</span><span id="live-room-code">{{ linked.room_id if linked else 'Noch kein Raum verbunden' }}</span><span id="live-status-chip">Verbindung wird vorbereitet</span></div></div>

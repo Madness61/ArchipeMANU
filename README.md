@@ -1,10 +1,33 @@
 # Multiworld Hub
 
+### Erreichbare Checks und Go-Mode
+
+Unter **Live-Dashboard → Logik-Tracker** berechnet Universal Tracker die
+Erreichbarkeit für den eigenen verbundenen Slot. Checks lassen sich nach
+Logikstatus und Region filtern; Iteminhalte werden nur ausdrücklich aufgedeckt.
+Einrichtung, Datenquellen und Grenzen: [LOGIC_TRACKER.md](LOGIC_TRACKER.md).
+
+Die Spielebibliothek unterstützt eigene Beschreibungen, Genres und freie Tags
+beim Upload und unter **Spiel bearbeiten**. Tags wirken sofort in Suche und
+Filtern. Uploader bearbeiten ihre Spiele, Admins alle Spiele. Katalogangaben
+bleiben beim APWorld-Versionswechsel erhalten. Der Desktop-Inhaltsbereich
+nutzt auch breite Bildschirme vollständig.
+
+### Archipelago-Konsole und Befehls-API
+
+Unter **Jetzt spielen → Live-Konsole öffnen** kannst du deinen eigenen Slot
+als Textclient verbinden: konkrete Item-Sendungen mit Finder, Empfänger und
+Check, Chat, `/received`, `/missing`, `/items`, `/hint` und weitere Befehle.
+Item-Sendungen sind gemeinsam sichtbar; Befehlsantworten bleiben persönlich.
+Die bisherige Tracker-Schnittstelle bleibt erhalten. Einrichtung, Grenzen und
+JSON-Endpunkte: [ARCHIPELAGO_CONSOLE.md](ARCHIPELAGO_CONSOLE.md).
+
 Das [Designsystem](DESIGN_SYSTEM.md) beschreibt das neue Dark-Gaming-Frontend:
 Sidebar und mobiles Menü, persönliches Dashboard, Spielkatalog mit eigenen
 grafischen Titelbildern, Lobby-Spielerkarten und eine persönliche Spielstartzentrale.
 Die vorhandenen Formulare, YAML-Regeln, Rechte und Seed-/Live-Funktionen bleiben
-erhalten. Für das Redesign sind keine neuen Datenbankmigrationen nötig.
+erhalten. Eigene Katalogangaben werden in einer zusätzlichen Tabelle gespeichert;
+bestehende Spiel- und Rundendaten werden nicht ersetzt.
 
 Das neue [Live-Dashboard](LIVE_DASHBOARD.md) begleitet laufende Runden mit
 gemeinsam gecachten Archipelago-Daten, Spielerkarten, Empfangsmatrix, Verlauf,

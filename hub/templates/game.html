@@ -13,6 +13,7 @@
     </p>
   </div>
   <div class="row">
+    {% if item and item.can_edit_metadata %}<a class="btn" href="{{ url_for('community.metadata_edit', slug=schema.slug) }}">Spiel bearbeiten</a>{% endif %}
     {% if g.user.is_admin %}
       <a class="btn" href="{{ url_for('mvp.guide_edit', slug=schema.slug) }}">Installationsanleitung pflegen</a>
     {% endif %}

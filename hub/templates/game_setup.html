@@ -3,6 +3,7 @@
 {% block content %}
 <p><a href="{{ url_for('games') }}">← Spielebibliothek</a></p>
 <h1>{{ item.name }}</h1>
+{% if item.can_edit_metadata %}<a class="btn" href="{{ url_for('community.metadata_edit', slug=item.slug) }}">Spiel bearbeiten</a>{% endif %}
 <p class="muted">{{ support_label }} · Du kannst die Voraussetzungen bereits prüfen, bevor die Spieloptionen verfügbar sind.</p>
 {% include "game_setup_panel.html" %}
 {% endblock %}

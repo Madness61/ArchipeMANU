@@ -11,7 +11,7 @@ import zipfile
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, session,
                    url_for)
 
-from . import ap_bridge, config, db, yamlgen, mvp, community, auth, live_store, live_routes
+from . import ap_bridge, config, db, yamlgen, mvp, community, auth, live_store, live_routes, ap_console, console_routes, logic_routes
 
 app = Flask(__name__)
 app.teardown_appcontext(db.close)
@@ -379,19 +379,21 @@ def games():
     # Preserve old bookmarks without continuing to call installed options 'ready'.
     state = {"ready": "loaded", "pending": "unloaded"}.get(state, state)
     genre = request.args.get("genre", "all")
+    tag = request.args.get("tag", "all")
     setup = request.args.get("setup", "all")
     genres = sorted({g for row in library for g in row["catalog"]["genres"]})
+    tags = sorted({tag for row in library for tag in row["catalog"]["tags"]}, key=str.casefold)
     setup_types = {key: label for key, label in game_catalog.SETUP_TYPES.items()
                    if any(row["catalog"]["setup_type"] == key for row in library)}
     if (kind not in ("all", "builtin", "custom")
             or state not in ("all", "unloaded", *game_catalog.SUPPORT_STATES)
-            or genre not in ("all", *genres) or setup not in ("all", *setup_types)):
+            or genre not in ("all", *genres) or tag not in ("all", *tags) or setup not in ("all", *setup_types)):
         abort(400, "Unbekannter Spielefilter.")
     rows = [row for row in library if game_catalog.matches(
-        row, q, kind, "all" if state == "unloaded" else state, genre, setup)
+        row, q, kind, "all" if state == "unloaded" else state, genre, setup, tag)
         and (state != "unloaded" or not row["installed"])]
     return render_template("games.html", rows=rows, library=library, q=q, kind=kind,
-                           state=state, genre=genre, setup=setup, genres=genres,
+                           state=state, genre=genre, tag=tag, tags=tags, setup=setup, genres=genres,
                            setup_types=setup_types, support_states=game_catalog.SUPPORT_STATES,
                            total=len(library))
 
@@ -415,7 +417,7 @@ def game(slug):
     from . import game_catalog
     schema = get_schema(slug)
     item = next((row for row in game_catalog.enrich(community.all_games()) if row["slug"] == slug), None)
-    return render_template("game.html", schema=schema, templates=templates_for(schema), sessions=open_sessions(),
+    return render_template("game.html", schema=schema, item=item, templates=templates_for(schema), sessions=open_sessions(),
                            game_info=item["catalog"] if item else game_catalog.details(slug, schema["game"]),
                            guide=db.query("SELECT * FROM game_guides WHERE slug=?",(slug,),one=True),
                            preselect=request.args.get("session", type=int))
@@ -1126,6 +1128,7 @@ def create_app() -> Flask:
     mvp.migrate()
     community.migrate()
     live_store.migrate()
+    ap_console.migrate()
     if "mvp" not in app.blueprints:
         app.register_blueprint(mvp.bp)
     if "community" not in app.blueprints:
@@ -1134,6 +1137,10 @@ def create_app() -> Flask:
         app.register_blueprint(auth.bp)
     if "live" not in app.blueprints:
         app.register_blueprint(live_routes.bp)
+    if "console" not in app.blueprints:
+        app.register_blueprint(console_routes.bp)
+    if "logic" not in app.blueprints:
+        app.register_blueprint(logic_routes.bp)
     app.secret_key = config.secret_key()
     auth.configure(app)
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
