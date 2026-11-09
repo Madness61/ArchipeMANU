@@ -1,6 +1,8 @@
 """Private, bounded Universal Tracker evaluations, without seed-placement input."""
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
+import base64
+import io
 import json
 import os
 from pathlib import Path
@@ -8,6 +10,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import zipfile
 from urllib.request import urlopen
 
 import yaml
@@ -77,12 +80,47 @@ def evaluation_input(build, slot, client):
             break
     if player_yaml is None:
         return None, dict(state="unavailable", error="Die unveränderliche Spieler-YAML dieses Seeds ist nicht mehr vorhanden.")
+    layout = None
+    if slot["game"] == "ss":
+        layout = skyward_layout(build, client.slot)
+        if layout is None:
+            return None, dict(state="unavailable", error="Der eigene Skyward-Sword-Patch mit dem tatsächlichen Dungeon- und Startlayout fehlt.")
     return dict(tracker=str(engine_path().resolve()), game=slot["game_name"], slot=slot["slot"],
                 slot_id=client.slot, slot_data=client.slot_data, received=list(client.received),
                 missing=sorted(client.missing.copy()), checked=sorted(client.checked.copy()),
                 item_names=db.loads(package["items"]), yaml=player_yaml,
+                location_names=db.loads(package["locations"]),
+                layout=layout,
                 ap_version=db.loads(build["snapshot"]).get("archipelago_version"),
                 hide=ap_bridge._hidden_builtins()), None
+
+
+def skyward_layout(build, slot_id):
+    """Read only topology/options, never items or hints, from our generated patch."""
+    path = config.SESSIONS / "_seeds" / str(build["id"]) / "output" / build["zip_name"]
+    fields = ("Options", "Required Dungeons", "Batreaux Rewards", "Entrances", "Trial Entrances", "Starting Statues", "Starting Entrance")
+    try:
+        with zipfile.ZipFile(path) as archive:
+            for info in archive.infolist():
+                if not info.filename.endswith('.apssr') or info.file_size > 4 * 1024 * 1024:
+                    continue
+                with zipfile.ZipFile(io.BytesIO(archive.read(info))) as patch:
+                    manifest = json.loads(patch.read('archipelago.json'))
+                    if manifest.get('player') != slot_id or manifest.get('game') != 'Skyward Sword':
+                        continue
+                    if patch.getinfo('plando').file_size > 2 * 1024 * 1024:
+                        return None
+                    document = yaml.safe_load(base64.b64decode(patch.read('plando'), validate=True))
+                    if not isinstance(document, dict) or any(key not in document for key in fields):
+                        return None
+                    def encode(value):
+                        if isinstance(value, set):
+                            return sorted(value)
+                        raise ValueError("Unsupported layout value")
+                    return json.loads(json.dumps({key: document[key] for key in fields}, default=encode))
+    except (OSError, ValueError, TypeError, KeyError, zipfile.BadZipFile, yaml.YAMLError):
+        return None
+    return None
 
 
 def run_evaluation(data):

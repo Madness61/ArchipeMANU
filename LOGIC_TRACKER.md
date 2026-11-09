@@ -24,13 +24,33 @@ Ein Admin kann die festgelegte Version über die Oberfläche einrichten.
 - Erreichbarkeit kommt aus der APWorld-CollectionState. Go-Mode kommt aus deren
   Zielbedingung, nicht aus Check-Prozent oder Itemanzahl. Ein erreichbares Ziel
   ist noch kein vom Spielclient bestätigter Abschluss.
-- Die rekonstruierten Check-IDs müssen mit dem Server übereinstimmen. Fehler,
+- Jeder gemeldete Server-Check muss dem rekonstruierten Modell zugeordnet
+  werden können. Zusätzliche interne Checks erscheinen nicht in der Liste. Fehler,
   fehlende Daten und Versionsabweichungen liefern keinen erfundenen Logikstatus.
 
 Berechnungen laufen auf ausdrückliches Aktualisieren. Gleiche Eingaben werden
 aus dem Cache bedient; neue Items oder Checks machen die alte Berechnung ungültig.
 Die Oberfläche prüft den Status alle fünf Sekunden. Höchstens zwei Prozesse,
 vier ausstehende Aufgaben und 90 Sekunden pro Prozess begrenzen die Last.
+
+Die aktive Runde vom 09.11.2026 enthält Bloodstained, Hollow Knight, Ocarina
+of Time, Resident Evil 4 Remake, Skyward Sword, Stardew Valley und Isaac.
+Stardew und Isaac bieten eigene Slotdaten-Rekonstruktion. Bei Hollow Knight
+werden aufgelöste Optionen, tatsächliche Shopplätze sowie Talisman-/Check-Kosten
+aus dem Serverstand übernommen. Bloodstained verwendet die tatsächlich
+gemeldete Verteilung mehrerer Checks auf physische Truhen.
+
+Skyward Sword benötigt zusätzlich den eigenen lokal erzeugten .apssr-Patch.
+Nur aufgelöste Optionen, benötigte Dungeons, Batreaux-Schwellen, Dungeon-/Trial-
+Verbindungen und Startlayout werden daraus gelesen. Locations, Items, Hints
+und Spielerdaten werden nicht an die Engine weitergegeben. Die nativen
+Spielregeln verbinden dieses konkrete Layout; Dungeon- und Trial-Zuordnung
+werden anschließend gegen den Patch geprüft. Ohne diesen Patch bleibt das
+Modell unbekannt. Eine ROM wird dafür nicht geladen.
+
+Alle sieben Modelle wurden mit den echten unveränderlichen Daten des aktiven
+Seeds offline geprüft. Das ist eine Kompatibilitätsprüfung mit leerer
+Empfangsliste, keine Aussage über den aktuellen Fortschritt der Spieler.
 
 ## API
 

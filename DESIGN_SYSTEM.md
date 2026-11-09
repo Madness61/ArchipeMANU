@@ -142,8 +142,12 @@ keinen Verbindungs- und Spieltest mit echten Archipelago-Spielclients.
 
 Ergänzung vom 09.11.2026: volle Desktop-Breite bis 3840 px, editierbare
 Katalogmetadaten und persönlicher Logik-Tracker. Die Python-Suite umfasst
-185 erfolgreiche Tests; 13 Browser-Szenarien decken zusätzlich Katalog,
+186 erfolgreiche Tests; 13 Browser-Szenarien decken zusätzlich Katalog,
 Konsole und Logikansicht ab. Der echte UT-Subprozess wurde separat mit APQuest
 geprüft: zwei erreichbare Checks ohne Items, sechs mit Zielausrüstung sowie
 korrekter Wechsel in Go-Mode. Der Browser-Logiktest verwendet kontrollierte
 API-Antworten und prüft Darstellung, Filter und ausdrückliche Spoilerfreigabe.
+Zusätzlich wurden alle sieben Spielmodelle des aktiven Seeds mit dessen echten
+unveränderlichen YAML-/Slotdaten offline rekonstruiert und geprüft. Für Skyward
+Sword werden ausschließlich Layoutdaten aus dem eigenen generierten Patch
+verwendet; die Engine erhält keine Itemplatzierungen oder Hinweise.

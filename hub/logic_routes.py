@@ -62,13 +62,14 @@ def placements(sid, build_id):
     slot_name = request.form.get("slot", own[0]["slot"])
     if slot_name not in {s["slot"] for s in own}:
         abort(403)
-    snapshot = db.loads(build["snapshot"])
-    finder = next(i for i, s in enumerate(snapshot["slots"], 1) if s["slot"] == slot_name)
-    rows = mvp._build_placements(build, mvp._build_distribution(build))
-    if rows is None:
+    distribution = mvp._build_distribution(build)
+    players = {p['id']:p for p in distribution.get('players', [])} if distribution else {}
+    selected = next((p for p in players.values() if p['name'] == slot_name), None)
+    rows = mvp._build_placements(build, distribution)
+    if rows is None or selected is None:
         abort(409, "Für diesen Seed sind keine verifizierten Itemplatzierungen gespeichert.")
     response = jsonify(placements=[dict(id=row["location_id"], item=row["item"],
-        recipient=snapshot["slots"][row["recipient"]-1]["slot"]) for row in rows if row["finder"] == finder])
+        recipient=players[row['recipient']]['name']) for row in rows if row["finder"] == selected['id']])
     response.headers["Cache-Control"] = "no-store"
     return response
 

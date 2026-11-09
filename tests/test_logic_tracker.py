@@ -1,10 +1,16 @@
 """Logic privacy, explicit spoilers, immutable inputs and cache invalidation."""
 from concurrent.futures import Future
+import base64
+import io
+import json
+from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+import zipfile
+import yaml
 
-from hub import db, logic_tracker, mvp
+from hub import config, db, logic_tracker, mvp
 import test_mvp as fixtures
 
 
@@ -34,8 +40,9 @@ class LogicTests(unittest.TestCase):
             self.assertEqual(self.client.get(url+'/data?slot=Friend').status_code,403)
             self.assertEqual(self.client.post(url+'/refresh').status_code,403)
             self.assertEqual(self.post(url+'/refresh', {}).status_code,200)
-        with patch.object(mvp,'_build_distribution',return_value={}), \
-             patch.object(mvp,'_build_placements',return_value=[dict(finder=1,recipient=1,location_id=3,item='Secret key')]):
+        # Generator IDs are not the ordinal position of slots in the snapshot.
+        with patch.object(mvp,'_build_distribution',return_value={'players':[dict(id=17,name='Host',game='Test World')]}), \
+             patch.object(mvp,'_build_placements',return_value=[dict(finder=17,recipient=17,location_id=3,item='Secret key')]):
             response=self.post(url+'/placements', {})
             self.assertIn('Secret key',response.get_data(as_text=True))
         self.assertEqual(self.app.test_client().get(url+'/data').status_code,401)
@@ -79,6 +86,24 @@ class LogicTests(unittest.TestCase):
              patch.object(logic_tracker.ap_bridge,'trusted_custom_execution',return_value=True):
             _,error=logic_tracker.evaluation_input({}, {'slot':'Host'}, None)
             self.assertEqual(error['state'],'not_connected')
+
+    def test_skyward_patch_passes_only_layout_for_exact_slot(self):
+        fields={key:{} for key in ('Options','Batreaux Rewards','Trial Entrances','Starting Statues','Starting Entrance')}
+        fields.update({'Required Dungeons':['Skyview'],'Entrances':[['Exit','Entry']],
+                       'Locations':{'Secret chest':'Secret item'},'Hints':['Secret hint'],
+                       'Name':'Private name','All Players':['Private players']})
+        inner=io.BytesIO()
+        with zipfile.ZipFile(inner,'w') as z:
+            z.writestr('archipelago.json',json.dumps(dict(player=2,game='Skyward Sword')))
+            z.writestr('plando',base64.b64encode(yaml.safe_dump(fields).encode()))
+        folder=config.SESSIONS/'_seeds'/'9'/'output';folder.mkdir(parents=True)
+        with zipfile.ZipFile(folder/'test.zip','w') as z:z.writestr('player.apssr',inner.getvalue())
+        layout=logic_tracker.skyward_layout(dict(id=9,zip_name='test.zip'),2)
+        self.assertEqual(layout['Required Dungeons'],['Skyview'])
+        encoded=json.dumps(layout)
+        for secret in ['Secret item','Secret hint','Private name','Private players','Locations','Hints']:
+            self.assertNotIn(secret,encoded)
+        self.assertIsNone(logic_tracker.skyward_layout(dict(id=9,zip_name='test.zip'),1))
 
 
 if __name__ == '__main__':
