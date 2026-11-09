@@ -21,16 +21,18 @@
     $('logic-locations').replaceChildren(...(rows.length?rows:[node('p','Keine Checks für diese Auswahl.','muted')]));
   }
   async function update(refresh=false){
-    if(busy)return;busy=true;const ticket=generation,slot=$('logic-slot').value;
+    if(busy)return;busy=true;let recalculate=false;const ticket=generation,slot=$('logic-slot').value;
     try{
       const data=await api(refresh?'/refresh':'/data?'+new URLSearchParams({slot}),refresh?{slot}:null);
       if(ticket!==generation)return;
+      recalculate=!refresh&&['idle','stale'].includes(data.state)&&$('logic-auto').checked;
       if(data.state!=='ready'){clear();$('logic-status').textContent=data.error||'Noch keine Logikdaten.';$('logic-status').dataset.error=String(!['loading','idle'].includes(data.state));}
       else {state=data;$('logic-status').textContent=data.engine+' · Datenstand '+new Date(data.observed_at*1000).toLocaleTimeString('de-DE')+(data.deferred_entrances?' · '+data.deferred_entrances+' noch unbekannte Verbindungen':'');$('logic-status').dataset.error='false';$('logic-reachable').textContent=data.reachable;$('logic-remaining').textContent=data.remaining;$('logic-go').textContent=data.go_mode==null?'Unbekannt':data.go_mode?'Ja':'Noch nicht';$('logic-inventory').replaceChildren(...data.inventory.map(i=>node('li',i.count+' × '+i.name)));render();}
     }catch(error){if(ticket===generation){clear();$('logic-status').textContent=error.message;$('logic-status').dataset.error='true';}}
-    finally{busy=false;}
+    finally{busy=false;if(recalculate&&ticket===generation)update(true);}
   }
   $('logic-refresh').addEventListener('click',()=>update(true));
+  $('logic-auto').addEventListener('change',()=>update());
   $('logic-slot').addEventListener('change',()=>{generation++;clear();update();});
   $('logic-search').addEventListener('input',render);$('logic-filter').addEventListener('change',render);
   $('logic-reveal').addEventListener('click',async()=>{const ticket=generation;try{const data=await api('/placements',{slot:$('logic-slot').value});if(ticket!==generation)return;placements=new Map(data.placements.map(row=>[row.id,row]));render();$('logic-reveal').textContent='Iteminhalte aufgedeckt';}catch(error){$('logic-status').textContent=error.message;}});

@@ -20,8 +20,12 @@ def test_logic_ui_filters_spoilers_and_mobile(actors, artifact_dir):
         locations=[dict(id=1,name='Start Chest',region='Town',reachable=True,checked=False),
                    dict(id=2,name='Locked Cave',region='Cave',reachable=False,checked=False)])
     reveals=[]
-    page.route('**/live/logic/data*',lambda route:route.fulfill(json=state))
-    page.route('**/live/logic/refresh',lambda route:route.fulfill(json=state))
+    refreshes=[]
+    page.route('**/live/logic/data*',lambda route:route.fulfill(json=state if refreshes else dict(state='idle',error='Noch keine Berechnung')))
+    def refresh(route):
+        refreshes.append(True)
+        route.fulfill(json=state)
+    page.route('**/live/logic/refresh',refresh)
     def reveal(route):
         reveals.append(True)
         route.fulfill(json=dict(placements=[dict(id=1,item='Hidden Sword',recipient='Alice')]))
@@ -29,6 +33,7 @@ def test_logic_ui_filters_spoilers_and_mobile(actors, artifact_dir):
     page.goto(logic_url)
     expect(page.get_by_role('heading',name='Logik-Tracker',exact=True)).to_be_visible()
     expect(page.locator('#logic-go')).to_have_text('Ja')
+    assert len(refreshes)==1  # Automatic calculation after the initial server snapshot.
     expect(page.locator('.logic-location')).to_have_count(1)
     expect(page.locator('#logic-locations')).not_to_contain_text('Hidden Sword')
     assert not reveals

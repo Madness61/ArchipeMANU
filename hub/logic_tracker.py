@@ -91,6 +91,7 @@ def evaluation_input(build, slot, client):
                 item_names=db.loads(package["items"]), yaml=player_yaml,
                 location_names=db.loads(package["locations"]),
                 layout=layout,
+                world_module=slot['game'], world_sha=archive_sha,
                 ap_version=db.loads(build["snapshot"]).get("archipelago_version"),
                 hide=ap_bridge._hidden_builtins()), None
 
@@ -133,6 +134,11 @@ def run_evaluation(data):
             environment.update(PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
             # Same lock as generation/extraction; never race AP's world mirror.
             with ap_bridge.ap_lock:
+                if data.get('world_sha'):
+                    paths = [config.APWORLDS / (data['world_module']+'.apworld'),
+                             config.AP_SOURCE / 'custom_worlds' / (data['world_module']+'.apworld')]
+                    if any(not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != data['world_sha'] for path in paths):
+                        return dict(state='unsupported',error='Die APWorld-Version wurde vor der Berechnung geändert. Bitte die Seed-Version wiederherstellen.')
                 result = subprocess.run([str(config.AP_PYTHON), str(config.ROOT / "logic_worker.py")],
                     input=db.dumps(request), capture_output=True, text=True, encoding="utf-8",
                     errors="replace", cwd=config.AP_SOURCE, env=environment, timeout=90,

@@ -7,9 +7,10 @@
 <div id="logic-tracker" data-base="{{ url_for('logic.page',sid=room.id,build_id=build.id) }}" data-csrf="{{ csrf_token }}">
   <section class="panel">
     <div class="row spread"><label>Dein Spielslot<select id="logic-slot" aria-label="Dein Spielslot">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label><button class="primary" id="logic-refresh">Logik aktualisieren</button></div>
+    <label class="small"><input type="checkbox" id="logic-auto" checked> Bei neuen Serverdaten automatisch neu berechnen</label>
     <p id="logic-status" role="status" aria-live="polite" class="status-note">Verbinde deinen Slot in der Konsole und lass anschließend die Erreichbarkeit berechnen.</p>
     {% if g.user.is_admin and not engine_ready %}<p class="small muted">Universal Tracker wird separat in der Archipelago-Laufzeit ausgeführt. Die Einrichtung lädt die festgelegte Version 0.3.3 und prüft ihren SHA-256-Hash.</p><button type="button" id="logic-install">Logik-Engine einrichten</button>{% endif %}
-    <p class="small muted">Die Berechnung verwendet die vom Server gemeldeten Items, Checks und Slotdaten sowie die YAML des generierten Seeds. Sie prüft deinen lokalen Spielstand nicht. Neue Empfangsdaten erfordern eine neue Berechnung.</p>
+    <p class="small muted">Die Berechnung verwendet die vom Server gemeldeten Items, Checks und Slotdaten sowie die YAML des generierten Seeds. Sie prüft deinen lokalen Spielstand nicht. Neue Empfangsdaten lösen bei aktivierter Automatik eine neue Berechnung aus.</p>
   </section>
   <div class="metric-grid"><article class="panel"><div><span class="muted small">Erreichbare offene Checks</span><div class="metric" id="logic-reachable">—</div></div></article><article class="panel"><div><span class="muted small">Noch offene Checks</span><div class="metric" id="logic-remaining">—</div></div></article><article class="panel"><div><span class="muted small">Go-Mode laut Spielregeln</span><div class="metric" id="logic-go">Unbekannt</div></div></article></div>
   <p class="small muted" id="logic-context">Go-Mode bedeutet: Das konfigurierte Spielziel ist mit dem gemeldeten Inventar laut Logik erreichbar. Das Ziel ist damit noch nicht im Spiel abgeschlossen.</p>

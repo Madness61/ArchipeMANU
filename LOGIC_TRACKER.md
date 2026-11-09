@@ -28,9 +28,11 @@ Ein Admin kann die festgelegte Version über die Oberfläche einrichten.
   werden können. Zusätzliche interne Checks erscheinen nicht in der Liste. Fehler,
   fehlende Daten und Versionsabweichungen liefern keinen erfundenen Logikstatus.
 
-Berechnungen laufen auf ausdrückliches Aktualisieren. Gleiche Eingaben werden
-aus dem Cache bedient; neue Items oder Checks machen die alte Berechnung ungültig.
-Die Oberfläche prüft den Status alle fünf Sekunden. Höchstens zwei Prozesse,
+Berechnungen laufen auf Aktualisieren oder bei eingeschalteter Automatik nach
+neuen Serverdaten. Die Automatik lässt sich pro geöffneter Ansicht ausschalten.
+Gleiche Eingaben werden aus dem Cache bedient; neue Items oder Checks machen
+die alte Berechnung ungültig. Die Oberfläche prüft den Status alle fünf Sekunden.
+Höchstens zwei Prozesse,
 vier ausstehende Aufgaben und 90 Sekunden pro Prozess begrenzen die Last.
 
 Die aktive Runde vom 09.11.2026 enthält Bloodstained, Hollow Knight, Ocarina
