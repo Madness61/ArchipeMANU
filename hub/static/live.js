@@ -4,7 +4,7 @@
   if (!root) return;
   const $ = id => document.getElementById(id);
   const fmt = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
-  const colors = ["#6354d9", "#188f87", "#db8a36", "#cf628b", "#4c86ce", "#8d6b3b", "#568d4d", "#9c61bd"];
+  const colors = ["#A89CFF", "#5EE3B1", "#F5BC79", "#EFA2C3", "#85B6F4", "#D8BE91", "#A0D28D", "#C9A2EF"];
   const value = n => n == null ? "Nicht verfügbar" : fmt.format(n);
   const pct = n => n == null ? "Nicht verfügbar" : value(n) + " %";
   const date = (s, full = false) => s ? new Date(s).toLocaleString("de-DE", full
@@ -23,7 +23,7 @@
     return node;
   };
   let state = null, selectedPlayer = null, timer, inflight = false, lastChartStamp = "";
-  const playerNodes = new Map(), charts = new Map();
+  const playerNodes = new Map(), overviewNodes = new Map(), charts = new Map();
 
   class Chart {
     constructor(container) {
@@ -225,6 +225,28 @@
     if (focus) { $("live-player-detail").focus({ preventScroll: true }); $("live-player-detail").scrollIntoView({ behavior: "smooth", block: "start" }); }
   }
   function players(data) {
+    const overview = $("live-overview-players");
+    const visibleKeys = new Set();
+    data.players.slice(0, 6).forEach((player, i) => {
+      visibleKeys.add(player.key);
+      let card = overviewNodes.get(player.key);
+      if (!card) {
+        card = el("button", null, "overview-player"); card.type = "button";
+        const progress = el("div", null, "overview-player-progress");
+        progress.append(el("span"), el("span"));
+        const track = el("div", null, "progress-track"); track.append(el("span"));
+        card.append(el("strong"), el("small"), progress, track);
+        card.addEventListener("click", () => { tab("players"); selectedPlayer = player.key; playerDetail(true); });
+        overviewNodes.set(player.key, card); overview.append(card);
+      }
+      card.style.setProperty("--player", colors[i % colors.length]);
+      card.querySelector("strong").textContent = player.name;
+      card.querySelector("small").textContent = player.game;
+      card.querySelector(".overview-player-progress>span").textContent = pct(player.progress);
+      card.querySelector(".overview-player-progress>span:last-child").textContent = value(player.checks) + " Checks";
+      card.querySelector(".progress-track>span").style.width = Math.min(100, player.progress || 0) + "%";
+    });
+    overviewNodes.forEach((node, id) => { if (!visibleKeys.has(id)) { node.remove(); overviewNodes.delete(id); } });
     const container = $("live-player-cards"), order = $("live-player-sort").value;
     const sorted = [...data.players].sort((a, b) => order === "slot" ? a.team - b.team || a.slot - b.slot
       : (b[order] ?? -1) - (a[order] ?? -1));
@@ -310,6 +332,7 @@
       $("live-total-bar").style.width = "0%";
       set("live-progress-caption", "Für den neu verbundenen Raum liegen noch keine Daten vor.");
       playerNodes.clear(); selectedPlayer = null;
+      overviewNodes.clear(); $("live-overview-players").replaceChildren();
       $("live-player-cards").replaceChildren(el("p", "Warte auf die Spieler des neuen Raums.", "panel muted"));
       $("live-player-detail").hidden = true;
       charts.forEach(instance => { instance.hidden.clear(); instance.signature = null; instance.update([], []); });

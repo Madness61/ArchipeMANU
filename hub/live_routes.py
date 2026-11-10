@@ -34,6 +34,7 @@ def dashboard(sid, build_id):
     if linked:
         collector()
     return render_template("live_dashboard.html", room=room, build=build, linked=linked,
+                           race=bool(db.loads(build["snapshot"]).get("race")),
                            manager=mvp._manager(room))
 
 

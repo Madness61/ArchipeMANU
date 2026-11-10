@@ -1549,29 +1549,62 @@
     "guide_url": "https://github.com/EdricY/Bouncy-Loot-God#setup-for-playing",
     "source_url": "https://github.com/EdricY/Bouncy-Loot-God",
     "links": [
-      {"label": "Originalspiel bei Steam", "url": "https://store.steampowered.com/app/261640/Borderlands_The_PreSequel/"},
-      {"label": "BouncyLootGod: Mod und TPS-APWorld", "url": "https://github.com/EdricY/Bouncy-Loot-God/releases"},
-      {"label": "Python SDK und Mod Manager", "url": "https://bl-sdk.github.io/"},
-      {"label": "coroutines: Abhängigkeit", "url": "https://bl-sdk.github.io/willow2-mod-db/mods/coroutines/"}
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/261640/Borderlands_The_PreSequel/"
+      },
+      {
+        "label": "BouncyLootGod: Mod und TPS-APWorld",
+        "url": "https://github.com/EdricY/Bouncy-Loot-God/releases"
+      },
+      {
+        "label": "Python SDK und Mod Manager",
+        "url": "https://bl-sdk.github.io/"
+      },
+      {
+        "label": "coroutines: Abhängigkeit",
+        "url": "https://bl-sdk.github.io/willow2-mod-db/mods/coroutines/"
+      }
     ]
   },
   "pseudoregalia": {
     "guide_url": "https://github.com/pseudoregalia-modding/pseudoregalia-archipelago/blob/main/AP_Randomizer/apworld/docs/setup_en.md",
     "source_url": "https://github.com/pseudoregalia-modding/pseudoregalia-archipelago",
     "links": [
-      {"label": "Originalspiel bei Steam", "url": "https://store.steampowered.com/app/2365810/Pseudoregalia/"},
-      {"label": "Mod und APWorld: passende Version auswählen", "url": "https://github.com/pseudoregalia-modding/pseudoregalia-archipelago/releases"},
-      {"label": "Versionshinweise zu 0.11.0", "url": "https://github.com/pseudoregalia-modding/pseudoregalia-archipelago/releases/tag/0.11.0"}
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/2365810/Pseudoregalia/"
+      },
+      {
+        "label": "Mod und APWorld: passende Version auswählen",
+        "url": "https://github.com/pseudoregalia-modding/pseudoregalia-archipelago/releases"
+      },
+      {
+        "label": "Versionshinweise zu 0.11.0",
+        "url": "https://github.com/pseudoregalia-modding/pseudoregalia-archipelago/releases/tag/0.11.0"
+      }
     ]
   },
   "RE4R": {
     "guide_url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard#install",
     "source_url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard",
     "links": [
-      {"label": "Originalspiel bei Steam", "url": "https://store.steampowered.com/app/2050650/Resident_Evil_4/"},
-      {"label": "RE4R AP Wizard: Downloads", "url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard/releases"},
-      {"label": "Voraussetzungen und DLCs", "url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard#what-you-need"},
-      {"label": "Hilfe bei fehlenden Checks und Verbindungsproblemen", "url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard#somethings-wrong"}
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/2050650/Resident_Evil_4/"
+      },
+      {
+        "label": "RE4R AP Wizard: Downloads",
+        "url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard/releases"
+      },
+      {
+        "label": "Voraussetzungen und DLCs",
+        "url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard#what-you-need"
+      },
+      {
+        "label": "Hilfe bei fehlenden Checks und Verbindungsproblemen",
+        "url": "https://github.com/LiterallyMetaphorical/RE4R-AP-Wizard#somethings-wrong"
+      }
     ]
   },
   "borderlands2": {
@@ -1589,6 +1622,66 @@
       {
         "label": "Python SDK: Installation",
         "url": "https://bl-sdk.github.io/"
+      }
+    ]
+  },
+  "bloodstained_rotn": {
+    "guide_url": "https://archipelago.skillysue.nl/tutorial/Bloodstained:%20Ritual%20of%20the%20Night/setup_en",
+    "source_url": "https://archipelago.skillysue.nl/tutorial/Bloodstained:%20Ritual%20of%20the%20Night/setup_en",
+    "links": [
+      {
+        "label": "Originalspiel bei Steam",
+        "url": "https://store.steampowered.com/app/692850/Bloodstained_Ritual_of_the_Night/"
+      },
+      {
+        "label": "Bloodstained-Client: Projekt und Versionshinweise",
+        "url": "https://github.com/Berserker66/BloodstainedAPClient"
+      }
+    ]
+  },
+  "tmc": {
+    "guide_url": "https://github.com/eternalcode0/Archipelago/blob/feat/new-game-minish-cap/worlds/tmc/docs/setup_en.md",
+    "source_url": "https://github.com/eternalcode0/Archipelago/tree/feat/new-game-minish-cap/worlds/tmc",
+    "links": [
+      {
+        "label": "TMC-APWorld: Veröffentlichungen",
+        "url": "https://github.com/eternalcode0/Archipelago/releases"
+      },
+      {
+        "label": "BizHawk herunterladen",
+        "url": "https://tasvideos.org/BizHawk/ReleaseHistory"
+      }
+    ]
+  },
+  "tboir": {
+    "guide_url": "https://github.com/NaveTK/Archipelago/blob/main/worlds/tboir/docs/setup_en.md",
+    "source_url": "https://github.com/NaveTK/Archipelago/tree/main/worlds/tboir",
+    "links": [
+      {
+        "label": "Isaac-APWorld herunterladen",
+        "url": "https://github.com/NaveTK/Archipelago/releases"
+      },
+      {
+        "label": "The Archipelago of Isaac: Steam Workshop",
+        "url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3640861678"
+      }
+    ]
+  },
+  "ss": {
+    "guide_url": "https://github.com/Battlecats59/SS_APWorld/blob/ss/docs/setup_en.md",
+    "source_url": "https://github.com/Battlecats59/SS_APWorld",
+    "links": [
+      {
+        "label": "SS-APWorld und Spiel-Patcher",
+        "url": "https://github.com/Battlecats59/SS_APWorld/releases"
+      },
+      {
+        "label": "Dolphin herunterladen",
+        "url": "https://dolphin-emu.org/download/"
+      },
+      {
+        "label": "Hilfe bei Problemen",
+        "url": "https://github.com/Battlecats59/SS_APWorld/blob/ss/docs/troubleshooting_en.md"
       }
     ]
   }

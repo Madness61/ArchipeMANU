@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Logik-Tracker · {{ room.name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static',filename='logic.css') }}">
+<p><a href="{{ url_for('live.dashboard',sid=room.id,build_id=build.id) }}">← Live-Dashboard</a></p>
+<div class="page-head"><div><p class="eyebrow">Dein nächster Check</p><h1>Logik-Tracker</h1><p class="muted">{{ room.name }} · Seed #{{ build.id }} · Spielregeln statt Prozent-Schätzungen.</p></div><a class="btn" href="{{ url_for('console.page',sid=room.id,build_id=build.id) }}">Slot in der Konsole verbinden</a></div>
+<div id="logic-tracker" data-base="{{ url_for('logic.page',sid=room.id,build_id=build.id) }}" data-csrf="{{ csrf_token }}">
+  <section class="panel">
+    <div class="row spread"><label>Dein Spielslot<select id="logic-slot" aria-label="Dein Spielslot">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label><button class="primary" id="logic-refresh">Logik aktualisieren</button></div>
+    <label class="small"><input type="checkbox" id="logic-auto" checked> Bei neuen Serverdaten automatisch neu berechnen</label>
+    <p id="logic-status" role="status" aria-live="polite" class="status-note">Verbinde deinen Slot in der Konsole und lass anschließend die Erreichbarkeit berechnen.</p>
+    {% if g.user.is_admin and not engine_ready %}<p class="small muted">Universal Tracker wird separat in der Archipelago-Laufzeit ausgeführt. Die Einrichtung lädt die festgelegte Version 0.3.3 und prüft ihren SHA-256-Hash.</p><button type="button" id="logic-install">Logik-Engine einrichten</button>{% endif %}
+    <p class="small muted">Die Berechnung verwendet die vom Server gemeldeten Items, Checks und Slotdaten sowie die YAML des generierten Seeds. Sie prüft deinen lokalen Spielstand nicht. Neue Empfangsdaten lösen bei aktivierter Automatik eine neue Berechnung aus.</p>
+  </section>
+  <div class="metric-grid"><article class="panel"><div><span class="muted small">Erreichbare offene Checks</span><div class="metric" id="logic-reachable">—</div></div></article><article class="panel"><div><span class="muted small">Noch offene Checks</span><div class="metric" id="logic-remaining">—</div></div></article><article class="panel"><div><span class="muted small">Go-Mode laut Spielregeln</span><div class="metric" id="logic-go">Unbekannt</div></div></article></div>
+  <p class="small muted" id="logic-context">Go-Mode bedeutet: Das konfigurierte Spielziel ist mit dem gemeldeten Inventar laut Logik erreichbar. Das Ziel ist damit noch nicht im Spiel abgeschlossen.</p>
+  <section class="panel"><div class="row spread"><h2 style="margin-top:0">Checks & Regionen</h2><span class="chip" id="logic-count">Noch keine Berechnung</span></div>
+    <div class="row logic-filters"><label>Suche<input type="search" id="logic-search" aria-label="Suche" placeholder="Check, Region oder aufgedecktes Item"></label><label>Logikstatus<select id="logic-filter" aria-label="Logikstatus"><option value="reachable">Erreichbar und offen</option><option value="open">Alle offenen Checks</option><option value="blocked">Außerhalb der Logik</option><option value="checked">Bereits erledigt</option><option value="all">Alle Checks</option></select></label></div>
+    <div id="logic-locations" class="logic-locations"><p class="muted">Hier erscheinen die ausgewerteten Checks.</p></div>
+    <details class="technical-options"><summary>Iteminhalte aufdecken · Spoiler</summary><p class="muted small">Erreichbarkeit verrät noch nicht den Inhalt eines Checks. Nur hier werden gespeicherte Seed-Platzierungen ausdrücklich aufgedeckt. Im Race-Modus und bei deaktivierten Spoilern ist das gesperrt.</p><button type="button" id="logic-reveal">Iteminhalte ausdrücklich aufdecken</button></details>
+  </section>
+  <details class="panel analysis-section"><summary>Gemeldetes Inventar & Grenzen der Logik</summary><ul id="logic-inventory"></ul><p class="small muted">Universal Tracker rekonstruiert die Regeln der installierten APWorld. Versionsabweichungen, unbekannte Items oder abweichende Checks verhindern eine gültige Anzeige. Zufällige Weltverbindungen benötigen passende Unterstützung der APWorld; noch nicht bekannte Verbindungen werden gesondert gemeldet. „Außerhalb der Logik“ bedeutet nicht zwangsläufig, dass ein Check mit Tricks unmöglich ist.</p><a href="https://github.com/FarisTheAncient/Archipelago/releases?q=Tracker" target="_blank" rel="noopener noreferrer">Universal Tracker: Projekt & Versionshinweise ↗</a></details>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static',filename='logic.js') }}"></script>{% endblock %}

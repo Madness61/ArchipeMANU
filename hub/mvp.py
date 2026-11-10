@@ -941,11 +941,12 @@ def play_page(sid, build_id):
         guides[slot["game"]] = dict(guide) if guide else None
     assets = artifact_files(build_id, build["zip_name"]) if build["status"] == "succeeded" else []
     distribution = _build_distribution(build, snapshot)
+    metadata = {row["module"]: dict(row) for row in db.query("SELECT * FROM game_metadata")}
     return render_template("play.html", room=room, build=build, hosted=hosted,
                            live_connection=live_store.current(build_id),
                            completion=completion_state(build),
                            can_manage_session=_manager(room),
-                           setup_infos={slot["game"]: game_catalog.details(slot["game"], slot["game_name"]) for slot in own},
+                           setup_infos={slot["game"]: game_catalog.details(slot["game"], slot["game_name"], metadata.get(slot["game"])) for slot in own},
                            stats=distribution, race=bool(snapshot.get("race")),
                            overview=stats.game_overview(distribution) if distribution else [],
                            slots=snapshot["slots"], own=own, guides=guides, assets=assets)

@@ -1,45 +1,55 @@
+{% from "ui.html" import icon with context %}
 <!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0D1323">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <script>document.documentElement.classList.add('js');</script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="{{ 'app-shell' if g.user else 'auth-shell' }}" data-page="{{ request.endpoint or '' }}">
 <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
 <header class="top">
-  <div class="inner">
-    <a class="brand" href="{{ url_for('index') }}"><span class="brand-symbol" aria-hidden="true">↔</span> {{ app_name }}</a>
-    {% if g.user %}
+  <div class="sidebar-brand"><a class="brand" href="{{ url_for('index') }}"><span class="brand-symbol">{{ icon('worlds') }}</span><span>{{ app_name }}<small>DEIN MULTIWORLD-HUB</small></span></a>
+    {% if g.user %}<button type="button" class="menu-toggle" id="menu-toggle" aria-label="Menü öffnen" aria-controls="sidebar-body" aria-expanded="false">{{ icon('menu') }}</button>{% endif %}
+  </div>
+  {% if g.user %}
+  <div class="sidebar-body" id="sidebar-body">
+    <p class="nav-label">Dein Spieleabend</p>
     <nav aria-label="Hauptnavigation" id="main-navigation">
       {% set current = request.endpoint or '' %}
-      {% set active_play = current in ('mvp.play_page','live.dashboard') and active_connections|selectattr('build_id', 'equalto', request.view_args.get('build_id'))|list %}
-      <a href="{{ url_for('index') }}" {% if current == 'index' %}aria-current="page"{% endif %}>Übersicht</a>
-      <a href="{{ url_for('games') }}" {% if current in ('games','game','template_new','template_edit','import_view') or current.startswith('community.') %}aria-current="page"{% endif %}>Spielebibliothek</a>
-      <a href="{{ url_for('mvp.lobby_list') }}" {% if current in ('mvp.lobby_list','session_view','mvp.entry_options','mvp.lobby_selection_submit') %}aria-current="page"{% endif %}>Lobbys</a>
-      <a href="{{ url_for('mvp.seed_list') }}" {% if current in ('mvp.seed_list','mvp.build_stats','mvp.build_item_details','mvp.reveal_progression_world') or (current == 'mvp.play_page' and not active_play) %}aria-current="page"{% endif %}>Seed-Analyse</a>
-      {% if active_connections %}<a href="{{ url_for('mvp.active_lobby') }}" {% if current == 'mvp.active_lobby' or active_play %}aria-current="page"{% endif %}>Aktive Lobby</a>{% endif %}
+      {% set active_play = current in ('mvp.play_page','live.dashboard','console.page','logic.page') and active_connections|selectattr('build_id', 'equalto', request.view_args.get('build_id'))|list %}
+      <a href="{{ url_for('index') }}" {% if current == 'index' %}aria-current="page"{% endif %}>{{ icon('dashboard') }}<span>Dashboard</span></a>
+      <a href="{{ url_for('games') }}" {% if current in ('games','game','game_setup','template_new','template_edit','import_view') or current.startswith('community.') %}aria-current="page"{% endif %}>{{ icon('library') }}<span>Spielebibliothek</span></a>
+      <a href="{{ url_for('mvp.lobby_list') }}" {% if current in ('mvp.lobby_list','session_view','mvp.entry_options','mvp.lobby_selection_submit') %}aria-current="page"{% endif %}>{{ icon('users') }}<span>Lobbys</span></a>
+      <a href="{{ url_for('mvp.active_lobby') }}" {% if current == 'mvp.active_lobby' or active_play or current == 'live.dashboard' %}aria-current="page"{% endif %}>{{ icon('activity') }}<span>Aktive Runden</span>{% if active_connections %}<span class="nav-count" aria-hidden="true">{{ active_connections|length }}</span>{% endif %}</a>
+      <a href="{{ url_for('mvp.seed_list') }}" {% if current in ('mvp.seed_list','mvp.build_stats','mvp.build_item_details','mvp.reveal_progression_world') or (current in ('mvp.play_page','console.page','logic.page') and not active_play) %}aria-current="page"{% endif %}>{{ icon('chart') }}<span>Seed-Analysen</span></a>
     </nav>
-    <div class="me">
-      {% if g.user.is_admin %}<a href="{{ url_for('admin') }}" class="admin-link" {% if current == 'admin' %}aria-current="page"{% endif %}>Admin</a>{% endif %}
-      <a href="{{ url_for('profile') }}" class="profile-link" title="Profil und persönliche Einstellungen">{{ g.user.username }}</a>
-      <form class="inline" method="post" action="{{ url_for('logout') }}">
-  <input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish small">Abmelden</button></form>
-    </div>
-    {% endif %}
+    <div class="sidebar-note">{{ icon('worlds') }}<p>Verschiedene Spiele.<br><strong>Ein gemeinsames Abenteuer.</strong></p></div>
+    <div class="sidebar-footer"><p class="nav-label">Dein Bereich</p><div class="me">
+      <a href="{{ url_for('profile') }}" class="profile-link" {% if current == 'profile' %}aria-current="page"{% endif %}><span class="avatar" aria-hidden="true">{{ g.user.username[:1]|upper }}</span><span>{{ g.user.username }}<small>Profil & Vorlagen</small></span>{{ icon('chevron') }}</a>
+      {% if g.user.is_admin %}<a href="{{ url_for('admin') }}" class="admin-link" {% if current == 'admin' or current.startswith('admin_') %}aria-current="page"{% endif %}>{{ icon('shield') }} Admin</a>{% endif %}
+      <form class="inline" method="post" action="{{ url_for('logout') }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish small">{{ icon('logout') }} Abmelden</button></form>
+    </div></div>
   </div>
+  {% endif %}
 </header>
+{% if g.user %}<button type="button" class="nav-scrim" id="nav-scrim" aria-label="Navigation schließen" tabindex="-1" hidden></button>{% endif %}
 <main class="inner" id="main-content" tabindex="-1">
+  {% if g.user %}<div class="app-topline"><span>{{ icon('worlds') }} Deine Welten. Euer Abend.</span><span>Private Gaming-Lounge</span></div>
+  {% else %}<div class="auth-layout"><aside class="auth-intro"><p class="eyebrow">Gemeinsam mehr erleben</p><h2>Viele Welten.<br>Ein Abenteuer.</h2><p>Plane euren Spieleabend, finde dein Spiel und verbinde eure Welten mit Archipelago.</p><div class="auth-orbit" aria-hidden="true">{{ icon('worlds') }}</div><ol><li>Lobby beitreten</li><li>Spiel auswählen</li><li>Gemeinsam losspielen</li></ol></aside><div class="auth-content">{% endif %}
   {% if g.user and not ap_ready %}
     <div class="flash error" role="status">Die Spiele sind noch nicht eingerichtet. {% if g.user.is_admin %}Führe einmal <code>setup.ps1</code> aus; die Anleitung steht in der README.{% else %}Bitte gib dem Administrator Bescheid.{% endif %}</div>
   {% elif g.user and extract.status in ('queued','running') %}
-    <div class="flash info" id="world-extract-status" role="status" data-url="{{ url_for('world_status') }}" data-status="{{ extract.status }}">Die Spiel-Optionen werden gerade eingelesen … das dauert meist unter einer Minute.</div>
+    <div class="flash info" id="world-extract-status" role="status" data-url="{{ url_for('world_status') }}" data-status="{{ extract.status }}">Die Spiel-Optionen werden gerade eingelesen – das dauert meist unter einer Minute.</div>
   {% endif %}
   {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</div>
+    <div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ icon('check' if category != 'error' else 'shield') }}<span>{{ message }}</span></div>
   {% endfor %}
   {% block content %}{% endblock %}
+  {% if not g.user %}</div></div>{% endif %}
 </main>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 {% block scripts %}{% endblock %}

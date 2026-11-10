@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "ui.html" import icon, game_art with context %}
 {% block title %}Spielebibliothek · {{ app_name }}{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -13,6 +14,7 @@
   <label>Archipelago-Unterstützung<select name="state" aria-label="Archipelago-Unterstützung"><option value="all">Alle Status</option>{% for value,label in support_states.items() %}<option value="{{ value }}" {% if state == value %}selected{% endif %}>{{ label }}</option>{% endfor %}<option value="unloaded" {% if state == 'unloaded' %}selected{% endif %}>Optionen fehlen (alle)</option></select></label>
   <label>Spieltyp<select name="kind" aria-label="Spieltyp"><option value="all" {% if kind == 'all' %}selected{% endif %}>Alle Spiele</option><option value="builtin" {% if kind == 'builtin' %}selected{% endif %}>In Archipelago enthalten</option><option value="custom" {% if kind == 'custom' %}selected{% endif %}>Hinzugefügte Spiele</option></select></label>
   <label>Genre<select name="genre" aria-label="Genre"><option value="all">Alle Genres</option>{% for value in genres %}<option value="{{ value }}" {% if genre == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
+  <label>Tag<select name="tag" aria-label="Tag"><option value="all">Alle Tags</option>{% for value in tags %}<option value="{{ value }}" {% if tag == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
   <label>Benötigte Einrichtung<select name="setup" aria-label="Benötigte Einrichtung"><option value="all">Alle Einrichtungsarten</option>{% for value,label in setup_types.items() %}<option value="{{ value }}" {% if setup == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
   <button data-filter-submit>Filtern</button>
   <a class="small" href="{{ url_for('games') }}" data-filter-reset>Zurücksetzen</a>
@@ -22,20 +24,23 @@
 <div class="grid" id="library-results">
   {% set visible_slugs = rows|map(attribute='slug')|list %}
   {% for item in library %}
-  <article class="panel card game-card" data-library-game data-search="{{ (item.name ~ ' ' ~ item.slug ~ ' ' ~ item.added_by ~ ' ' ~ item.catalog.description ~ ' ' ~ item.catalog.genres|join(' '))|lower }}" data-kind="{{ 'custom' if item.custom else 'builtin' }}" data-state="{{ item.support_state }}" data-genres="{{ item.catalog.genres|tojson|forceescape }}" data-setup="{{ item.catalog.setup_type }}" {% if item.slug not in visible_slugs %}hidden{% endif %}>
-    <div class="row spread">
+  <article class="panel card game-card" data-library-game data-search="{{ (item.name ~ ' ' ~ item.slug ~ ' ' ~ item.added_by ~ ' ' ~ item.catalog.description ~ ' ' ~ item.catalog.genres|join(' ') ~ ' ' ~ item.catalog.tags|join(' '))|lower }}" data-kind="{{ 'custom' if item.custom else 'builtin' }}" data-state="{{ item.support_state }}" data-genres="{{ item.catalog.genres|tojson|forceescape }}" data-tags="{{ item.catalog.tags|tojson|forceescape }}" data-setup="{{ item.catalog.setup_type }}" {% if item.slug not in visible_slugs %}hidden{% endif %}>
+    {{ game_art(item.name, item.slug) }}
+    <div class="card-content"><div class="row spread">
       <span class="chip {{ 'ok' if item.installed else 'warn' }}">{{ support_states[item.support_state] }}</span>
       <span class="muted small">{{ 'Hinzugefügt' if item.custom else 'Integriert' }}</span>
     </div>
     <div class="game-heading"><span class="game-mark" aria-hidden="true">{{ item.name[:2]|upper }}</span><div><h3>{{ item.name }}</h3><span class="muted small">Version {{ item.version or 'unbekannt' }}</span></div></div>
     <div class="row genre-tags">{% for tag in item.catalog.genres %}<span class="chip">{{ tag }}</span>{% endfor %}</div>
+    {% if item.catalog.tags %}<div class="row catalog-tags" aria-label="Tags">{% for tag in item.catalog.tags %}<span class="chip">{{ tag }}</span>{% endfor %}</div>{% endif %}
     <p class="small game-description">{{ item.catalog.description }}</p>
     <p class="small"><strong>Zum Spielen:</strong> {{ item.catalog.setup_label }}</p>
     {% if item.catalog.host_rom %}<p class="status-note warn small"><strong>Für den Host:</strong> Original-ROM vor der Generierung auf dem Generator-Rechner einrichten.</p>{% endif %}
     <p class="muted small" style="margin:8px 0">
       {{ 'Von ' ~ item.added_by if item.added_by else 'In Archipelago enthalten' }}
     </p>
-    <div class="row">
+    <div class="row library-actions">
+      {% if item.can_edit_metadata %}<a class="btn small" href="{{ url_for('community.metadata_edit', slug=item.slug) }}">Spiel bearbeiten</a>{% endif %}
       {% if item.installed %}<a class="btn primary" href="{{ url_for('game', slug=item.slug) }}">Spiel öffnen</a>{% else %}
         <span class="muted small">{% if item.active %}Die APWorld ist aktiviert. Das Einlesen läuft automatisch; bei Fehlern das Admin-Protokoll prüfen.{% else %}Eine gespeicherte Version aktivieren, um die Spieloptionen automatisch einzulesen.{% endif %}</span>
       {% endif %}
@@ -62,6 +67,7 @@
       {% endfor %}
     </details>
     {% endif %}
+    </div>
   </article>
   {% endfor %}
 </div>

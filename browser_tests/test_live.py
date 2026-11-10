@@ -15,7 +15,7 @@ def test_dashboard_room_link_polling_two_players_charts_and_mobile(actors, live_
     select_game(alice); select_game(bob)
     mark_ready(alice, "Alice"); mark_ready(bob, "Bob")
     alice.reload()
-    alice.get_by_role("button", name="Runde generieren", exact=True).click()
+    alice.get_by_role("button", name="Seed generieren", exact=True).click()
     build = alice.locator('[data-build-status="succeeded"]')
     expect(build).to_be_visible(timeout=15000)
     build.get_by_label("Archipelago-Raum für Live-Statistiken", exact=True).fill(

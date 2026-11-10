@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% from "ui.html" import icon, game_art with context %}
 {% block title %}{{ schema.game }} · {{ app_name }}{% endblock %}
 {% block content %}
 <p class="small"><a href="{{ url_for('games') }}">← Spiele</a></p>
-<div class="page-head">
+<div class="panel game-detail-hero">{{ game_art(schema.game, schema.slug) }}<div class="page-head">
   <div>
     <h1>{{ schema.game }}</h1>
     <p class="muted small">
@@ -12,13 +13,14 @@
     </p>
   </div>
   <div class="row">
+    {% if item and item.can_edit_metadata %}<a class="btn" href="{{ url_for('community.metadata_edit', slug=schema.slug) }}">Spiel bearbeiten</a>{% endif %}
     {% if g.user.is_admin %}
       <a class="btn" href="{{ url_for('mvp.guide_edit', slug=schema.slug) }}">Installationsanleitung pflegen</a>
     {% endif %}
     <a class="btn" href="{{ url_for('template_new', slug=schema.slug) }}">+ Neue Vorlage</a>
   </div>
 </div>
-
+</div>
 {% include "game_setup_panel.html" %}
 <div class="section-head"><div><h2>Vorlagen für deine Einstellungen</h2><p class="muted small">Wähle eine Vorlage und eine Lobby. Die Einstellungen kannst du dort noch ändern, bevor du sie übernimmst.</p></div></div>
 
@@ -26,7 +28,7 @@
 {% for t in templates %}
   <div class="panel card" id="{{ 't-%s'|format(t.id) if t.id else t.ref }}">
     <h3>
-      {% if t.is_default %}<span class="star" title="Gruppen-Standard">★</span>{% endif %}
+      {% if t.is_default %}<span class="star" title="Gruppen-Standard">{{ icon('check') }}</span>{% endif %}
       {{ t.name }}
       <span class="chip">{{ t.source }}</span>
       {% if t.owner %}<span class="muted small">von {{ t.owner }}</span>{% endif %}

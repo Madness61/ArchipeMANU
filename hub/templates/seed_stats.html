@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "ui.html" import icon with context %}
 {% block title %}Seed-Analyse · {{ app_name }}{% endblock %}
 {% block content %}
 <p class="small"><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
@@ -17,9 +18,9 @@
 {% else %}
 <p class="muted" style="margin:12px 0">Deine Runde in Zahlen. Verteilungen und Fundorte bleiben verborgen, bis du die Spoiler öffnest.</p>
 <div class="metric-grid">
-  <div class="panel"><span class="metric-icon" aria-hidden="true">▦</span><div><span class="muted small">Spiele</span><div class="metric">{{ overview|length }}</div></div></div>
-  <div class="panel"><span class="metric-icon" aria-hidden="true">☺</span><div><span class="muted small">Spieler</span><div class="metric">{{ stats.players|length }}</div></div></div>
-  <div class="panel"><span class="metric-icon" aria-hidden="true">◇</span><div><span class="muted small">Platzierte Items insgesamt</span><div class="metric">{{ stats.total_placements }}</div></div></div>
+  <div class="panel"><span class="metric-icon">{{ icon('gamepad') }}</span><div><span class="muted small">Spiele</span><div class="metric">{{ overview|length }}</div></div></div>
+  <div class="panel"><span class="metric-icon">{{ icon('users') }}</span><div><span class="muted small">Spieler</span><div class="metric">{{ stats.players|length }}</div></div></div>
+  <div class="panel"><span class="metric-icon">{{ icon('chart') }}</span><div><span class="muted small">Platzierte Items insgesamt</span><div class="metric">{{ stats.total_placements }}</div></div></div>
 </div>
 <div class="anchor-links" aria-label="Bereiche der Analyse"><a href="#overview">Übersicht</a><a href="#progression">Progression-Items</a><a href="#spoilers">Itemverteilung & Spoiler</a></div>
 <h2 id="overview">Wie viele Items hat jedes Spiel?</h2>

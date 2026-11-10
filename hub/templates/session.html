@@ -1,10 +1,16 @@
 {% extends "base.html" %}
+{% from "ui.html" import icon, progress, game_art with context %}
 {% block title %}{{ s.name }} · {{ app_name }}{% endblock %}
 {% block content %}
 <p class="small"><a href="{{ url_for('mvp.lobby_list') }}">← Alle Lobbys</a></p>
-<div class="page-head" id="session-overview" data-refresh-fragment>
+<div class="lobby-banner" id="session-overview" data-refresh-fragment><div class="page-head">
   <div><p class="eyebrow">Gemeinsam vorbereiten</p><h1>{{ s.name }}</h1><p class="muted">{{ 'Alle Spieler sind fertig. Diese Runde ist abgeschlossen.' if s.completed_at else 'Diese Runde nimmt keine neuen Spieler mehr auf.' if s.locked else 'Alle wählen ihr Spiel und melden sich bereit. Danach startet der Host die Runde.' }}</p></div>
   <div class="row"><span class="chip {{ '' if s.locked else 'ok' }}">{{ 'Abgeschlossen' if s.completed_at else 'Geschlossen' if s.locked else 'Offen' }}</span>{% if manage %}<span class="chip">Du verwaltest diese Runde</span>{% endif %}</div>
+</div>
+<div class="lobby-meta"><span>{{ icon('user') }} Host: {{ host_name }}</span><span>{{ icon('users') }} {{ member_count }} Teilnehmer</span><span>{{ icon('gamepad') }} {{ entries|length }} gewählte Spiele</span></div>
+{% if not s.completed_at %}{{ progress(ready_count, member_count, 'Gemeinsam startklar') }}{% endif %}
+<div class="lobby-next">{% if s.completed_at %}Euer Abenteuer ist abgeschlossen. Seed und Auswertung bleiben erhalten.{% elif s.locked %}Die Lobby ist geschlossen. Deine Spieldateien und die Verbindung findest du unter „Generierte Runden“.{% elif not is_member %}Dein nächster Schritt: Dieser Lobby beitreten.{% elif not own_entry %}Dein nächster Schritt: Wähle unten dein Spiel.{% elif not own_entry.ready_valid %}Dein nächster Schritt: Prüfe deine Auswahl und melde dich bereit.{% elif manage and all_ready %}Alle sind bereit. Du kannst den gemeinsamen Seed generieren.{% else %}Du bist bereit. Warte auf deine Mitspieler und den Start durch den Host.{% endif %}</div>
+{% if manage and all_ready and not s.completed_at and not build_history|selectattr('status','in',['queued','running'])|list %}<p style="margin:18px 0 0"><a class="btn primary" href="#host-controls">Zum Rundenstart {{ icon('arrow') }}</a></p>{% endif %}
 </div>
 <div class="anchor-links"><a href="#participants-section">Teilnehmer</a><a href="#generated-rounds">Generierte Runden</a>{% if manage and not s.completed_at %}<a href="#host-controls">Runde generieren</a>{% endif %}</div>
 <p class="small muted" id="session-refresh-status" role="status" aria-live="polite"></p>
@@ -26,17 +32,19 @@
     <div class="row spread"><div><p class="eyebrow">Dein Teil der Runde</p><h2 style="margin:0 0 7px">Deine Spielauswahl</h2></div>
       <form method="post" action="{{ url_for('mvp.leave_lobby', sid=s.id) }}" class="inline" data-confirm="Du verlässt die Lobby; dein Spielslot wird entfernt."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish small">Lobby verlassen</button></form>
     </div>
-    <p class="muted small">{% if own_entry %}Gespeichert: <strong>{{ own_entry.game_name }}</strong>. Du kannst deine Auswahl bis zum Rundenstart ändern.{% else %}Wähle dein Spiel. Du kannst die Grundwerte direkt übernehmen oder die YAML vorher überarbeiten.{% endif %}</p>
+    <p class="muted small">{% if own_entry %}Gespeichert: <strong>{{ own_entry.game_name }}</strong>. Du kannst deine Auswahl bis zum Rundenstart ändern.{% else %}Wähle dein Spiel. Du kannst die Grundwerte direkt übernehmen oder die Einstellungen vorher anpassen.{% endif %}</p>
+    <div class="selection-art">{{ game_art(selected_game or 'Dein Spiel', selected_game, true) }}<div><h3 data-chosen-game-name>{% if selected_game %}{% for slug,info in games %}{% if slug == selected_game %}{{ info.game }}{% endif %}{% endfor %}{% else %}Welche Welt wird deine?{% endif %}</h3><p>Übernimm die Grundwerte oder passe die Einstellungen an deinen Spieleabend an.</p></div></div>
     <form method="post" action="{{ url_for('mvp.lobby_selection_start', sid=s.id) }}" class="selection-form" id="select-game">
       <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-      <label>Ich spiele:<select name="game" id="add-game" required><option value="">Spiel wählen …</option>{% for slug,info in games %}<option value="{{ slug }}" {% if slug == selected_game %}selected{% endif %}>{{ info.game }}</option>{% endfor %}</select></label>
+      <label>Ich spiele:<select name="game" id="add-game" required><option value="">Spiel wählen …</option>{% for slug,info in games %}<option value="{{ slug }}" data-hue="{{ slug|game_hue }}" {% if slug == selected_game %}selected{% endif %}>{{ info.game }}</option>{% endfor %}</select></label>
       <label>Grundeinstellungen<select name="ref" id="add-ref" aria-label="Grundeinstellungen"><option value="">Standardauswahl der Gruppe</option>{% for t in selection_templates %}<option value="{{ t.ref }}" {% if t.ref == selected_ref %}selected{% endif %} {% if t.errors %}disabled{% endif %}>{{ t.name }} · {{ 'Spielvorgaben' if t.ref == 'default' else t.source }}{{ ' · ' ~ t.summary|length ~ ' Änderungen' if t.summary else '' }}{{ ' (inkompatibel)' if t.errors else '' }}</option>{% endfor %}</select></label>
-      <div class="row selection-actions"><button name="_action" value="edit">YAML überarbeiten</button><button name="_action" value="base" class="primary" id="use-base-values">{{ 'Vorlage übernehmen' if selected_template and selected_template.ref != 'default' else 'Standardwerte übernehmen' }}</button></div>
+      <div class="row selection-actions"><button name="_action" value="edit">Einstellungen anpassen</button><button name="_action" value="base" class="primary" id="use-base-values">{{ 'Vorlage übernehmen' if selected_template and selected_template.ref != 'default' else 'Standardwerte übernehmen' }}</button></div>
     </form>
+    <details class="technical-options game-picker"><summary>Spielkatalog öffnen</summary><label>Spiel im Katalog suchen<input type="search" data-game-search placeholder="Welches Spiel möchtest du spielen?"></label><div class="selection-catalog">{% for slug,info in games %}<button type="button" data-choose-game="{{ slug }}">{{ game_art(info.game, slug, true) }}<span>{{ info.game }}</span></button>{% endfor %}</div><p class="small muted" data-game-empty hidden>Kein passendes Spiel gefunden.</p></details>
     <div class="template-explanation" id="template-explanation" aria-live="polite">
-      {% if selected_template %}<strong>{{ selected_template.name }}</strong><p class="small">{{ selected_template.description }}</p>{% if selected_template.summary %}<p class="small muted">{{ selected_template.summary|length }} Abweichungen vom Spiel-Standard:</p><ul class="summary">{% for name,value in selected_template.summary[:6] %}<li>{{ name }}: {{ value }}</li>{% endfor %}</ul>{% if selected_template.summary|length > 6 %}<p class="small muted">Weitere Werte siehst du unter „YAML überarbeiten“.</p>{% endif %}{% endif %}{% else %}<p class="small muted">Wähle ein Spiel, um die Grundwerte und verfügbaren Vorlagen zu sehen.</p>{% endif %}
+      {% if selected_template %}<strong>{{ selected_template.name }}</strong><p class="small">{{ selected_template.description }}</p>{% if selected_template.summary %}<p class="small muted">{{ selected_template.summary|length }} Abweichungen vom Spiel-Standard:</p><ul class="summary">{% for name,value in selected_template.summary[:6] %}<li>{{ name }}: {{ value }}</li>{% endfor %}</ul>{% if selected_template.summary|length > 6 %}<p class="small muted">Weitere Werte siehst du unter „Einstellungen anpassen“.</p>{% endif %}{% endif %}{% else %}<p class="small muted">Wähle ein Spiel, um die Grundwerte und verfügbaren Vorlagen zu sehen.</p>{% endif %}
     </div>
-    <p class="muted small">Die gewählte Vorlage und deine gespeicherten Profilwerte werden automatisch übernommen. Du musst dafür keine einzelnen Werte aktivieren. Nach dem Speichern meldest du dich in der Teilnehmerliste bereit.</p>
+    <p class="muted small">Deine Grundwerte gelten automatisch. Nach dem Speichern meldest du dich bei deiner Spielerkarte bereit.</p>
     {% if selection %}{% include "lobby_selection.html" %}{% elif own_entry %}<p class="status-note {{ 'ok' if own_entry.ready_valid else '' }}">{{ 'Du bist bereit. Warte auf den Start durch den Host.' if own_entry.ready_valid else 'Deine Auswahl ist gespeichert. Prüfe unten deine Teilnahme und klicke auf „Bereit“.' }}</p>{% endif %}
   </section>
   {% endif %}
@@ -47,10 +55,11 @@
 <div class="panel table-wrap" id="participants">
 <table class="participant-table"><thead><tr><th>Spieler</th><th>Spiel & Einstellungen</th><th>Checks</th><th>Status</th><th>Aktionen</th></tr></thead><tbody>
 {% for e in entries %}
-<tr>
-  <td><strong>{{ e.username }}</strong><div class="muted small">Spielername: {{ e.slot }}</div></td>
-  <td>{% if e.installed %}<a href="{{ url_for('game', slug=e.game) }}">{{ e.game_name }}</a>{% else %}<span class="err">{{ e.game }} nicht installiert</span>{% endif %}
+<tr data-ready="{{ 'true' if e.ready_valid else 'false' }}">
+  <td><span class="avatar" aria-hidden="true">{{ e.username[:1]|upper }}</span><div class="participant-name"><strong>{{ e.username }}</strong><div class="muted small">Spielername: {{ e.slot }}</div></div></td>
+  <td><div class="participant-game">{{ game_art(e.game_name, e.game, true) }}<div>{% if e.installed %}<a href="{{ url_for('game', slug=e.game) }}">{{ e.game_name }}</a>{% else %}<span class="err">{{ e.game }} nicht installiert</span>{% endif %}
     <div class="muted small">{{ e.template_label }}</div>
+    </div></div>
     {% if e.world_error %}<p class="err small">{{ e.world_error }}</p>{% endif %}
     {% if not e.template_found %}<p class="err small">Vorlage fehlt oder ist inkompatibel – Generierung gesperrt</p>{% endif %}
     {% if e.summary %}<details class="small"><summary>{{ e.summary|length }} angepasste Einstellungen</summary><ul class="summary">{% for name,val in e.summary %}<li>{{ name }}: {{ val }}</li>{% endfor %}</ul></details>{% endif %}
@@ -68,8 +77,8 @@
     {% endif %}
     {% if not s.locked and (e.user_id == g.user.id or manage) and e.installed %}
       {% if e.user_id == g.user.id and own_entry and e.id == own_entry.id %}
-      <a class="btn small" href="{{ url_for('session_view', sid=s.id, game=e.game, ref=e.template_ref, _anchor='game-selection') }}">YAML / Einstellungen</a>
-      {% else %}<a class="btn small" href="{{ url_for('mvp.entry_options', eid=e.id) }}">YAML / Einstellungen</a>{% endif %}
+      <a class="btn small" href="{{ url_for('session_view', sid=s.id, game=e.game, ref=e.template_ref, _anchor='game-selection') }}">Einstellungen</a>
+      {% else %}<a class="btn small" href="{{ url_for('mvp.entry_options', eid=e.id) }}">Einstellungen</a>{% endif %}
     {% endif %}
     </div>
     {% if not s.locked and (e.user_id == g.user.id or manage) %}
@@ -93,7 +102,7 @@
 </tr>
 {% endfor %}
 {% for u in lobby_guests %}{% if not u.entry_id %}
-<tr><td><strong>{{ u.username }}</strong></td><td class="muted">Noch kein Spiel ausgewählt</td><td><span class="chip warn">{{ u.username }} · Spiel fehlt</span></td><td>{% if u.user_id == g.user.id %}<a class="btn small" href="#game-selection">Spiel wählen</a>{% endif %}</td></tr>
+<tr data-ready="false"><td><span class="avatar" aria-hidden="true">{{ u.username[:1]|upper }}</span><div class="participant-name"><strong>{{ u.username }}</strong></div></td><td class="muted"><div class="participant-game">{{ game_art('Spiel wählen', '', true) }}<span>Noch kein Spiel ausgewählt</span></div></td><td><span class="chip warn">{{ u.username }} · Spiel fehlt</span></td><td><span class="chip warn">Wählt noch</span></td><td>{% if u.user_id == g.user.id %}<a class="btn small" href="#game-selection">Spiel wählen</a>{% endif %}</td></tr>
 {% endif %}{% endfor %}
 {% if not entries and not lobby_guests %}<tr><td colspan="5" class="muted">Noch keine Teilnehmer. Tritt dieser Lobby bei, um mitzuspielen.</td></tr>{% endif %}
 </tbody></table>
@@ -114,7 +123,7 @@
   {% elif all_ready %}<p class="status-note ok">Alle Einstellungen sind bestätigt. Du kannst jetzt den gemeinsamen Seed generieren – das ist die Spieldatei für eure Runde.</p>{% endif %}
   <form method="post" action="{{ url_for('session_generate', sid=s.id) }}" id="generate-round" data-preserve-draft>
     <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-    <button class="primary" {% if s.gen_status == 'running' or not all_ready or build_history|selectattr('status','in',['queued','running'])|list %}disabled{% endif %}>Runde generieren</button>
+    <button class="primary" {% if s.gen_status == 'running' or not all_ready or build_history|selectattr('status','in',['queued','running'])|list %}disabled{% endif %}>Seed generieren</button>
     <details class="technical-options"><summary>Weitere Einstellungen zur Generierung</summary><div class="row">
       <label>Spoiler-Datei<select name="spoiler">{% for v,label in [(0,'Keine'),(1,'Nur Einstellungen'),(2,'Mit Lösungsweg'),(3,'Vollständig')] %}<option value="{{ v }}" {% if s.spoiler == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
       <label><input type="checkbox" name="race" value="1" {% if s.race %}checked{% endif %}> Race-Modus: keine Spoiler in der Analyse</label>

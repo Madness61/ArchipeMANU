@@ -59,7 +59,7 @@ class CompletionTests(unittest.TestCase):
         self.assertIn(b"Abgeschlossene Runde", page.data)
         self.assertNotIn(b">Ich bin fertig</button>", page.data)
         self.assertNotIn(b">Verbindung speichern</button>", page.data)
-        self.assertNotIn(b">Aktive Lobby</a>", self.client.get("/seeds").data)
+        self.assertNotIn(b'class="nav-count"', self.client.get("/seeds").data)
         self.assertIn(b"Abgeschlossen", self.client.get("/seeds").data)
         self.assertIn(b"Abgeschlossen", self.client.get(f"/sessions/{sid}").data)
         download = self.client.get(url + "/download")
