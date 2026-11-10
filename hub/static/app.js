@@ -212,13 +212,24 @@
       const response = await fetch(button.href, {cache: "no-store", headers: {"Accept": "text/html"}});
       if (!response.ok) throw new Error("Refresh failed");
       const page = new DOMParser().parseFromString(await response.text(), "text/html");
-      if (!page.getElementById("participants-section")) throw new Error("Session unavailable");
+      if (!page.getElementById("round-center") && !page.getElementById("participants-section")) throw new Error("Session unavailable");
       const drafts = $$("form[data-preserve-draft][data-dirty='1']").map(form => ({
         id: form.id,
         fields: $$("input,select,textarea", form).filter(field => field.name !== "_csrf").map(field => ({
           name: field.name, value: field.value, checked: field.checked,
         })),
       }));
+      const currentRound = document.getElementById("round-center"), nextRound = page.getElementById("round-center");
+      if (currentRound && nextRound && (currentRound.dataset.phase !== nextRound.dataset.phase || currentRound.dataset.buildStatus !== nextRound.dataset.buildStatus)) {
+        if (drafts.length) {
+          status.textContent = "Der Rundenstatus hat sich geändert. Deine Eingaben bleiben hier erhalten. Öffne die Runde erneut, um den neuen Stand zu sehen.";
+          return;
+        }
+        history.replaceState(null, "", response.url + "#play");
+        location.reload();
+        return;
+      }
+      if (currentRound && nextRound) Object.assign(currentRound.dataset, nextRound.dataset);
       $$("[data-refresh-fragment], #main-navigation").forEach(fragment => {
         const updated = page.getElementById(fragment.id);
         if (updated) fragment.replaceWith(updated);

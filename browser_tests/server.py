@@ -5,6 +5,7 @@ never attaches to an existing server, imports an APWorld, or runs ap_runner.py.
 """
 import argparse
 import hashlib
+import io
 import json
 import logging
 import os
@@ -108,6 +109,11 @@ def main():
             z.writestr("AP_BROWSER_TEST.archipelago",b"Mock seed; not a playable multiworld")
             for name,text in payloads.items():
                 z.writestr("configs/"+name,text.encode("utf-8"))
+            for slot in slots:
+                patch_data=io.BytesIO()
+                with zipfile.ZipFile(patch_data,'w') as patch_archive:
+                    patch_archive.writestr('archipelago.json',json.dumps(dict(game=GAME,player=slot['id'],player_name=slot['name'])))
+                z.writestr(f"{slot['name']}.aptest",patch_data.getvalue())
         logging.info("MOCK generated %s with %s slots",archive.name,len(slots))
         return True,"Simulated browser-test generation, no Archipelago worker used.",archive
 

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "ui.html" import icon,progress,empty_state with context %}
+{% from "rounds_card.html" import round_card with context %}
+{% block title %}Übersicht · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="eyebrow">Deine Gaming-Lounge</p><h1>Hallo {{ g.user.username }}</h1><p class="muted">Deine Runde. Dein nächster Schritt.</p></div><a class="btn" href="{{ url_for('mvp.lobby_list',_anchor='new-lobby') }}">{{ icon('plus') }} Neue Lobby</a></div>
+{% if focus %}
+<section class="panel dashboard-feature" id="featured-round" data-round-id="{{ focus.id }}"><div class="row spread"><p class="eyebrow">Dein nächster Einstieg</p><span class="chip {{ 'ok' if focus.phase == 'running' else '' }}">{{ focus.phase_label }}</span></div><div class="feature-body"><div><h2>{{ focus.name }}</h2><p class="small muted">{{ focus.member_count }} Teilnehmer · Host {{ focus.host_name or 'nicht mehr vorhanden' }}</p></div><a class="btn primary" id="featured-action" href="{{ focus_url }}">{{ focus_action }} {{ icon('arrow') }}</a></div>
+{% if focus.game_names %}<div class="feature-games">{% for name in focus.game_names %}<span class="chip">{{ icon('gamepad') }}{{ name }}</span>{% endfor %}</div>{% endif %}
+{% if focus_live and focus_live.total and focus_live.checks is not none %}{{ progress(focus_live.checks,focus_live.total,'Zuletzt gemeldete Checks') }}{% elif focus.phase == 'preparation' and not focus.locked %}{{ progress(focus.ready_count,focus.member_count,'Spieler bereit') }}{% endif %}
+</section>
+{% else %}{{ empty_state('Deine erste Runde wartet','Tritt einer offenen Lobby bei oder erstelle eine Runde für deine Freunde.','Meine Runden entdecken',url_for('mvp.lobby_list'),'worlds') }}{% endif %}
+<div class="section-head"><div><h2>Weitere Runden</h2><p class="muted small">Deine anderen Abenteuer und offene Plätze in der Gruppe.</p></div><a href="{{ url_for('mvp.lobby_list') }}">Alle Runden {{ icon('arrow') }}</a></div>
+{% if other_rounds %}<div class="grid" id="other-rounds">{% for r in other_rounds %}{{ round_card(r) }}{% endfor %}</div>{% else %}<p class="small muted">Noch keine weiteren Runden. Lade deine Freunde ein oder <a href="{{ url_for('mvp.lobby_list',_anchor='new-lobby') }}">erstelle eine neue Lobby</a>.</p>{% endif %}
+{% endblock %}

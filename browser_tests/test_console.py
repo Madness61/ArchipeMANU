@@ -5,7 +5,7 @@ from playwright.sync_api import expect
 
 from .fake_ap import FakeAP
 from .fixtures import GAME
-from .test_players import register, upload_world, create_lobby, join_lobby, select_game, mark_ready
+from .test_players import area, generated, register, upload_world, create_lobby, join_lobby, select_game, mark_ready
 
 
 def test_console_items_commands_private_hints_and_mobile(actors, artifact_dir):
@@ -19,12 +19,12 @@ def test_console_items_commands_private_hints_and_mobile(actors, artifact_dir):
         mark_ready(alice,"Alice"); mark_ready(bob,"Bob")
         alice.reload()
         alice.get_by_role("button",name="Seed generieren",exact=True).click()
-        build = alice.locator('[data-build-status="succeeded"]')
-        expect(build).to_be_visible(timeout=15000)
+        build = generated(alice)
         build.get_by_label("Serveradresse",exact=True).fill("127.0.0.1")
         build.get_by_label("Port",exact=True).fill(str(server.port))
         build.get_by_role("button",name="Verbindung speichern",exact=True).click()
-        alice.get_by_role("link",name="Live-Konsole öffnen",exact=True).click()
+        area(alice,"Mehr")
+        alice.locator('.tool-link').filter(has=alice.get_by_text('Archipelago-Konsole',exact=True)).click()
         expect(alice.get_by_role("heading",level=1)).to_have_text("Konsole · Unsere Konsolenrunde")
         expect(alice.get_by_label("Verbindungsart",exact=True)).to_have_value("auto")
         # This inert localhost fixture intentionally offers unencrypted WS only.

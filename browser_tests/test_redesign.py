@@ -5,7 +5,7 @@ from playwright.sync_api import expect
 import yaml
 
 from .fixtures import GAME
-from .test_players import register, login, nav, upload_world, create_lobby, join_lobby, select_game, mark_ready
+from .test_players import area, generated, register, login, nav, upload_world, create_lobby, join_lobby, select_game, mark_ready
 
 
 def capture(page, directory, name):
@@ -34,7 +34,7 @@ def test_dark_platform_navigation_options_and_responsive_pages(actors, live_serv
     expect(alice.locator("#main-content")).to_have_js_property("inert", False)
     # Representative text/control contrast and reduced-motion behavior.
     alice.emulate_media(reduced_motion="reduce")
-    primary = alice.get_by_role("link", name="Offene Lobbys ansehen", exact=True)
+    primary = alice.get_by_role("link", name="Meine Runden entdecken", exact=True)
     for hover in (False, True):
         if hover: primary.hover()
         ratio = primary.evaluate("""node => {
@@ -75,9 +75,10 @@ def test_dark_platform_navigation_options_and_responsive_pages(actors, live_serv
 
     lobby = create_lobby(alice, "Zwischen Welten")
     join_lobby(bob, "Zwischen Welten")
-    expect(alice.locator("#session-overview")).to_contain_text("Host: Alice")
+    expect(alice.locator("#session-overview")).to_contain_text("Host Alice")
+    area(alice,"Mitspieler")
     alice.get_by_role("link", name="Teilnehmer aktualisieren", exact=True).click()
-    expect(alice.locator("#participants tbody tr")).to_have_count(2)
+    expect(alice.locator("#participants .preparation-player")).to_have_count(2)
     capture(alice, artifact_dir, "lobby-waiting")
     nav(alice, "Dashboard").click()
     expect(alice.locator("#featured-action")).to_have_text("Spiel auswählen")
@@ -111,16 +112,17 @@ def test_dark_platform_navigation_options_and_responsive_pages(actors, live_serv
     expect(alice.get_by_role("button", name="Seed generieren", exact=True)).to_be_enabled()
     capture(alice, artifact_dir, "lobby-ready")
     alice.get_by_role("button", name="Seed generieren", exact=True).click()
-    build = alice.locator('[data-build-status="succeeded"]')
-    expect(build).to_be_visible(timeout=15000)
-    generated = yaml.safe_load(live_server.calls()[0]["yamls"]["Alice.yaml"])
-    assert generated[GAME]["difficulty"] == 7
-    assert generated[GAME]["goal"] == "finish"  # hidden by the option search, still submitted
-    assert generated[GAME]["death_link"] is False
-    build.get_by_role("link", name="Jetzt spielen", exact=True).click()
+    build = generated(alice)
+    document = yaml.safe_load(live_server.calls()[0]["yamls"]["Alice.yaml"])
+    assert document[GAME]["difficulty"] == 7
+    assert document[GAME]["goal"] == "finish"  # hidden by the option search, still submitted
+    assert document[GAME]["death_link"] is False
+    area(alice,"Spielen")
     play_url = alice.url
+    area(alice,"Mehr")
     alice.get_by_label("Archipelago-Raum für Live-Statistiken", exact=True).fill("https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw")
     alice.get_by_role("button", name="Raum verbinden", exact=True).click()
+    alice.get_by_role("link",name="Erweiterte Statistiken öffnen",exact=True).click()
     expect(alice.locator("#kpi-checks")).to_have_text("2", timeout=15000)
     expect(alice.locator("#live-overview-players .overview-player")).to_have_count(2)
     capture(alice, artifact_dir, "live-overview")
@@ -129,15 +131,14 @@ def test_dark_platform_navigation_options_and_responsive_pages(actors, live_serv
     alice.screenshot(path=str(artifact_dir / "live-presentation-1440.png"), full_page=False)
     alice.get_by_role("button", name="Präsentation beenden", exact=True).click()
     alice.goto("/")
-    expect(alice.locator("#featured-action")).to_have_text("Live-Dashboard öffnen")
+    expect(alice.locator("#featured-action")).to_have_text("Fortschritt ansehen")
     capture(alice, artifact_dir, "dashboard-active")
     alice.goto(play_url)
-    expect(alice.locator("#server-host")).to_have_text("archipelago.gg")
-    expect(alice.locator("#server-port")).to_have_text("38281")
+    expect(alice.locator("#host-address")).to_have_text("archipelago.gg:38281")
     expect(alice.locator("#slot-1")).to_have_text("Alice")
-    expect(alice.get_by_role("button", name="Server kopieren", exact=True)).to_be_visible()
+    expect(alice.get_by_role("button",name="Adresse kopieren",exact=False)).to_be_visible()
     capture(alice, artifact_dir, "play")
-    alice.get_by_text("Technische Informationen & Check-Analyse", exact=True).click()
+    area(alice,"Mehr")
     alice.get_by_role("link", name="Progression-Items und Seed-Analyse öffnen", exact=True).click()
     expect(alice.locator(".progression-game[open]")).to_have_count(0)
     expect(alice.locator(".matrix")).to_have_count(0)

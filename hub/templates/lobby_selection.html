@@ -5,7 +5,7 @@
   <h3>Einstellungen anpassen · {{ schema.game }}</h3>
   <p class="muted small">Entwurf – noch nicht übernommen. Deine bisherige Lobby-Auswahl bleibt bis zum Speichern erhalten.</p>
   <p class="muted small">Alle angezeigten Werte gelten automatisch. Ändere nur, was du anders spielen möchtest. Mit „Auswahl übernehmen“ speicherst du dein Spiel für diese Runde.</p>
-  <form method="post" action="{{ url_for('mvp.lobby_selection_submit', sid=s.id, _anchor='game-selection') }}">
+  <form method="post" action="{{ url_for('mvp.lobby_selection_submit', sid=s.id, _anchor='game-selection') }}" id="selection-draft-form" data-preserve-draft>
     <input type="hidden" name="_csrf" value="{{ csrf_token }}">
     <input type="hidden" name="_draft" value="{{ selection.draft }}">
     {% for key,message in errors.items() %}<p class="err">{{ key }}: {{ message }}</p>{% endfor %}

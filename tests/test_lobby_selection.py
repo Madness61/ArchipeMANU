@@ -113,7 +113,7 @@ class LobbySelectionTests(unittest.TestCase):
             db.execute("UPDATE users SET overrides=? WHERE id=1", (db.dumps({"death_link": True}),))
         response = self.post(self.url + "/selection/start", {"game": "test_world", "ref": f"t:{tid}", "_action": "base"})
         self.assertEqual(response.status_code, 302)
-        self.assertIn("participants-section", response.location)
+        self.assertIn("own-readiness", response.location)
         page = self.client.get(response.location)
         self.assertNotIn(b'id="selection-editor"', page.data)
         saved = self.entries()[0]

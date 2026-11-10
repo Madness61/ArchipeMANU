@@ -3,7 +3,7 @@
   <ol class="small">
     <li>Die Multiworld-ZIP dieses Seeds herunterladen und bei <a href="https://archipelago.gg/uploads" target="_blank" rel="noopener noreferrer">Archipelago hochladen</a>. Dort einen Raum erstellen. Alternativ den Seed selbst mit Archipelago hosten.</li>
     <li>Auf der Raumseite den <strong>Raum-Link</strong> sowie die angezeigte <strong>Serveradresse und den Port</strong> ablesen und unten eintragen. Beim eigenen Hosting die Adresse und den Port dieses Archipelago-Servers verwenden.</li>
-    <li>Verbindung speichern. Alle Teilnehmer finden diese Runde danach oben unter <strong>Aktive Lobby</strong>.</li>
+    <li>Verbindung speichern. Alle Teilnehmer finden diese Runde danach unter <strong>Meine Runden</strong> in ihrer Rundenzentrale.</li>
   </ol>
   <form method="post" action="{{ url_for('mvp.save_hosting', sid=hosting_sid, build_id=hosting_build.id) }}" class="stack" id="hosting-form-{{ hosting_build.id }}" data-preserve-draft>
     <input type="hidden" name="_csrf" value="{{ csrf_token }}">

@@ -1,8 +1,14 @@
 # Multiworld Hub
 
+Die Oberfläche hat drei Hauptbereiche: **Übersicht**, **Meine Runden** und
+**Spiele entdecken**. Jede Runde öffnet eine gemeinsame Rundenzentrale mit
+**Spielen**, **Fortschritt**, **Mitspieler** und **Mehr**. Eigene Dateien,
+Slotname und Serveradresse stehen direkt bei deinem Spiel. Details zum Ablauf
+und zu unverändert verfügbaren URLs: [UX_SIMPLIFICATION.md](UX_SIMPLIFICATION.md).
+
 ### Erreichbare Checks und Go-Mode
 
-Unter **Live-Dashboard → Logik-Tracker** berechnet Universal Tracker die
+Unter **Runde → Fortschritt → Deine nächsten Checks** berechnet Universal Tracker die
 Erreichbarkeit für den eigenen verbundenen Slot. Checks lassen sich nach
 Logikstatus und Region filtern; Iteminhalte werden nur ausdrücklich aufgedeckt.
 Einrichtung, Datenquellen und Grenzen: [LOGIC_TRACKER.md](LOGIC_TRACKER.md).
@@ -15,7 +21,7 @@ nutzt auch breite Bildschirme vollständig.
 
 ### Archipelago-Konsole und Befehls-API
 
-Unter **Jetzt spielen → Live-Konsole öffnen** kannst du deinen eigenen Slot
+Unter **Runde → Mehr → Archipelago-Konsole** kannst du deinen eigenen Slot
 als Textclient verbinden: konkrete Item-Sendungen mit Finder, Empfänger und
 Check, Chat, `/received`, `/missing`, `/items`, `/hint` und weitere Befehle.
 Item-Sendungen sind gemeinsam sichtbar; Befehlsantworten bleiben persönlich.

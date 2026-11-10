@@ -119,7 +119,9 @@ class CommunityTests(unittest.TestCase):
         self.assertIn(b"Our open round",host_page.data)
         self.assertIn(b"2 Teilnehmer",host_page.data)
         self.assertNotIn(b"Private closed round",host_page.data)
-        self.assertEqual(re.findall(rb'class="metric">(\d+)</div>',host_page.data),[b"1",b"1",b"2"])
+        self.assertEqual(host_page.data.count(b'data-round-id="1"'),1)
+        navigation=host_page.data.split(b'id="main-navigation"',1)[1].split(b'</nav>',1)[0]
+        self.assertEqual(navigation.count(b'<a '),3)
         self.assertIn(b"Private closed round",self.friend.get("/").data)
 
     def test_ui_library_combines_search_type_and_status_filters(self):
@@ -215,7 +217,7 @@ class CommunityTests(unittest.TestCase):
         self.assertNotIn(b'class="nav-count"', self.friend.get("/").data)
         self.assertEqual(self.post(self.host, f"/sessions/1/builds/{bid}/hosting", {
             "host": "archipelago.gg", "port": "38281", "room_url": "https://archipelago.gg/room/testroom"}).status_code, 302)
-        self.assertIn(b'class="nav-count"', self.friend.get("/").data)
+        self.assertIn(b'Verbindung hinterlegt', self.friend.get("/").data)
         active = self.friend.get("/active-lobby")
         self.assertEqual(active.status_code, 302)
         self.assertEqual(active.location, f"/sessions/1/builds/{bid}/play")
@@ -224,7 +226,7 @@ class CommunityTests(unittest.TestCase):
         self.assertNotIn(b'data-preserve-draft', page.data)
         host_page = self.host.get(f"/sessions/1/builds/{bid}/play")
         self.assertIn(b'aria-label="Verbindung f', host_page.data)
-        connection = host_page.get_data(as_text=True).split('id="connection"', 1)[1].split('</section>', 1)[0]
+        connection = host_page.get_data(as_text=True).split('id="round-host-connection"', 1)[1].split('</section>', 1)[0]
         self.assertIn('name="room_url"', connection)
         self.assertIn('name="host"', connection)
         self.assertIn('name="port"', connection)

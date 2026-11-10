@@ -1,0 +1,23 @@
+<div class="section-head"><div><h2>Euer gemeinsamer Fortschritt</h2><p class="small muted" id="round-live-status" role="status">{{ 'Der letzte gemeldete Datenstand wird geladen …' if live_connection else 'Der Host hat noch keinen Raum für die Fortschrittsanzeige verknüpft.' }}</p></div><button type="button" data-round-refresh>Aktualisieren</button></div>
+<div class="round-stats"><article class="panel"><span>Checks erledigt</span><strong id="round-checks">—</strong></article><article class="panel"><span>Gesamtfortschritt</span><strong id="round-percent">—</strong></article><article class="panel"><span>Spielziele erreicht</span><strong id="round-goals">—</strong></article><article class="panel"><span>Deine Checks</span><strong id="round-own-checks">—</strong></article></div>
+<section class="panel"><div class="progress-track" aria-label="Gemeldeter Gesamtfortschritt"><span id="round-total-bar" style="width:0%"></span></div><h3>Euer Abend im Verlauf</h3><div id="round-chart" class="round-chart"><p class="muted small">Noch keine aufgezeichneten Datenpunkte.</p></div></section>
+<div class="round-progress-grid">
+<section class="panel" id="next-checks"><div class="row spread"><h2>Deine nächsten Checks</h2>{% if own and not race %}<a class="small" href="{{ url_for('logic.page',sid=s.id,build_id=build.id) }}">Alle Checks & Filter</a>{% endif %}</div>
+{% if race %}<p class="muted">Im Race-Modus sind Logik-Tracker und Itemprotokoll gesperrt.</p>
+{% elif not own %}<p class="muted">Dafür benötigst du einen eigenen Spielslot in diesem Seed.</p>
+{% else %}
+<p id="round-slot-status" class="small muted" role="status">Verbinde deinen Archipelago-Slot, um erreichbare Checks zu sehen.</p>
+{% if not build.completed_at %}<form id="round-slot-connect" class="stack" method="post" action="{{ url_for('console.connect',sid=s.id,build_id=build.id) }}">
+<input type="hidden" name="_csrf" value="{{ csrf_token }}">
+<label>Dein Spielslot<select name="slot" id="round-slot">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label>
+<label>Raumpasswort (falls benötigt)<input type="password" name="password" autocomplete="off"></label>
+<button class="primary" {% if not hosted %}disabled{% endif %}>Slot verbinden</button>
+<p class="small muted">Verwendet {{ hosted.host ~ ':' ~ hosted.port if hosted else 'die vom Host noch einzutragende Serveradresse' }}. Diese Verbindung liest deinen Serverstand; sie startet oder verbindet dein lokales Spiel nicht.</p>
+</form>{% else %}<label>Dein Spielslot<select id="round-slot">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label>{% endif %}
+<div class="row" id="round-slot-actions" hidden><button type="button" id="round-logic-refresh">Checks neu berechnen</button><button type="button" id="round-slot-disconnect">Verbindung trennen</button></div>
+<p class="small" id="round-logic-status" role="status">Erreichbarkeit wird nur aus passenden Spielregeln berechnet.</p><p id="round-go-mode" class="chip">Go-Mode: unbekannt</p><ol id="round-next-checks" class="round-event-list"></ol>
+{% endif %}
+</section>
+<section class="panel"><h2>Zuletzt beobachtet</h2><ol id="round-events" class="round-event-list"><li class="muted small">Noch keine Ereignisse aufgezeichnet.</li></ol>{% if not race %}<h3>Dein Itemprotokoll</h3><p class="small muted">Nur deine persönlichen und die gemeinsamen Meldungen; keine privaten Nachrichten anderer Spieler.</p><ol id="round-item-events" class="round-event-list"><li class="muted small">Noch keine Meldungen.</li></ol><a href="{{ url_for('console.page',sid=s.id,build_id=build.id) }}">Chat, Hinweise & vollständiges Protokoll</a>{% endif %}</section>
+</div>
+<a class="btn" href="{{ url_for('live.dashboard',sid=s.id,build_id=build.id) }}">Erweiterte Statistiken öffnen {{ icon('arrow') }}</a>

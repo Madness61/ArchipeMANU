@@ -1,5 +1,11 @@
 # Multiworld Hub – Designsystem
 
+Seit dem UX-Refactoring vom 10.11.2026 führen drei Hauptbereiche zur zentralen
+Rundenoberfläche. Deren vier Bereiche wechseln im selben Dokument. Kompakte
+Karten priorisieren Slotnamen, persönliche Downloads und Verbindung; technische
+Verwaltung steht unter „Mehr“. Die bestehende Farbpalette bleibt erhalten.
+Layout und Verhalten sind in [UX_SIMPLIFICATION.md](UX_SIMPLIFICATION.md) beschrieben.
+
 Das Frontend ist eine gemeinsame Gaming-Lounge für Vorbereitung, Spielstart
 und Live-Fortschritt. Flask, Jinja, Endpunkte und die vorhandenen Formulare
 bleiben die Grundlage. Zusätzliche Frontend-Abhängigkeiten sind nicht nötig.

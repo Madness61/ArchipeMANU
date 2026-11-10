@@ -8,6 +8,7 @@
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <script>document.documentElement.classList.add('js');</script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='round.css') }}">
 </head>
 <body class="{{ 'app-shell' if g.user else 'auth-shell' }}" data-page="{{ request.endpoint or '' }}">
 <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
@@ -20,12 +21,9 @@
     <p class="nav-label">Dein Spieleabend</p>
     <nav aria-label="Hauptnavigation" id="main-navigation">
       {% set current = request.endpoint or '' %}
-      {% set active_play = current in ('mvp.play_page','live.dashboard','console.page','logic.page') and active_connections|selectattr('build_id', 'equalto', request.view_args.get('build_id'))|list %}
-      <a href="{{ url_for('index') }}" {% if current == 'index' %}aria-current="page"{% endif %}>{{ icon('dashboard') }}<span>Dashboard</span></a>
-      <a href="{{ url_for('games') }}" {% if current in ('games','game','game_setup','template_new','template_edit','import_view') or current.startswith('community.') %}aria-current="page"{% endif %}>{{ icon('library') }}<span>Spielebibliothek</span></a>
-      <a href="{{ url_for('mvp.lobby_list') }}" {% if current in ('mvp.lobby_list','session_view','mvp.entry_options','mvp.lobby_selection_submit') %}aria-current="page"{% endif %}>{{ icon('users') }}<span>Lobbys</span></a>
-      <a href="{{ url_for('mvp.active_lobby') }}" {% if current == 'mvp.active_lobby' or active_play or current == 'live.dashboard' %}aria-current="page"{% endif %}>{{ icon('activity') }}<span>Aktive Runden</span>{% if active_connections %}<span class="nav-count" aria-hidden="true">{{ active_connections|length }}</span>{% endif %}</a>
-      <a href="{{ url_for('mvp.seed_list') }}" {% if current in ('mvp.seed_list','mvp.build_stats','mvp.build_item_details','mvp.reveal_progression_world') or (current in ('mvp.play_page','console.page','logic.page') and not active_play) %}aria-current="page"{% endif %}>{{ icon('chart') }}<span>Seed-Analysen</span></a>
+      <a href="{{ url_for('index') }}" {% if current == 'index' %}aria-current="page"{% endif %}>{{ icon('dashboard') }}<span>Übersicht</span></a>
+      <a href="{{ url_for('mvp.lobby_list') }}" {% if current == 'session_view' or current.startswith(('mvp.','live.','console.','logic.')) %}aria-current="page"{% endif %}>{{ icon('users') }}<span>Meine Runden</span></a>
+      <a href="{{ url_for('games') }}" {% if current in ('games','game','game_setup','template_new','template_edit','import_view') or current.startswith('community.') %}aria-current="page"{% endif %}>{{ icon('library') }}<span>Spiele entdecken</span></a>
     </nav>
     <div class="sidebar-note">{{ icon('worlds') }}<p>Verschiedene Spiele.<br><strong>Ein gemeinsames Abenteuer.</strong></p></div>
     <div class="sidebar-footer"><p class="nav-label">Dein Bereich</p><div class="me">
@@ -48,6 +46,9 @@
   {% for category, message in get_flashed_messages(with_categories=true) %}
     <div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ icon('check' if category != 'error' else 'shield') }}<span>{{ message }}</span></div>
   {% endfor %}
+  {% if room is defined and build is defined and request.endpoint != 'session_view' and request.endpoint != 'mvp.play_page' %}
+  <nav class="round-detail-back" aria-label="Zur Rundenzentrale"><a class="btn small" href="{{ url_for('session_view',sid=room.id,build=build.id,_anchor='progress' if request.endpoint in ['live.dashboard','logic.page','console.page'] else 'more') }}">{{ icon('arrow','back-arrow') }} {{ room.name }} · Rundenzentrale</a><span class="small muted">Seed #{{ build.id }} · Detailansicht</span></nav>
+  {% endif %}
   {% block content %}{% endblock %}
   {% if not g.user %}</div></div>{% endif %}
 </main>

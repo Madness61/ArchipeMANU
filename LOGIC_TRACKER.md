@@ -1,8 +1,10 @@
 # Logik-Tracker
 
-Einstieg: Live-Dashboard → Logik-Tracker oder Archipelago-Konsole →
-Erreichbare Checks & Go-Mode. Spieler verbinden zuvor ihren eigenen Slot
-in der bestehenden Textkonsole. Die Spielverbindung bleibt unabhängig.
+Einstieg: Rundenzentrale → Fortschritt → Deine nächsten Checks. Der eigene
+Slot kann direkt dort mit der gespeicherten Serveradresse verbunden werden.
+„Alle Checks & Filter“ öffnet die vollständige Logikansicht. Auch die bisherigen
+Links aus Live-Dashboard und Konsole bleiben gültig. Die technische Verbindung
+verwendet weiterhin den bestehenden Textclient; die Spielverbindung bleibt unabhängig.
 
 Der Tracker verwendet Universal Tracker 0.3.3 aus dem Projekt
 https://github.com/FarisTheAncient/Archipelago/releases/tag/Tracker_v0.3.3.
