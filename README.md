@@ -26,10 +26,12 @@ nutzt auch breite Bildschirme vollständig.
 
 ### Archipelago-Konsole und Befehls-API
 
-Unter **Runde → Mehr → Archipelago-Konsole** kannst du deinen eigenen Slot
+In laufenden Runden ist **Konsole** die erste Ansicht. Dort kannst du deinen eigenen Slot
 als Textclient verbinden: konkrete Item-Sendungen mit Finder, Empfänger und
 Check, Chat, `/received`, `/missing`, `/items`, `/hint` und weitere Befehle.
 Item-Sendungen sind gemeinsam sichtbar; Befehlsantworten bleiben persönlich.
+„Befehl einfügen“ oder `/` im Chatfeld bietet passende Befehle an. Die Auswahl
+setzt nur den Text ein; erst „Senden“ führt ihn aus.
 Die bisherige Tracker-Schnittstelle bleibt erhalten. Einrichtung, Grenzen und
 JSON-Endpunkte: [ARCHIPELAGO_CONSOLE.md](ARCHIPELAGO_CONSOLE.md).
 

@@ -7,7 +7,7 @@
   const kind = document.getElementById('console-kind');
   const search = document.getElementById('console-search');
   const older = document.getElementById('console-older');
-  let cursor = 0, first = 0, generation = 0, fetching = false, catalogVersion = 0;
+  let cursor = 0, first = 0, generation = 0, fetching = false, catalogVersion = 0, endpointId;
   const ids = new Set();
   const labels = {connecting:'Verbindung wird aufgebaut',authenticating:'Slot wird angemeldet',connected:'Mit Archipelago verbunden',disconnected:'Nicht verbunden',error:'Verbindung fehlgeschlagen'};
   const fail = (text) => { error.textContent = text; error.hidden = !text; };
@@ -30,7 +30,17 @@
       stamp.textContent = new Date(entry.at * 1000).toLocaleTimeString('de-DE');
       stamp.title = 'Vom Hub aufgezeichnet: ' + new Date(entry.at * 1000).toLocaleString('de-DE');
       const text = document.createElement('span');
-      text.textContent = entry.text;
+      if(entry.delivery){
+        const route=document.createElement('span');route.className='console-item-route';
+        const sender=document.createElement('strong'),recipient=document.createElement('strong'),item=document.createElement('strong');
+        sender.textContent=entry.delivery.sender.name;recipient.textContent=entry.delivery.recipient.name;item.textContent=entry.delivery.item;item.className='console-item-name';
+        route.append(sender,document.createTextNode(' → '),recipient,document.createTextNode(': '),item);
+        const place=document.createElement('small');place.className='console-item-place';place.textContent=entry.delivery.location.name+' · '+entry.delivery.sender.game;
+        text.append(route,place);
+      }else text.textContent = entry.text;
+      if(entry.visibility==='personal'){
+        const privateLabel=document.createElement('small');privateLabel.className='console-private-label';privateLabel.textContent='Nur für dich';text.append(privateLabel);
+      }
       line.append(stamp,text);
       line.hidden = !line.dataset.text.includes(search.value.toLocaleLowerCase('de'));
       fragment.append(line);
@@ -48,16 +58,27 @@
       const position = previous && first ? '&before=' + first : cursor ? '&after=' + cursor : '';
       const data = await api('/data?kind=' + encodeURIComponent(kind.value) + position);
       if (requestGeneration !== generation) return;
-      const changedCatalog = catalogVersion !== data.catalog_version && cursor > 0;
+      const changedCatalog = (catalogVersion !== data.catalog_version || endpointId!==undefined && endpointId!==data.endpoint_id) && cursor > 0;
       catalogVersion = data.catalog_version;
+      endpointId=data.endpoint_id;
       if (changedCatalog) {
         cursor=0;first=0;ids.clear();
         log.querySelectorAll('.console-line').forEach(line=>line.remove());
         empty.hidden=false;return;
       }
       const state = document.getElementById('console-state');
-      state.textContent = (labels[data.state] || data.state) + (data.state === 'connected' && data.transport ? ' · ' + data.transport.toUpperCase() : '');
+      const stateLabel=(labels[data.state] || data.state) + (data.state === 'connected' && data.transport ? ' · ' + data.transport.toUpperCase() : '');
+      if(state.textContent!==stateLabel)state.textContent=stateLabel;
       state.className = 'chip ' + (data.state === 'connected' ? 'ok' : data.state === 'error' ? 'err' : '');
+      const connectLink=document.getElementById('console-connect-link');if(connectLink)connectLink.hidden=data.state==='connected';
+      const connectForm=document.getElementById('console-connect'),connectedSlot=document.getElementById('console-connected-slot');
+      if(connectForm){
+        connectForm.dataset.connected=String(data.state==='connected');
+        const slot=connectForm.elements.namedItem('slot');
+        if(data.slot&&!slot.dataset.dirty&&[...slot.options].some(o=>o.value===data.slot))slot.value=data.slot;
+      }
+      if(connectedSlot){connectedSlot.hidden=data.state!=='connected';connectedSlot.textContent='Verbunden als '+(data.slot||'dein Spielslot');}
+      document.dispatchEvent(new CustomEvent('hub:console-state',{detail:data}));
       if (data.error) fail(data.error);
       else if (data.state === 'connected') fail('');
       append(data.events,previous);
@@ -83,6 +104,7 @@
     values.delete('password');
   });
   document.getElementById('console-disconnect')?.addEventListener('click',() => post('/disconnect',new FormData()));
+  document.getElementById('console-connect')?.elements.namedItem('slot')?.addEventListener('change',event=>event.target.dataset.dirty='1');
   document.getElementById('console-command')?.addEventListener('submit',async event => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -110,6 +132,34 @@
     line.hidden=!line.dataset.text.includes(search.value.toLocaleLowerCase('de'));
   }));
   older.addEventListener('click',() => load(true));
-  async function poll() { if (!document.hidden) await load(); setTimeout(poll,2000); }
+  // Commands are inserted into the composer. Selection never sends a request.
+  const composer=document.getElementById('console-message'),menu=document.getElementById('console-command-menu'),toggle=document.getElementById('console-command-toggle');
+  const choices=menu?[...menu.querySelectorAll('[data-insert-command]')]:[];
+  const showCommands=open=>{if(!menu)return;menu.hidden=!open;toggle.setAttribute('aria-expanded',String(open));};
+  const filterCommands=()=>{
+    if(!composer)return;
+    const query=composer.value.trim().toLowerCase();
+    const isCommand=query.startsWith('/')||query.startsWith('!');
+    choices.forEach(button=>button.hidden=isCommand&&!button.dataset.insertCommand.trim().startsWith(query));
+    showCommands(isCommand&&!query.includes(' ')&&choices.some(b=>!b.hidden)&&!choices.some(b=>b.dataset.insertCommand.trim()===query));
+  };
+  composer?.addEventListener('input',filterCommands);
+  composer?.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){showCommands(false);return;}
+    if(event.key==='ArrowDown'&&menu&&!menu.hidden){event.preventDefault();choices.find(b=>!b.hidden)?.focus();}
+  });
+  toggle?.addEventListener('click',()=>{if(menu.hidden){choices.forEach(b=>b.hidden=false);showCommands(true);choices[0]?.focus();}else{showCommands(false);composer.focus();}});
+  choices.forEach(button=>{
+    button.addEventListener('click',()=>{composer.value=button.dataset.insertCommand;showCommands(false);composer.focus();composer.setSelectionRange(composer.value.length,composer.value.length);});
+    button.addEventListener('keydown',event=>{
+      if(event.key==='Escape'){event.preventDefault();showCommands(false);composer.focus();}
+      if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
+        event.preventDefault();const visible=choices.filter(b=>!b.hidden),i=visible.indexOf(button);
+        visible[event.key==='Home'?0:event.key==='End'?visible.length-1:(i+(event.key==='ArrowDown'?1:-1)+visible.length)%visible.length]?.focus();
+      }
+    });
+  });
+  document.getElementById('console-command')?.addEventListener('submit',()=>showCommands(false));
+  async function poll() { if (!document.hidden && !root.closest('[data-round-panel]')?.hidden) await load(); setTimeout(poll,2000); }
   poll();
 })();

@@ -325,8 +325,9 @@ def index():
             action = "Rückblick öffnen"
         elif focus["phase"] == "running":
             linked = live_store.current(build["id"])
-            action = "Fortschritt ansehen" if linked else "Jetzt spielen"
-            anchor = "progress" if linked else "play"
+            configured = db.query("SELECT 1 FROM hosted_rooms WHERE build_id=?",(build["id"],),one=True)
+            action = "Konsole öffnen" if configured and not db.loads(build["snapshot"]).get("race") else "Jetzt spielen"
+            anchor = "play"
             if linked and linked["latest_json"]:
                 live = db.loads(linked["latest_json"])
         elif build and build["status"] in ("queued","running"):
@@ -731,7 +732,11 @@ def session_view(sid, selection=None, build_id=None):
     chosen = rounds.selected_build(row, history, explicit)
     play = mvp.play_context(sid, chosen["id"]) if chosen else {}
     phase, phase_label = rounds.phase(row, chosen)
+    console_primary = bool(play and chosen["status"] == "succeeded" and play["hosted"]
+                           and not chosen["completed_at"] and not play["race"]
+                           and (is_member or can_manage_session(row)))
     return render_template("round.html", round_phase=phase, phase_label=phase_label,
+                           console_primary=console_primary,console_commands=ap_console.COMMANDS,
                            play=play, **play, s=row, entries=entries, games=games,
                            host_rom_requirements=game_catalog.host_rom_requirements(entries),
                            manage=can_manage_session(row), build_history=history,

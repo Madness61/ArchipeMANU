@@ -95,6 +95,8 @@ def slot_row(page,name):
 
 
 def area(page,name):
+    if name=='Spielen' and page.locator('[data-round-view="play"]').inner_text().strip()=='Konsole':
+        name='Konsole'
     link=page.get_by_role("navigation",name="Rundenbereiche").get_by_role("link",name=name,exact=True)
     link.click()
     expect(link).to_have_attribute('aria-current','page')

@@ -76,3 +76,18 @@ class RoundTests(unittest.TestCase):
         self.assertNotIn('id="round-host-connection"',page)
         self.assertNotIn('id="round-slot-connect"',page)
         self.assertIn('Gemeinsame Spieldateien',page)
+
+    def test_configured_running_round_prioritizes_console_but_race_and_archive_do_not(self):
+        bid,_=self.seed()
+        self.post(f'/sessions/1/builds/{bid}/hosting',{'host':'archipelago.gg','port':'49537'})
+        page=self.client.get('/sessions/1').get_data(as_text=True)
+        self.assertIn('id="ap-console"',page)
+        self.assertLess(page.index('id="ap-console"'),page.index('id="prepare-games"'))
+        self.assertIn('id="console-command-menu"',page)
+        self.assertIn('data-insert-command="/hint "',page)
+        with self.app.app_context():
+            db.execute("UPDATE seed_builds SET snapshot=? WHERE id=?",(json.dumps(dict(slots=[],race=True)),bid))
+        self.assertNotIn('id="ap-console"',self.client.get('/sessions/1').get_data(as_text=True))
+        with self.app.app_context():
+            db.execute("UPDATE seed_builds SET snapshot=?,completed_at='done' WHERE id=?",(json.dumps(dict(slots=[])),bid))
+        self.assertNotIn('id="ap-console"',self.client.get('/sessions/1').get_data(as_text=True))

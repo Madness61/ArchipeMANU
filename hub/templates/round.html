@@ -11,10 +11,14 @@
 {% if round_phase == 'completed' %}<p class="status-note ok">Abgeschlossene Runde · Ergebnisse, Verlauf und Downloads bleiben hier erhalten.</p>
 {% elif not play %}<div class="round-readiness">{{ progress(ready_count, member_count, 'Gemeinsam startklar') }}<p class="small muted">{% if not is_member %}Tritt der Lobby bei und wähle dein Spiel.{% elif not own_entry %}Wähle dein Spiel und übernimm die Standardwerte oder passe die Einstellungen an.{% elif not own_entry.ready_valid %}Deine Auswahl ist gespeichert. Melde dich bereit, wenn sie für dich passt.{% elif manage and all_ready %}Alle sind bereit. Du kannst den Seed generieren.{% else %}Du bist bereit. Der Host startet, sobald alle startklar sind.{% endif %}</p></div>{% endif %}
 <nav class="round-nav" aria-label="Rundenbereiche">
-{% for key,label,symbol in [('play','Spielen','play'),('progress','Fortschritt','chart'),('players','Mitspieler','users'),('more','Mehr','settings')] %}<a href="#{{ key }}" data-round-view="{{ key }}" aria-controls="round-{{ key }}" {% if loop.first %}aria-current="page"{% endif %}>{{ icon(symbol) }}{{ label }}</a>{% endfor %}
+{% for key,label,symbol in [('play','Spielen','play'),('progress','Fortschritt','chart'),('players','Mitspieler','users'),('more','Mehr','settings')] %}<a href="#{{ key }}" data-round-view="{{ key }}" aria-controls="round-{{ key }}" {% if loop.first %}aria-current="page"{% endif %}>{{ icon(symbol) }}{{ 'Konsole' if key == 'play' and console_primary else label }}</a>{% endfor %}
 </nav>
 <section id="round-play" data-round-panel="play" aria-label="Spielen">
 {% if play and build.status == 'succeeded' %}
+  {% if console_primary %}
+    {% with endpoint=hosted,commands=console_commands,archived=false,console_embedded=true %}{% include "console_workspace.html" %}{% endwith %}
+    <div class="section-head"><h2>Dein Spielstart & Dateien</h2></div>
+  {% endif %}
   {% include "round_play.html" %}
 {% else %}
   {% include "round_preparation.html" %}
@@ -51,6 +55,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
+{% if console_primary %}<link rel="stylesheet" href="{{ url_for('static',filename='console.css') }}"><script src="{{ url_for('static',filename='console.js') }}" defer></script>{% endif %}
 <script>window.HUB_TEMPLATES_URL = {{ url_for('api_templates', slug='__SLUG__')|tojson }};window.HUB_SELECTION_TEMPLATES = {{ selection_template_info|tojson }};</script>
 {% if selection %}<script>window.HUB_NAMES_URL = {{ url_for('api_names',slug=selection.schema.slug)|tojson }};</script>{% endif %}
 <script src="{{ url_for('static',filename='round.js') }}" defer></script>

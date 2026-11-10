@@ -131,7 +131,7 @@ def test_dark_platform_navigation_options_and_responsive_pages(actors, live_serv
     alice.screenshot(path=str(artifact_dir / "live-presentation-1440.png"), full_page=False)
     alice.get_by_role("button", name="Präsentation beenden", exact=True).click()
     alice.goto("/")
-    expect(alice.locator("#featured-action")).to_have_text("Fortschritt ansehen")
+    expect(alice.locator("#featured-action")).to_have_text("Konsole öffnen")
     capture(alice, artifact_dir, "dashboard-active")
     alice.goto(play_url)
     expect(alice.locator("#host-address")).to_have_text("archipelago.gg:38281")

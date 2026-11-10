@@ -1,19 +1,31 @@
 # Archipelago-Konsole und JSON-API
 
-Stand: 9. November 2026 · Branch `feature/archipelago-console`.
+Stand: 10. November 2026 · Konsole als Hauptansicht laufender Runden.
 
 ## Benutzung
 
-1. Eine erfolgreich generierte Runde unter **Jetzt spielen** öffnen.
+1. Eine laufende Runde unter **Meine Runden** öffnen. Die erste Ansicht ist **Konsole**.
 2. Der Host hinterlegt den tatsächlichen Archipelago-Spielserver und Port.
-3. **Live-Konsole öffnen**, eigenen Slot wählen und gegebenenfalls das
+3. In der Konsole den eigenen Slot wählen und gegebenenfalls das
    **Raumpasswort** eingeben. Das ist nicht das persönliche Benutzerpasswort.
 4. **Mit Archipelago verbinden** drücken. **Automatisch** versucht zuerst
    verschlüsseltes WSS (auch für archipelago.gg) und bei einem inkompatiblen
    Transport unverschlüsseltes WS. Ungültige TLS-Zertifikate führen zum Abbruch.
    Die gewählte Verbindung wird im Status angezeigt; WS/WSS bleiben manuell wählbar.
 5. Item-Sendungen mit Finder, Empfänger, Item und konkretem Check lesen oder
-   einen Befehl eingeben. Der Link steht auch im Live-Dashboard.
+   eine Nachricht schreiben. **Befehl einfügen** oder Tippen von `/` (auch `!`)
+   öffnet passende Vorschläge. Auswahl füllt nur das Feld; erst **Senden** führt
+   den Befehl aus. Die Auswahl ist auch per Pfeiltasten, Enter und Escape bedienbar.
+
+Die gemeinsame Jinja-Komponente `console_workspace.html` wird in der Rundenzentrale
+und auf der bisherigen Konsolen-Detailseite verwendet. In Vorbereitung bleibt die
+Spielauswahl vorn; in einer Runde mit hinterlegter Verbindung erhält die Konsole
+den Vorrang und die Dashboard-Hauptaktion lautet „Konsole öffnen“. Spielstart,
+Dateien und Abschluss folgen darunter, Fortschritt und Logik bleiben direkt
+erreichbar. Race-Runden erhalten keine Konsole; abgeschlossene Runden behalten
+das lesbare Archiv über die Detailansicht. Die bestehende Daten- und Rollenlogik
+bleibt erhalten. Beim Wechsel der gespeicherten Verbindung wird der angezeigte
+Verlauf neu geladen, statt Meldungen zweier Verbindungen zu vermischen.
 
 Die Konsole ist ein zusätzlicher Textclient. Sie ersetzt den Spielclient nicht,
 bestätigt keine Checks und sendet keine Spielziel-Meldungen. Ein Beobachter ohne

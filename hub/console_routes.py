@@ -87,8 +87,10 @@ def data(sid, build_id):
         abort(400)
     rows = ap_console.events(build_id, g.user["id"], after, kind, before)
     catalog_version = db.query("SELECT COALESCE(MAX(updated_at),0) AS version FROM console_packages WHERE build_id=?", (build_id,), one=True)["version"]
+    endpoint = db.query("SELECT id FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1",(build_id,),one=True)
     return jsonify(**state(client(build_id)), events=rows, cursor=rows[-1]["id"] if rows else after,
-                   catalog_version=catalog_version, limit=100, journal_limit=ap_console.MAX_EVENTS)
+                   catalog_version=catalog_version, endpoint_id=endpoint["id"] if endpoint else None,
+                   limit=100, journal_limit=ap_console.MAX_EVENTS)
 
 
 @bp.route(PREFIX + "/commands")

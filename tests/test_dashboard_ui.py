@@ -31,13 +31,13 @@ class DashboardUITests(unittest.TestCase):
         self.assertIn("Jetzt spielen", self.action())
         self.post(f"/sessions/1/builds/{bid}/hosting", {"host": "archipelago.gg", "port": "38281"})
         live_store.attach(bid, "https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw", 1)
-        self.assertIn("Fortschritt ansehen", self.action())
+        self.assertIn("Konsole öffnen", self.action())
         # Older active rounds must outrank newer archived rooms.
         with self.app.app_context():
             for i in range(8):
                 db.execute("INSERT INTO sessions(name,created_by,locked,completed_at) VALUES (?,1,1,'done')",
                            (f"Archive {i}",))
-        self.assertIn("/sessions/1#progress", self.action())
+        self.assertIn("/sessions/1#play", self.action())
 
     def test_no_round_has_an_honest_empty_state(self):
         self.post("/login", {"username": "Host"})
