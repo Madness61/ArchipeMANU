@@ -43,6 +43,7 @@
   {% elif g.user and extract.status in ('queued','running') %}
     <div class="flash info" id="world-extract-status" role="status" data-url="{{ url_for('world_status') }}" data-status="{{ extract.status }}">Die Spiel-Optionen werden gerade eingelesen – das dauert meist unter einer Minute.</div>
   {% endif %}
+  {% if g.user %}<div class="auth-required" id="auth-required" role="alert" hidden><span>Deine Anmeldung ist nicht mehr gültig. Melde dich erneut an, um fortzufahren.</span><a class="btn small" id="auth-required-link" href="{{ url_for('login') }}">Erneut anmelden</a></div>{% endif %}
   {% for category, message in get_flashed_messages(with_categories=true) %}
     <div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ icon('check' if category != 'error' else 'shield') }}<span>{{ message }}</span></div>
   {% endfor %}

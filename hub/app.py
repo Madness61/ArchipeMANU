@@ -58,9 +58,16 @@ def login_required(view):
     @functools.wraps(view)
     def wrapped(*args, **kwargs):
         if g.user is None:
-            return redirect(url_for("login", next=request.full_path))
+            return auth.login_required_response()
         return view(*args, **kwargs)
     return wrapped
+
+
+@app.errorhandler(401)
+def missing_authentication(error):
+    if getattr(g, "user", None) is None:
+        return auth.login_required_response()
+    return error
 
 
 def admin_required(view):

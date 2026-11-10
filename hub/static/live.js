@@ -441,6 +441,7 @@
         method: manual ? "POST" : "GET", credentials: "same-origin", cache: "no-store", signal: controller.signal,
         headers: { "Accept": "application/json", ...(manual ? { "X-CSRF-Token": root.dataset.csrf } : {}) },
       });
+      if(response.status===401){const auth=await response.json().catch(()=>({}));window.HUB_AUTH_REQUIRED?.(auth.login_url);}
       if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "Bitte erneut anmelden oder die Lobbyberechtigung prüfen." : "Der Datenstand konnte nicht geladen werden.");
       const payload = await response.json();
       render(payload);

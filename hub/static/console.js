@@ -7,13 +7,14 @@
   const kind = document.getElementById('console-kind');
   const search = document.getElementById('console-search');
   const older = document.getElementById('console-older');
-  let cursor = 0, first = 0, generation = 0, fetching = false, catalogVersion = 0, endpointId;
+  let cursor = 0, first = 0, generation = 0, fetching = false, catalogVersion = 0, endpointId, authLost=false;
   const ids = new Set();
   const labels = {connecting:'Verbindung wird aufgebaut',authenticating:'Slot wird angemeldet',connected:'Mit Archipelago verbunden',disconnected:'Nicht verbunden',error:'Verbindung fehlgeschlagen'};
   const fail = (text) => { error.textContent = text; error.hidden = !text; };
   async function api(path, form) {
     const response = await fetch(root.dataset.base + path, form ? {method:'POST',body:form,headers:{'X-CSRF-Token':root.dataset.csrf},cache:'no-store'} : {cache:'no-store'});
     const data = await response.json().catch(() => ({error:response.status === 429 ? 'Zu viele Anfragen. Bitte kurz warten.' : 'Die Anfrage konnte nicht verarbeitet werden. Bitte gegebenenfalls erneut anmelden.'}));
+    if(response.status===401){authLost=true;window.HUB_AUTH_REQUIRED?.(data.login_url);}
     if (!response.ok) throw new Error(data.error || 'Die Anfrage ist fehlgeschlagen.');
     return data;
   }
@@ -160,6 +161,6 @@
     });
   });
   document.getElementById('console-command')?.addEventListener('submit',()=>showCommands(false));
-  async function poll() { if (!document.hidden && !root.closest('[data-round-panel]')?.hidden) await load(); setTimeout(poll,2000); }
+  async function poll() { if (!authLost && !document.hidden && !root.closest('[data-round-panel]')?.hidden) await load(); setTimeout(poll,2000); }
   poll();
 })();

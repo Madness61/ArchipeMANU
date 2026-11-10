@@ -158,6 +158,51 @@ class AuthTests(unittest.TestCase):
             db.execute("DELETE FROM users WHERE id=1")
         self.assertEqual(self.client.get("/admin").status_code,302)
 
+    def test_round_pages_require_login_with_return_url_instead_of_english_401(self):
+        from urllib.parse import parse_qs,urlsplit
+        for path in ('/rounds','/lobbies','/seeds','/active-lobby','/games/community/add'):
+            response=self.client.get(path)
+            self.assertEqual(response.status_code,302,path)
+            self.assertEqual(urlsplit(response.location).path,'/login')
+            self.assertEqual(parse_qs(urlsplit(response.location).query)['next'],[path])
+            page=self.client.get(response.location).get_data(as_text=True)
+            self.assertIn('Bitte melde dich an',page)
+            self.assertNotIn('The server could not verify',page)
+
+    def test_api_missing_auth_is_json_and_never_redirects_to_post_action(self):
+        from urllib.parse import parse_qs,urlsplit
+        self.register()
+        with self.app.app_context():
+            sid=db.execute("INSERT INTO sessions(name,created_by) VALUES ('Round',1)")
+            bid=db.execute("INSERT INTO seed_builds(session_id,status,snapshot,created_at) VALUES (?,'succeeded','{\"slots\":[]}',CURRENT_TIMESTAMP)",(sid,))
+        self.post('/logout')
+        for path in (f'/sessions/{sid}/builds/{bid}/console/data',f'/sessions/{sid}/builds/{bid}/live/logic/data',
+                     '/api/games/test_world/checks'):
+            response=self.client.get(path)
+            self.assertEqual(response.status_code,401)
+            self.assertTrue(response.json['authentication_required'])
+            self.assertEqual(urlsplit(response.json['login_url']).path,'/login')
+        response=self.post(f'/sessions/{sid}/builds/{bid}/console/connect')
+        self.assertEqual(response.status_code,401)
+        self.assertTrue(response.json['authentication_required'])
+        target=parse_qs(urlsplit(response.json['login_url']).query)['next'][0]
+        self.assertTrue(target.startswith(f'/sessions/{sid}?build={bid}'))
+        self.assertNotIn('/connect',target)
+
+    def test_expired_round_session_can_login_and_return_to_same_round(self):
+        self.register()
+        with self.app.app_context():
+            sid=db.execute("INSERT INTO sessions(name,created_by) VALUES ('Return to round',1)")
+            db.execute('INSERT INTO lobby_members(session_id,user_id) VALUES (?,1)',(sid,))
+            db.execute('UPDATE auth_sessions SET expires_at=0')
+        response=self.client.get(f'/sessions/{sid}')
+        self.assertEqual(response.status_code,302)
+        login_url=response.location
+        self.client.get(login_url)
+        resumed=self.login(path=login_url)
+        self.assertEqual(resumed.location,f'/sessions/{sid}')
+        self.assertEqual(self.client.get(resumed.location).status_code,200)
+
     def test_player_session_cannot_claim_admin_id_or_use_forged_cookie(self):
         self.existing_admin()
         self.register()

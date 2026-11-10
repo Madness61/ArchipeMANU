@@ -12,6 +12,7 @@
   async function api(url, body) {
     const response=await fetch(url,{cache:'no-store',...(body ? {method:'POST',headers:{'X-CSRF-Token':root.dataset.csrf},body:new URLSearchParams(body)} : {})});
     const data=await response.json().catch(()=>({error:'Die Antwort konnte nicht gelesen werden. Bitte gegebenenfalls neu anmelden.'}));
+    if(response.status===401)window.HUB_AUTH_REQUIRED?.(data.login_url);
     if(!response.ok)throw new Error(data.error||'Die Anfrage konnte nicht abgeschlossen werden.');
     return data;
   }

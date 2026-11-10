@@ -36,7 +36,7 @@ def test_console_items_commands_private_hints_and_mobile(actors, artifact_dir):
         alice.get_by_role("button",name="Mit Archipelago verbinden",exact=True).click()
         expect(alice.locator("#console-state")).to_have_text("Mit Archipelago verbunden · WS",timeout=15000)
         expect(alice.locator("#console-error")).to_be_hidden()
-        expect(alice.locator("#console-log")).to_contain_text("Bob → Alice: Progression Key")
+        expect(alice.locator("#console-log")).to_contain_text("Bob → Alice: Progression Key",timeout=15000)
         expect(alice.locator("#console-log")).to_contain_text("Old Fortress - Chest")
         console_url = alice.url
         bob.goto(console_url)
@@ -80,3 +80,33 @@ def test_console_items_commands_private_hints_and_mobile(actors, artifact_dir):
         expect(alice.locator("#console-state")).to_have_text("Nicht verbunden",timeout=10000)
         assert any(p.get("cmd")=="Say" and p.get("text")=="!hint Progression Key" for p in server.packets)
         assert all(p["cmd"] not in ("LocationChecks","StatusUpdate","LocationScouts") for p in server.packets)
+
+
+def test_missing_login_shows_recovery_and_returns_to_round(actors,artifact_dir):
+    from .fixtures import PASSWORD
+    page=actors.alice
+    register(page,'Alice');upload_world(page)
+    create_lobby(page,'Zurück zur Konsole');select_game(page);mark_ready(page,'Alice')
+    page.get_by_role('button',name='Seed generieren',exact=True).click()
+    host=generated(page)
+    host.get_by_label('Serveradresse',exact=True).fill('127.0.0.1')
+    host.get_by_label('Port',exact=True).fill('9')
+    host.get_by_role('button',name='Verbindung speichern',exact=True).click()
+    page.get_by_label('Nachricht oder Befehl',exact=True).fill('Noch nicht senden')
+    page.context.clear_cookies()
+    expect(page.locator('#auth-required')).to_be_visible(timeout=15000)
+    expect(page.get_by_label('Nachricht oder Befehl',exact=True)).to_have_value('Noch nicht senden')
+    expect(page.locator('#console-error')).to_contain_text('Bitte melde dich erneut an')
+    for width in (1440,390):
+        page.set_viewport_size(dict(width=width,height=1000))
+        page.locator('#main-content').evaluate('n=>{n.focus({preventScroll:true});n.blur()}')
+        page.evaluate('window.scrollTo(0,0)')
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+        page.screenshot(path=str(artifact_dir/f'login-recovery-{width}.png'),full_page=True)
+    page.get_by_role('link',name='Erneut anmelden',exact=True).click()
+    expect(page.get_by_role('heading',name='Anmelden',exact=True)).to_be_visible()
+    page.get_by_label('Benutzername',exact=True).fill('Alice')
+    page.get_by_label('Persönliches Passwort',exact=True).fill(PASSWORD)
+    page.get_by_role('button',name='Anmelden',exact=True).click()
+    expect(page.get_by_role('heading',level=1)).to_have_text('Zurück zur Konsole')
+    expect(page.locator('#ap-console')).to_be_visible()

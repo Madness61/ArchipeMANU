@@ -1,6 +1,14 @@
 // Small progressive enhancements; every page works without JS except the name pickers.
 (function () {
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  // Never replace a page with an English 401 or silently discard an open composer.
+  window.HUB_AUTH_REQUIRED = loginUrl => {
+    const notice=document.getElementById('auth-required'),link=document.getElementById('auth-required-link');
+    if(!notice||!link)return;
+    const target=new URL(loginUrl||'/login',location.origin);
+    if(target.origin!==location.origin||target.pathname!=='/login')return;
+    link.href=target.href;notice.classList.add('flash','warn');notice.hidden=false;
+  };
 
   // One navigation drawer on small screens, with keyboard focus containment.
   const menuToggle = document.getElementById("menu-toggle");

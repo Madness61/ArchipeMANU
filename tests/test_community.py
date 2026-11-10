@@ -98,7 +98,7 @@ class CommunityTests(unittest.TestCase):
             self.assertEqual(count,1)
 
     def test_world_progress_is_authenticated_and_does_not_leak_admin_logs(self):
-        self.assertEqual(self.friend.get("/api/worlds/status").status_code,302)
+        self.assertEqual(self.friend.get("/api/worlds/status").status_code,401)
         self.login(self.host,"Host")
         self.login(self.friend,"Friend")
         with patch.object(ap_bridge,"extract_status",return_value={"status":"queued","log":"private worker details"}):
@@ -582,7 +582,7 @@ class CommunityTests(unittest.TestCase):
         self.assertIn(b"Keine passenden Items",filtered.data)
         self.assertEqual(self.friend.get(detail_url).status_code,403)
         anonymous = self.app.test_client()
-        self.assertEqual(anonymous.get(detail_url).status_code,401)
+        self.assertEqual(anonymous.get(detail_url).status_code,302)
         self.assertEqual(self.host.get(base + "/items/999").status_code,404)
         self.assertEqual(self.host.get(detail_url + "?direction=wrong").status_code,400)
         self.assertEqual(self.host.get(detail_url + "?page=wrong").status_code,400)
@@ -639,7 +639,7 @@ class CommunityTests(unittest.TestCase):
         self.assertIn(b"Game B",fallback.data)
         self.assertEqual(self.host.get(base + "/progression/2").status_code,404)
         self.assertEqual(self.host.get(base + "/progression/999").status_code,404)
-        self.assertEqual(self.app.test_client().get(reveal).status_code,401)
+        self.assertEqual(self.app.test_client().get(reveal).status_code,302)
         self.assertEqual(self.friend.get(reveal).status_code,403)
         with self.app.app_context():
             sid = db.query("SELECT session_id FROM seed_builds WHERE id=?",(bid,),one=True)["session_id"]

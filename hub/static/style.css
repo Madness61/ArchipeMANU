@@ -69,3 +69,5 @@ button.primary:hover,.btn.primary:hover{background:#7060d9;border-color:var(--ac
 @media(max-width:1150px){.dashboard-sections{grid-template-columns:1fr}.dashboard-group .section-head{min-height:0}}
 @media(max-width:600px){.catalog-fields{padding:16px}.catalog-fields .grid{grid-template-columns:1fr}}
 @media(max-width:600px){.connection-data{grid-template-columns:minmax(0,1fr) 124px}.connection-data button{font-size:11px;padding:9px 10px}}
+.auth-required{position:sticky;top:12px;z-index:45;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+@media(max-width:900px){.auth-required{top:80px}}

@@ -18,7 +18,7 @@ class CheckPreviewTests(unittest.TestCase):
     post = fixtures.MVPTests.post
 
     def test_api_is_read_only_until_explicit_post_and_requires_auth_and_csrf(self):
-        self.assertEqual(self.client.get('/api/games/test_world/checks').status_code,302)
+        self.assertEqual(self.client.get('/api/games/test_world/checks').status_code,401)
         self.post('/login',{'username':'Host'})
         with patch.object(ap_bridge,'ap_ready',return_value=True), patch.object(check_preview._pool,'submit') as submit:
             response=self.client.get('/api/games/test_world/checks')

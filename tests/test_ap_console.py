@@ -176,6 +176,25 @@ class ConsoleTests(unittest.TestCase):
         self.wait_for(lambda:not current.thread.is_alive())
         self.assertEqual(self.client.get(self.url+"/data").status_code,401)
 
+    def test_package_arriving_during_render_keeps_old_version_for_invalidation(self):
+        with self.app.app_context():
+            ap_console.record(self.path/'hub.db',self.bid,None,'items',dict(type='item',
+                sender='Friend',recipient='Host',sender_game='Test World',recipient_game='Test World',
+                item_id=501,location_id=1001))
+        real_events=ap_console.events
+        def arriving_package(*args,**kwargs):
+            rows=real_events(*args,**kwargs)
+            db.execute('INSERT INTO console_packages(build_id,game,items,locations,updated_at) VALUES (?,?,?,?,?)',
+                       (self.bid,'Test World',db.dumps({'501':'Progression Key'}),db.dumps({'1001':'Chest'}),123))
+            return rows
+        with patch.object(ap_console,'events',side_effect=arriving_package):
+            first=self.state()
+        self.assertEqual(first['catalog_version'],0)
+        self.assertIn('Item #501',first['events'][0]['text'])
+        next_state=self.state()
+        self.assertEqual(next_state['catalog_version'],123)
+        self.assertIn('Progression Key',next_state['events'][0]['text'])
+
 
 class SocketAddressTests(unittest.TestCase):
     def test_automatic_prefers_tls_without_opening_plaintext_connection(self):
