@@ -1,5 +1,10 @@
 # Multiworld Hub
 
+In der Spielebibliothek zeigt **Standard-Checks ermitteln** die Anzahl der
+Item-Fundorte eines echten Einzelspiel-Probelaufs mit den Spielvorgaben.
+Ergebnisse werden pro Konfiguration und Spielversion zwischengespeichert;
+eure spätere Runde kann abweichen. [Details](STANDARD_CHECK_PREVIEW.md).
+
 Die Oberfläche hat drei Hauptbereiche: **Übersicht**, **Meine Runden** und
 **Spiele entdecken**. Jede Runde öffnet eine gemeinsame Rundenzentrale mit
 **Spielen**, **Fortschritt**, **Mitspieler** und **Mehr**. Eigene Dateien,

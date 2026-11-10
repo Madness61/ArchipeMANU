@@ -52,6 +52,16 @@ def main():
     allowed = {hashlib.sha256(world_bytes(v)).hexdigest():v for v in ("1.0.0","1.1.0")}
 
     def mock_extract(args,timeout):
+        if args[0] == "preview":
+            out=Path(args[args.index("--out")+1])
+            players=Path(args[args.index("--players")+1])
+            if not out.resolve().is_relative_to(root) or not players.resolve().is_relative_to(root):
+                raise RuntimeError("Preview escaped disposable test root")
+            doc=yaml.safe_load((players/'standard.yaml').read_text(encoding='utf-8'))
+            assert doc['game']==GAME
+            (out/'check_preview.json').write_text(json.dumps(dict(source='archipelago_standard_probe',game=GAME,checks=2,seed=20261110)),encoding='utf-8')
+            (root/'check-preview-calls.txt').write_text('test-only preview',encoding='utf-8')
+            return True,"Test-only count; no real APWorld executed."
         if args[0] != "extract":
             raise RuntimeError("No real Archipelago subprocess is allowed in browser tests")
         out = Path(args[args.index("--out")+1])

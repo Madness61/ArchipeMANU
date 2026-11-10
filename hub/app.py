@@ -452,6 +452,20 @@ def world_status():
     return jsonify(status=ap_bridge.extract_status().get("status","never"))
 
 
+@app.route("/api/games/<slug>/checks", methods=["GET", "POST"])
+@login_required
+def game_check_preview(slug):
+    from . import check_preview
+    get_schema(slug)
+    if request.method == "POST":
+        limited = auth.consume_attempt("standard-check-preview", str(g.user["id"]), 12)
+        if limited:
+            return limited
+    response = jsonify(check_preview.status(slug, start=request.method == "POST"))
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 # --- Templates ---------------------------------------------------------------------------------
 
 def visible_options(schema: dict, values: dict, expert: bool) -> list[dict]:

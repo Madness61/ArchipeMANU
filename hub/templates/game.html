@@ -21,6 +21,7 @@
   </div>
 </div>
 </div>
+<section class="panel"><h2>Wie viele Checks hat der Spiel-Standard?</h2><p class="small muted">Gezählt werden Item-Fundorte in einem Einzelspiel-Probelauf mit den reinen Spielvorgaben, ohne Gruppen-Vorlage oder Profilwerte. Events und Startinventar zählen nicht mit. Andere Einstellungen, Zufallswerte und eure spätere Multiworld können die Anzahl verändern.</p>{% with check_slug=schema.slug %}{% include "check_preview.html" %}{% endwith %}</section>
 {% include "game_setup_panel.html" %}
 <div class="section-head"><div><h2>Vorlagen für deine Einstellungen</h2><p class="muted small">Wähle eine Vorlage und eine Lobby. Die Einstellungen kannst du dort noch ändern, bevor du sie übernimmst.</p></div></div>
 
@@ -82,3 +83,4 @@
 {% endfor %}
 </div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static',filename='check_preview.js') }}" defer></script>{% endblock %}
