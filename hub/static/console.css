@@ -12,3 +12,4 @@
 .console-sidebar .stack{display:flex;flex-direction:column;align-items:stretch}.console-sidebar .stack>a{display:block}.console-connection #console-connect[data-connected=true]>label,.console-connection #console-connect[data-connected=true]>.primary{display:none}
 #round-center #console-connect,#round-center #prepare-games{scroll-margin-top:100px}
 @media(max-width:900px){#round-center #console-connect,#round-center #prepare-games{scroll-margin-top:165px}}
+@media(max-width:650px){.console-workspace .console-filters{display:grid;grid-template-columns:1fr;gap:10px}.console-workspace .console-filters>*{min-width:0;width:100%}}
