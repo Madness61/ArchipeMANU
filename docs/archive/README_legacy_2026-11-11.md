@@ -11,7 +11,7 @@ Dieses Dokument bildet ältere, teils widersprüchliche Entwicklungsstände ab u
 Unter **Live-Dashboard → Logik-Tracker** berechnet Universal Tracker die
 Erreichbarkeit für den eigenen verbundenen Slot. Checks lassen sich nach
 Logikstatus und Region filtern; Iteminhalte werden nur ausdrücklich aufgedeckt.
-Einrichtung, Datenquellen und Grenzen: [LOGIC_TRACKER.md](LOGIC_TRACKER.md).
+Einrichtung, Datenquellen und Grenzen: [LOGIC_TRACKER.md](../../LOGIC_TRACKER.md).
 
 Die Spielebibliothek unterstützt eigene Beschreibungen, Genres und freie Tags
 beim Upload und unter **Spiel bearbeiten**. Tags wirken sofort in Suche und
@@ -26,16 +26,16 @@ als Textclient verbinden: konkrete Item-Sendungen mit Finder, Empfänger und
 Check, Chat, `/received`, `/missing`, `/items`, `/hint` und weitere Befehle.
 Item-Sendungen sind gemeinsam sichtbar; Befehlsantworten bleiben persönlich.
 Die bisherige Tracker-Schnittstelle bleibt erhalten. Einrichtung, Grenzen und
-JSON-Endpunkte: [ARCHIPELAGO_CONSOLE.md](ARCHIPELAGO_CONSOLE.md).
+JSON-Endpunkte: [ARCHIPELAGO_CONSOLE.md](../../ARCHIPELAGO_CONSOLE.md).
 
-Das [Designsystem](DESIGN_SYSTEM.md) beschreibt das neue Dark-Gaming-Frontend:
+Das [Designsystem](../../DESIGN_SYSTEM.md) beschreibt das neue Dark-Gaming-Frontend:
 Sidebar und mobiles Menü, persönliches Dashboard, Spielkatalog mit eigenen
 grafischen Titelbildern, Lobby-Spielerkarten und eine persönliche Spielstartzentrale.
 Die vorhandenen Formulare, YAML-Regeln, Rechte und Seed-/Live-Funktionen bleiben
 erhalten. Eigene Katalogangaben werden in einer zusätzlichen Tabelle gespeichert;
 bestehende Spiel- und Rundendaten werden nicht ersetzt.
 
-Das neue [Live-Dashboard](LIVE_DASHBOARD.md) begleitet laufende Runden mit
+Das neue [Live-Dashboard](../../LIVE_DASHBOARD.md) begleitet laufende Runden mit
 gemeinsam gecachten Archipelago-Daten, Spielerkarten, Empfangsmatrix, Verlauf,
 Ereignissen und Vergleichen. Nach dem Upload des Seeds genügt der Raumlink
 unter „Generierte Runden“ oder „Jetzt spielen / Verbindung“.
@@ -47,7 +47,7 @@ Dunkle Navigation, helle Karten und ein klarer Ablauf für die gemeinsame Runde:
 Die Bibliothek bietet Suche sowie Status- und Herkunftsfilter. Spieler und Host
 haben getrennte Aktionen; technische Extras bleiben aufklappbar erreichbar.
 Die Analyse zeigt echte Kennzahlen, bewusst aufdeckbare Spoiler und die vom Host
-gespeicherte Verbindung. Plan, Umsetzung und Prüfung: [UI_PLAN.md](UI_PLAN.md).
+gespeicherte Verbindung. Plan, Umsetzung und Prüfung: [UI_PLAN.md](../../UI_PLAN.md).
 
 ### Spielauswahl ohne YAML-Editor
 
@@ -87,7 +87,7 @@ simulierter Seed-Build und Statistik. Alle Daten liegen in temporären
 Verzeichnissen; der produktive `data`-Ordner wird nicht verwendet.
 Nach einmaliger Einrichtung starten mit `.\test-browser.ps1` oder
 `python -m browser_tests`. Einrichtung, Fehlerartefakte und CI:
-[BROWSER_TESTS.md](BROWSER_TESTS.md).
+[BROWSER_TESTS.md](../../BROWSER_TESTS.md).
 
 ### Verlässliche YAML-Konfiguration
 
@@ -97,7 +97,7 @@ Hochgeladene YAMLs erscheinen als unveränderliche Presets. Eine Auswahl wird im
 Lobby-Slot fixiert; Änderungen an der Vorlage gelten erst nach erneuter Auswahl.
 Vorschau und Generator verwenden denselben vollständigen YAML-Export.
 Details zur Prüfung, Migration und zu gewichteten Optionen:
-[YAML_CONFIGURATION.md](YAML_CONFIGURATION.md).
+[YAML_CONFIGURATION.md](../../YAML_CONFIGURATION.md).
 
 ### Persönliche Benutzerkonten
 
@@ -107,7 +107,7 @@ automatisch Admin; alle weiteren Registrierungen erhalten Spielerrechte.
 Bestehende Benutzer und Adminrechte bleiben erhalten; Altkonten vergeben ihr
 erstes Passwort mit einem persönlichen Einrichtungscode vom Host.
 Die Migration und die Einrichtung des bisherigen Admins sind in
-[AUTH_MIGRATION.md](AUTH_MIGRATION.md) beschrieben. Die früheren Hinweise zur
+[AUTH_MIGRATION.md](../../AUTH_MIGRATION.md) beschrieben. Die früheren Hinweise zur
 gemeinsamen Anmeldung weiter unten sind damit abgelöst.
 
 ### Admin: Accounts, Runden und Seeds löschen
@@ -194,7 +194,7 @@ Voraussetzungen: Git und Python 3.11–3.13.
 Bei einer neuen Installation <http://127.0.0.1:8080/register> öffnen. Das erste
 registrierte Konto wird automatisch Admin; weitere Konten sind normale Spieler.
 Bei bestehenden Installationen stattdessen `setup-account` verwenden, siehe
-[Kontomigration](AUTH_MIGRATION.md).
+[Kontomigration](../../AUTH_MIGRATION.md).
 
 `setup.ps1` legt die Archipelago-Quellen (Standard: Version 0.6.8) und eine Python-Umgebung unter
 `%USERPROFILE%\.ap-yaml-hub` an. Ein kurzer Pfad ist nötig, weil Windows sonst an zu langen Dateipfaden scheitert.
@@ -245,7 +245,7 @@ APWorld-Standard          ← was das Spiel mitbringt
 
 Alte Werte für `HUB_INVITE_CODE` und `HUB_PASSWORD` werden ignoriert. Bestehende
 Konten und ihre Rechte bleiben erhalten. Für Altkonten ohne persönliches Passwort
-bleibt die einmalige [Kontoeinrichtung](AUTH_MIGRATION.md) verfügbar.
+bleibt die einmalige [Kontoeinrichtung](../../AUTH_MIGRATION.md) verfügbar.
 
 ## Tests
 
