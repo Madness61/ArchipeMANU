@@ -39,7 +39,7 @@ Reale Seed-Generierung und Spielclient-Verbindungen separat prüfen und im PR vo
 - `hub/apworld_library.py` / `hub/ap_bridge.py` / `ap_runner.py`: Archivierung, Schemaextraktion, lokale Archipelago-Generierung.
 - `hub/live_api.py` / `hub/live_store.py` / `hub/live_routes.py` / `hub/live_metrics.py`: **read-only WebHost-API**, Polling, Cache, Fortschrittshistorie.
 - `hub/ap_console.py` / `hub/console_routes.py` / `hub/static/console.js`: **separate** Archipelago-WebSocket-Konsole und Itemprotokoll.
-- `hub/logic_tracker.py` / `hub/logic_routes.py` / `logic_worker.py`: derzeit **experimenteller** Universal-Logik-Tracker; zur Deaktivierung vorgesehen, **nicht** mit der WebHost-Tracker-API verwechseln.
+- `hub/logic_tracker.py` / `hub/logic_routes.py` / `logic_worker.py`: deaktivierter historischer Universal-Logik-Tracker; alte URLs antworten mit 410 ohne Worker, **nicht** mit der WebHost-Tracker-API verwechseln.
 - `hub/templates/`, `hub/static/`: Jinja, eigenes CSS/JS, SVG-Icons; Rundenzentrale mit `round*.html`, `round.css` und `round.js`.
 - `hub/check_preview.py` und `ap_runner.py`: explizite Standard-Check-Vorschau ohne spielbare Ausgabe; keine automatische Generierung beim Bibliotheksbesuch.
 

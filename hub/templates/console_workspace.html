@@ -2,6 +2,7 @@
   <section class="panel console-main">
     <div class="row spread"><div><p class="eyebrow">Eure Runde live</p><h2>Itemprotokoll & Chat</h2></div><div class="row"><span id="console-state" class="chip" role="status">Nicht verbunden</span>{% if own and not archived %}<a class="small" href="#console-connect" id="console-connect-link">Slot verbinden</a>{% endif %}</div></div>
     <p class="small muted">Wer findet was für wen? Sendungen erscheinen ab einer Textverbindung. Frühere Sendungen sind kein vollständig nachträglich abrufbares Serverlog.</p>
+    <details class="console-diagnostics"><summary>Verbindungsdiagnose</summary><p id="console-diagnostics" class="small muted" role="status">Textkonsole, WebHost-API und lokaler Spielclient sind getrennte Verbindungen.</p></details>
     <div class="row console-filters"><label>Nachrichtenart<select id="console-kind" aria-label="Nachrichtenart"><option value="all">Items & Nachrichten</option><option value="items">Item-Sendungen</option><option value="chat">Chat</option><option value="system">System & Antworten</option><option value="sent">Gesendete Befehle</option></select></label><label>In geladenen Nachrichten suchen<input type="search" id="console-search" maxlength="100"></label><button id="console-older" type="button" class="small">Frühere Nachrichten</button></div>
     <div id="console-log" class="console-log" role="log" aria-label="Archipelago-Protokoll" aria-live="polite"><p class="muted" id="console-empty">Noch keine Nachrichten aufgezeichnet. Verbinde deinen Slot, um neue Item-Sendungen und Chat zu sehen.</p></div>
     <p id="console-error" class="err" role="alert" hidden></p>
@@ -9,7 +10,7 @@
     <form id="console-command" class="row console-command" method="post" action="{{ url_for('console.command',sid=room.id,build_id=build.id) }}">
       <input type="hidden" name="_csrf" value="{{ csrf_token }}">
       <label>Nachricht oder Befehl<input id="console-message" name="text" maxlength="500" placeholder="Nachricht schreiben oder / für Befehle" required autocomplete="off" aria-describedby="console-command-help"></label>
-      <button type="button" id="console-command-toggle" aria-controls="console-command-menu" aria-expanded="false">Befehl einfügen</button><button class="primary">Senden</button>
+      <button type="button" id="console-command-toggle" aria-controls="console-command-menu" aria-expanded="false">Befehl einfügen</button><button class="primary" type="submit">Senden</button>
     </form>
     <div id="console-command-menu" class="console-command-menu" role="group" aria-label="Befehl auswählen" hidden>
       {% for cmd,description in commands %}<button type="button" data-insert-command="{{ cmd.split(' ')[0] }}{{ ' ' if ' ' in cmd else '' }}"><code>{{ cmd }}</code><span>{{ description }}</span></button>{% endfor %}

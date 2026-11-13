@@ -6,6 +6,7 @@ import json
 import logging
 from pathlib import Path
 import queue
+import random
 import secrets
 import socket
 import sqlite3
@@ -17,7 +18,11 @@ from . import config, db
 
 MAX_EVENTS = 10000
 MAX_FRAME = 16 * 1024 * 1024
-IDLE_SECONDS = 30 * 60
+IDLE_SECONDS = 30 * 60  # Historical constant; browser inactivity no longer ends a connection.
+RETRY_BASE = 2
+RETRY_MAX = 60
+GUARD_SECONDS = 5
+PING_SECONDS = 25
 COMMANDS = [
     ("/help", "Alle unterstützten Befehle anzeigen"),
     ("/connect", "Mit dem gespeicherten Server und deinem Slot verbinden"),
@@ -37,6 +42,7 @@ _clients = {}
 _lock = threading.RLock()
 _wire_logger = logging.getLogger("hub.ap_console.wire")
 _wire_logger.setLevel(logging.WARNING)  # Never log Connect frames containing a room password.
+_state_logger = logging.getLogger("hub.ap_console.state")
 
 
 def migrate():
@@ -212,6 +218,12 @@ class Client:
         self.slot_name, self.password, self.secure = slot, password, secure
         self.transport = None
         self.state, self.error = "connecting", ""
+        self.retry_attempt = 0
+        self.failure_streak = 0
+        self.stable_since = None
+        self.next_retry_at = self.last_contact = self.connected_at = self.interrupted_at = None
+        self.reason = ""
+        self.uuid = secrets.token_hex(16)
         self.stop = threading.Event()
         self.outbox = queue.Queue(maxsize=30)
         self.wire = None
@@ -241,48 +253,122 @@ class Client:
                         and membership and endpoint and endpoint["id"] == self.endpoint["id"])
 
     def run(self):
+        """One worker owns all sockets, retries and commands for this explicit login."""
         try:
-            self.wire, self.transport = connect_transport(self.endpoint["host"], self.endpoint["port"], self.secure)
-            self.state = "authenticating"
-            started, last_guard, last_ping = time.monotonic(), 0, time.monotonic()
-            while not self.stop.is_set():
-                now = time.monotonic()
-                if now - self.last_seen > IDLE_SECONDS:
-                    self.note("Textverbindung nach 30 Minuten ohne geöffnete Konsole beendet.")
-                    break
-                if now - last_guard > 5:
-                    if not self.valid():
-                        break
-                    last_guard = now
-                if self.state != "connected" and now - started > 20:
-                    raise ValueError("Der Server hat die Anmeldung nicht bestätigt.")
-                while not self.outbox.empty():
-                    self.handle_command(self.outbox.get_nowait())
-                if now - last_ping > 25:
-                    if not self.wire.ping().wait(5):
-                        raise ValueError("Der Archipelago-Server antwortet nicht mehr.")
-                    last_ping = now
+            while not self.stop.is_set() and self.valid():
+                self.items_synced = False
+                self.received, self.players, self.slot_data = [], {}, None
                 try:
-                    data = json.loads(self.wire.recv(timeout=0.5))
-                except TimeoutError:
-                    continue
-                if not isinstance(data, list) or len(data) > 5000:
-                    raise ValueError("Ungültiges Archipelago-Paket.")
-                for packet in data:
-                    if not isinstance(packet, dict):
-                        raise ValueError("Ungültiges Archipelago-Paket.")
-                    self.packet(packet)
-        except ValueError as exc:
-            self.error, self.state = str(exc), "error"
-        except Exception as exc:
-            if not self.stop.is_set():
-                self.error, self.state = connection_error(exc), "error"
+                    self.wire, self.transport = connect_transport(self.endpoint["host"], self.endpoint["port"], self.secure)
+                    if self.stop.is_set() or not self.valid():
+                        break
+                    self.state = "authenticating"
+                    self.serve()
+                    break
+                except (ValueError, ssl.SSLCertVerificationError) as exc:
+                    if not self.stop.is_set():
+                        self.error = str(exc) if isinstance(exc, ValueError) else connection_error(exc)
+                        self.transition("action_required", "authentication_or_protocol")
+                    break
+                except Exception as exc:
+                    if self.stop.is_set():
+                        break
+                    from websockets.exceptions import ConnectionClosed, InvalidHandshake
+                    if not isinstance(exc, (OSError, EOFError, ConnectionClosed, InvalidHandshake)):
+                        self.error = "Die Textverbindung konnte nicht sicher fortgesetzt werden. Bitte erneut verbinden."
+                        self.transition("action_required", "internal")
+                        break
+                    self.error = connection_error(exc)
+                    self.interrupted_at = self.interrupted_at or time.time()
+                    if self.stable_since and time.monotonic() - self.stable_since > 60:
+                        self.failure_streak = 0
+                    self.stable_since = None
+                    self.failure_streak += 1
+                    self.retry_attempt = self.failure_streak
+                    delay = min(RETRY_MAX, RETRY_BASE * 2 ** min(self.retry_attempt - 1, 10))
+                    delay = min(RETRY_MAX, delay * random.uniform(1, 1.2))
+                    self.next_retry_at = time.time() + delay
+                    self.transition("reconnecting" if self.retry_attempt < 5 else "temporarily_unavailable", type(exc).__name__)
+                finally:
+                    if self.wire:
+                        self.wire.close()
+                        self.wire = None
+                    self.discard_commands()
+                while not self.stop.is_set() and time.time() < (self.next_retry_at or 0):
+                    if not self.valid():
+                        return
+                    self.stop.wait(min(GUARD_SECONDS, max(0, self.next_retry_at - time.time())))
         finally:
             self.password = None
+            self.items_synced = False
+            self.next_retry_at = None
+            self.discard_commands()
             if self.wire:
                 self.wire.close()
-            if self.state != "error":
-                self.state = "disconnected"
+                self.wire = None
+            if self.state != "action_required":
+                self.transition("disconnected", "stopped_or_authorization_changed")
+
+    def transition(self, state, reason):
+        self.state, self.reason = state, reason
+        _state_logger.info("build=%s user=%s state=%s reason=%s", self.build_id, self.user_id, state, reason)
+        message = {
+            "reconnecting": "Textverbindung unterbrochen. Automatische Wiederverbindung; während der Lücke können Itemmeldungen fehlen.",
+            "temporarily_unavailable": "Textserver vorübergehend nicht erreichbar. Weitere Versuche folgen automatisch.",
+            "action_required": self.error,
+            "disconnected": "Textverbindung beendet. Spielclient und WebHost-API werden separat betrieben.",
+        }.get(state)
+        if message:
+            try:
+                self.note(message)
+            except sqlite3.Error:
+                pass  # The authorized user, build or endpoint may have been deleted.
+
+    def discard_commands(self):
+        discarded = False
+        while not self.outbox.empty():
+            try:
+                self.outbox.get_nowait()
+                discarded = True
+            except queue.Empty:
+                break
+        if discarded:
+            try:
+                self.note("Ausstehende Befehle wurden verworfen. Bitte bei Bedarf ausdrücklich erneut senden.")
+            except sqlite3.Error:
+                pass
+
+    def serve(self):
+        started, last_guard, last_ping = time.monotonic(), 0, time.monotonic()
+        while not self.stop.is_set():
+            now = time.monotonic()
+            if now - last_guard > GUARD_SECONDS:
+                if not self.valid():
+                    return
+                last_guard = now
+            if self.state != "connected" and now - started > 20:
+                raise TimeoutError("handshake timeout")
+            while self.state == "connected" and not self.outbox.empty():
+                if not self.valid():
+                    return
+                self.handle_command(self.outbox.get_nowait())
+            if now - last_ping > PING_SECONDS:
+                if not self.wire.ping().wait(5):
+                    raise TimeoutError("ping timeout")
+                self.last_contact = time.time()
+                last_ping = now
+            try:
+                frame = self.wire.recv(timeout=0.5)
+            except TimeoutError:
+                continue
+            data = json.loads(frame)
+            self.last_contact = time.time()
+            if not isinstance(data, list) or len(data) > 5000:
+                raise ValueError("Ungültiges Archipelago-Paket.")
+            for packet in data:
+                if not isinstance(packet, dict):
+                    raise ValueError("Ungültiges Archipelago-Paket.")
+                self.packet(packet)
 
     def packet(self, packet):
         cmd = packet.get("cmd")
@@ -293,7 +379,7 @@ class Client:
             if self.expected_seed and seed not in {self.expected_seed, self.expected_seed.removeprefix("AP_")}:
                 raise ValueError("Der Server gehört zu einem anderen Seed. Bitte die gespeicherte Verbindung prüfen.")
             self.wire.send(db.dumps([dict(cmd="Connect", password=self.password or None, game="", name=self.slot_name,
-                                         uuid=secrets.token_hex(16), version={"major":0,"minor":6,"build":8,"class":"Version"},
+                                         uuid=self.uuid, version={"major":0,"minor":6,"build":8,"class":"Version"},
                                          items_handling=7, tags=["TextOnly"], slot_data=True)]))
         elif cmd == "ConnectionRefused":
             errors = packet.get("errors", [])
@@ -320,6 +406,12 @@ class Client:
             self.missing = set(map(integer, packet.get("missing_locations", [])))
             self.checked = set(map(integer, packet.get("checked_locations", [])))
             self.state = "connected"
+            self.error, self.reason = "", "connected"
+            self.connected_at, self.next_retry_at, self.retry_attempt = time.time(), None, 0
+            self.stable_since = time.monotonic()
+            if self.interrupted_at:
+                self.note("Textverbindung wiederhergestellt. Empfangsliste und Checks werden synchronisiert; verpasste Itemmeldungen werden nicht rekonstruiert.")
+                self.interrupted_at = None
             self.wire.send(db.dumps([{"cmd": "GetDataPackage", "games": sorted({v["game"] for v in self.players.values() if v["type"] == 1})}]))
             self.note(f"Als {self.slot_name} mit Archipelago verbunden. Der Spielclient bleibt unabhängig davon verbunden.")
         elif self.state != "connected":
@@ -431,6 +523,9 @@ def start(build, user_id, token_hash, endpoint, slot, password="", secure=None):
         old = _clients.get(key(build["id"], user_id))
         if old:
             old.close()
+            old.thread.join(2)
+            if old.thread.is_alive():
+                raise ValueError("Die vorherige Textverbindung wird noch beendet. Bitte kurz warten.")
         _clients[key(build["id"], user_id)] = client
         # Bound closed objects and concurrent worker creation to this server process.
         for identity, item in list(_clients.items()):

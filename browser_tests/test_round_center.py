@@ -44,27 +44,17 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         expect(a.locator('#round-percent')).to_have_text('20 %')
         expect(a.locator('#round-chart svg')).to_be_visible()
         assert 'SECRET FUTURE LOCATION' not in a.content()
-        expect(a.locator('#round-slot-status')).to_contain_text('Verbinde deinen Archipelago-Slot')
-        assert not server.packets  # Opening a round never connects/sends commands on its own.
-        # Only the logic result is a UI fixture; connection/auth are the real bridge.
-        logic=dict(state='ready',engine='TEST fixture',reachable=1,remaining=2,go_mode=True,observed_at=1770000000,
-                   locations=[dict(id=1,name='Reachable Test Chest',region='Town',checked=False,reachable=True)])
-        a.route('**/live/logic/data*',lambda route:route.fulfill(json=logic))
-        a.get_by_label('Raumpasswort (falls benötigt)',exact=True).fill('Room secret')
-        a.get_by_role('button',name='Slot verbinden',exact=True).click()
-        expect(a.locator('#round-slot-status')).to_contain_text('Dein Slot ist mit Archipelago verbunden',timeout=30000)
-        expect(a.locator('#round-next-checks')).to_contain_text('Reachable Test Chest')
-        expect(a.locator('#round-go-mode')).to_contain_text('Ja, das Ziel')
-        expect(a.locator('#round-item-events')).to_contain_text('Progression Key')
-        assert a.get_by_label('Raumpasswort (falls benötigt)',exact=True).input_value()==''
-        assert any(p['cmd']=='Connect' and p['name']=='Alice' and p['slot_data'] for p in server.packets)
+        assert not server.packets
+        area(a,'Spielen')
+        a.get_by_label('Verbindungsart',exact=True).select_option('ws')
+        a.get_by_label('Raumpasswort (optional)',exact=True).fill('Room secret')
+        a.get_by_role('button',name='Mit Archipelago verbinden',exact=True).click()
+        expect(a.locator('#console-state')).to_contain_text('Mit Archipelago verbunden',timeout=20000)
+        expect(a.locator('#console-log')).to_contain_text('Progression Key',timeout=15000)
         assert all(p['cmd'] not in ('LocationChecks','LocationScouts','StatusUpdate','Say') for p in server.packets)
-        # Stale logic must clear formerly reachable checks and Go-Mode.
-        logic.update(state='unsupported',error='Für diese Spielversion fehlen passende Spielregeln.')
-        a.route('**/live/logic/refresh',lambda route:route.fulfill(json=logic))
-        a.get_by_role('button',name='Checks neu berechnen',exact=True).click()
-        expect(a.locator('#round-next-checks')).not_to_contain_text('Reachable Test Chest')
-        expect(a.locator('#round-go-mode')).to_have_text('Go-Mode: unbekannt')
+        area(a,'Fortschritt')
+        expect(a.locator('#round-next-checks')).to_have_count(0)
+        expect(a.locator('#round-go-mode')).to_have_count(0)
         for label in ('Mitspieler','Mehr','Spielen','Fortschritt'):
             area(a,label)
         assert not navigations

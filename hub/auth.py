@@ -133,7 +133,7 @@ def login_required_response():
     """Cookie authentication needs a login page, not a Basic-Auth error document."""
     endpoint = request.endpoint or ""
     is_api = (request.path.startswith("/api/") or request.accept_mimetypes.best == "application/json"
-              or request.blueprint in ("console", "logic") and endpoint not in ("console.page", "logic.page")
+              or request.blueprint in ("console", "logic") and not request.path.endswith(("/console", "/logic"))
               or endpoint in ("live.data", "live.refresh", "mvp.build_status", "session_status"))
     args = request.view_args or {}
     if not is_api and request.method == "GET":

@@ -54,7 +54,7 @@ class ConsoleTests(unittest.TestCase):
         fields.setdefault("transport", "ws")  # Local protocol fixture deliberately has no TLS.
         response = self.post(self.url+"/connect",fields,client=client)
         self.assertEqual(response.status_code,202,response.data)
-        self.wait_for(lambda:self.state(client)["state"] in ("connected","error"))
+        self.wait_for(lambda:self.state(client)["state"] in ("connected","action_required","reconnecting","temporarily_unavailable"))
         return self.state(client)
 
     def test_real_handshake_delivery_names_and_duplicate_item_packets(self):
@@ -86,7 +86,7 @@ class ConsoleTests(unittest.TestCase):
             # The API default is automatic even when older callers omit transport.
             response = self.post(self.url+"/connect", {})
             self.assertEqual(response.status_code, 202)
-            self.wait_for(lambda: self.state()["state"] in ("connected", "error"))
+            self.wait_for(lambda: self.state()["state"] in ("connected", "action_required"))
             self.assertEqual(self.state()["state"], "connected")
             self.assertEqual(self.state()["transport"], "ws")
             self.assertEqual([c.args[2] for c in opened.call_args_list], [True, False])
@@ -96,7 +96,7 @@ class ConsoleTests(unittest.TestCase):
     def test_explicit_ws_failure_has_actionable_error(self):
         with patch.object(ap_console, "open_socket", side_effect=EOFError("private transport internals")):
             state = self.connect(transport="ws")
-        self.assertEqual(state["state"], "error")
+        self.assertEqual(state["state"], "reconnecting")
         self.assertIn("Automatisch", state["error"])
         self.assertNotIn("private transport internals", state["error"])
 
@@ -116,7 +116,7 @@ class ConsoleTests(unittest.TestCase):
 
     def test_password_failure_seed_mismatch_and_no_plaintext_persistence(self):
         self.server.password = "Room-secret"
-        self.assertEqual(self.connect(password="Wrong-secret")["state"],"error")
+        self.assertEqual(self.connect(password="Wrong-secret")["state"],"action_required")
         self.assertIn("Raumpasswort",self.state()["error"])
         ap_console.stop_all()
         self.assertEqual(self.connect(password="Room-secret")["state"],"connected")
@@ -126,7 +126,7 @@ class ConsoleTests(unittest.TestCase):
         self.assertNotIn("Wrong-secret",serialized)
         ap_console.stop_all()
         self.server.seed = "OTHER_SEED"
-        self.assertEqual(self.connect(password="Room-secret")["state"],"error")
+        self.assertEqual(self.connect(password="Room-secret")["state"],"action_required")
         self.assertIn("anderen Seed",self.state()["error"])
 
     def test_identity_csrf_race_and_command_restrictions(self):

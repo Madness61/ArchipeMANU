@@ -3,7 +3,7 @@
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='console.css') }}">
 <p class="small"><a href="{{ url_for('mvp.play_page',sid=room.id,build_id=build.id) }}">← Zur Runde & Verbindung</a></p>
-{% if own %}<p><a class="btn" href="{{ url_for('logic.page',sid=room.id,build_id=build.id) }}">Erreichbare Checks & Go-Mode ansehen</a></p>{% endif %}
+{% if own %}<p></p>{% endif %}
 <div class="page-head"><div><p class="eyebrow">Archipelago live</p><h1>Konsole · {{ room.name }}</h1></div></div>
 {% include "console_workspace.html" %}
 {% endblock %}

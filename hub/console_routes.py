@@ -50,7 +50,7 @@ def start(build, own, form):
     if len(password) > 1024:
         abort(400, "Das Raumpasswort ist zu lang.")
     current = client(build["id"])
-    if current and current.state in ("connecting", "authenticating", "connected"):
+    if current and current.state in ("connecting", "authenticating", "connected", "reconnecting", "temporarily_unavailable"):
         if current.slot_name == slot and current.endpoint["id"] == endpoint["id"]:
             return current
         abort(409, "Bitte zuerst die bestehende Textverbindung trennen.")
@@ -63,7 +63,12 @@ def start(build, own, form):
 
 def state(value):
     return dict(state=value.state if value else "disconnected", error=value.error if value else "",
-                slot=value.slot_name if value else None, transport=value.transport if value else None)
+                slot=value.slot_name if value else None, transport=value.transport if value else None,
+                last_contact=value.last_contact if value else None,
+                connected_at=value.connected_at if value else None,
+                next_retry_at=value.next_retry_at if value else None,
+                retry_attempt=value.retry_attempt if value else 0,
+                reason=value.reason if value else "not_started", game_client_connection="unknown")
 
 
 @bp.route(PREFIX)
