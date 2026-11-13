@@ -21,6 +21,10 @@ class ReliabilityTests(unittest.TestCase):
         self.assertTrue(client.thread.is_alive())
         self.assertEqual(client.state,'connected')
 
+    def test_plain_websocket_does_not_keep_tcp_connect_timeout(self):
+        self.connect(transport='ws')
+        self.assertIsNone(self.current().wire.socket.gettimeout())
+
     def test_reconnect_resynchronizes_deduplicates_and_never_replays_say(self):
         with patch.object(ap_console,'RETRY_BASE',.1), patch.object(ap_console,'RETRY_MAX',.2):
             self.connect()

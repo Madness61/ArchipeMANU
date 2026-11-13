@@ -18,6 +18,9 @@ Vorübergehende Socket-, DNS-, Timeout-, Ping- und Handshakefehler führen zu
 Der nächste Versuch wartet exponentiell ab zwei Sekunden, mit Jitter und einer
 Obergrenze von 60 Sekunden. Auch während des Wartens wird die Berechtigung geprüft.
 Nach einer mindestens 60 Sekunden stabilen Verbindung beginnt die Fehlerfolge neu.
+Der achtsekündige TCP-Verbindungsaufbau-Timeout wird vor Übergabe des Sockets an
+den WebSocket-Reader entfernt. Sonst beendet websockets 13.x bei unverschlüsseltem
+WS auch eine gesunde, aber ruhige Verbindung nach acht Sekunden ohne Daten.
 
 Falsches Raumpasswort, ungültiger Slot, Seed-/Spielerabweichung, ungültige Pakete
 oder ein nicht überprüfbares TLS-Zertifikat führen zu `action_required`.

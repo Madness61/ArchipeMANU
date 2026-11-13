@@ -157,6 +157,9 @@ def open_socket(host, port, secure):
     try:
         raw.settimeout(8)
         raw.connect(address)
+        # A supplied socket is not reset by websockets 13.x for plain WS.
+        # Keep the TCP deadline separate from the lifetime of the reader thread.
+        raw.settimeout(None)
         target = f"[{host}]" if ":" in host else host
         return connect(f"{'wss' if secure else 'ws'}://{target}:{port}", sock=raw,
                        open_timeout=8, close_timeout=2, max_size=MAX_FRAME, compression="deflate", logger=_wire_logger)
