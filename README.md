@@ -213,8 +213,13 @@ Mit `.\setup.ps1 -ApVersion 0.6.9` wechselt ihr die Version.
 ## Für die Gruppe freigeben
 
 ```powershell
-.\start.ps1 -Public
+.\start.ps1
 ```
+
+Der normale Start lauscht auf allen Netzwerkschnittstellen (`0.0.0.0:8080`),
+damit eure Gruppe auch über Hamachi zugreifen kann, zum Beispiel über
+`http://<Hamachi-IP>:8080`. `-Public` funktioniert weiterhin, ist aber nicht mehr nötig.
+Mit `.\start.ps1 -LocalOnly` ist der Hub nur auf dem eigenen Rechner erreichbar.
 
 Neue Spieler erstellen ihr Konto mit Benutzername und frei gewähltem, nicht leerem
 Passwort. Es gibt keinen Einladungscode, keine Freigabe und keine Mindestlänge

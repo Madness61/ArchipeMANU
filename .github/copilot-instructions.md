@@ -15,11 +15,11 @@ Windows setup (from the repo root):
 .\start.ps1
 ```
 
-The app runs at http://127.0.0.1:8080 by default. Public mode:
+The Windows launcher binds to `0.0.0.0:8080` by default for LAN/Hamachi access;
+http://127.0.0.1:8080 also works on the host. Restrict access to the host with:
 
 ```powershell
-$env:HUB_PASSWORD = "geheim"
-.\start.ps1 -Public
+.\start.ps1 -LocalOnly
 ```
 
 The default local Archipelago install lives under `%USERPROFILE%\.ap-yaml-hub`; the app reads environment overrides such as `AP_HOME`, `HUB_DATA`, and `HUB_PASSWORD` from `hub/config.py`.
