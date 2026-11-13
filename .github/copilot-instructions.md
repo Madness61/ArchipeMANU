@@ -1,82 +1,57 @@
-# Copilot instructions for AP YAML Hub
+# Copilot-Anweisungen – ArchipeMANU
 
-## Project context
+## Aktueller Projektstand
 
-This repository is a Flask-based Archipelago YAML hub: it lets a group manage APWorlds, generated YAML templates, per-user overrides, sessions, and output generation. The app depends on a local Archipelago checkout and populates schema data from installed worlds before it can render forms or generate seeds.
+Privater Archipelago-Multiworld-Hub auf **Flask, Jinja, SQLite und Vanilla JavaScript**. Python 3.11–3.13; Windows-/PowerShell-first.
 
-Most work touches the interaction between the Flask app and Archipelago itself, not just the UI templates. If a change affects option parsing, world versions, or seed generation, check both the web layer and the Archipelago bridge code.
+**Zuerst lesen:** [README.md](../README.md), [TODO.md](../TODO.md), [BROWSER_TESTS.md](../BROWSER_TESTS.md). Fachdetails in den verlinkten Dokumenten.
 
-## Quick start
+**Integrationsstand (13.11.2026):** `feature/unified-local-repo` bündelt #7 → #8 → #9, die Dokumentation aus #10 und den standardmäßigen Public-Start. Lokales Checkout und Remote-Branch sollen denselben Commit enthalten. Für neue Aufgaben zunächst Basisbranch und offene Änderungen überprüfen; Integration im Feature-Branch bedeutet keine Übernahme nach `main`.
 
-Windows setup (from the repo root):
+## Windows-Start
 
 ```powershell
-.\setup.ps1 -ImportFrom "C:\ProgramData\Archipelago\custom_worlds"
+.\setup.ps1
 .\start.ps1
-```
-
-The Windows launcher binds to `0.0.0.0:8080` by default for LAN/Hamachi access;
-http://127.0.0.1:8080 also works on the host. Restrict access to the host with:
-
-```powershell
+# Optional nur auf dem eigenen Rechner:
 .\start.ps1 -LocalOnly
 ```
 
-The default local Archipelago install lives under `%USERPROFILE%\.ap-yaml-hub`; the app reads environment overrides such as `AP_HOME`, `HUB_DATA`, and `HUB_PASSWORD` from `hub/config.py`.
+Nach Setup: `http://127.0.0.1:8080`, für andere Geräte `http://<Host-IP>:8080`. Der Windows-Start bindet standardmäßig an `0.0.0.0`; `-Public` bleibt kompatibel. Es gibt **individuelle Benutzerkonten**, kein gültiges gemeinsames `HUB_PASSWORD`-Login mehr. Die ersten Konten-/Migrationsschritte stehen in `AUTH_MIGRATION.md`. Konfigurationsvariablen in `hub/config.py` nachsehen, nicht aus historischen Projektplänen übernehmen.
 
-## Build, test, and validation commands
-
-There is no separate lint task in this repository. The project’s validation flow is the `unittest` suite used in CI.
-
-Run the full suite:
+## Tests
 
 ```powershell
-python -m unittest discover -s tests -v
+& "$env:USERPROFILE\.ap-yaml-hub\venv\Scripts\python.exe" -m unittest discover -s tests -v
+.\test-browser.ps1
 ```
 
-Or, in the project’s configured Archipelago venv:
+Browser-Setup: `BROWSER_TESTS.md`. Tests verwenden temporäre SQLite-DB, Mock-Generator und für WebSocket-Tests einen lokalen Protokollserver. **Keine** produktiven `data/`-Verzeichnisse, Seeds, Accounts oder echten Räume für automatische Tests verwenden.
 
-```powershell
-& "$env:USERPROFILE\.ap-yaml-hub\venv\Scripts\python.exe" -m unittest discover tests
-```
+Reale Seed-Generierung und Spielclient-Verbindungen separat prüfen und im PR von Mock-Tests unterscheiden.
 
-Run a single test module or case:
+## Architektur und Zuständigkeiten
 
-```powershell
-python -m unittest tests.test_mvp
-python -m unittest tests.test_yamlgen.TestYamlGen
-```
+- `hub/app.py` und Blueprints in `hub/mvp.py` / `hub/community.py`: Flask-Routen, Lobbys, Seed-Historie, Bibliothek.
+- `hub/auth.py`: Registrierung, persönliche Passwörter, Sessions, CSRF und Ratenlimits.
+- `hub/db.py`: SQLite und Migrationen; vorhandene Daten stets erhalten.
+- `hub/yamlgen.py` / `hub/lobby_selection.py`: APWorld-Optionen, YAML-Ebenen, Spielerprofile, Vorlagen, Lobbywerte.
+- `hub/apworld_library.py` / `hub/ap_bridge.py` / `ap_runner.py`: Archivierung, Schemaextraktion, lokale Archipelago-Generierung.
+- `hub/live_api.py` / `hub/live_store.py` / `hub/live_routes.py` / `hub/live_metrics.py`: **read-only WebHost-API**, Polling, Cache, Fortschrittshistorie.
+- `hub/ap_console.py` / `hub/console_routes.py` / `hub/static/console.js`: **separate** Archipelago-WebSocket-Konsole und Itemprotokoll.
+- `hub/logic_tracker.py` / `hub/logic_routes.py` / `logic_worker.py`: derzeit **experimenteller** Universal-Logik-Tracker; zur Deaktivierung vorgesehen, **nicht** mit der WebHost-Tracker-API verwechseln.
+- `hub/templates/`, `hub/static/`: Jinja, eigenes CSS/JS, SVG-Icons; Rundenzentrale mit `round*.html`, `round.css` und `round.js`.
+- `hub/check_preview.py` und `ap_runner.py`: explizite Standard-Check-Vorschau ohne spielbare Ausgabe; keine automatische Generierung beim Bibliotheksbesuch.
 
-The GitHub Actions workflow in [.github/workflows/tests.yml](../.github/workflows/tests.yml) confirms this is the expected validation command for PRs and feature branches.
+## Arbeitsregeln
 
-## High-level architecture
+1. Nutzerfluss und bestehenden Datenvertrag vor Änderungen prüfen; Backend-Checks und Berechtigungen nicht durch bloße JS-Sperren ersetzen.
+2. Bereits gespeicherte Accounts, YAMLs, APWorld-Versionen, Seeds und Event-Historie erhalten; additive Migrationen, wenn nötig.
+3. Der Server kann den lokalen Spielclient nicht zuverlässig als verbunden nachweisen. „Webkonsole verbunden“ nicht als „Spiel online“ darstellen.
+4. Die Live-Konsole ist das wichtigste UI-Element einer **laufenden** Runde; keine Umleitung in eine rein administrative Ansicht. Archipelago-Fachbegriffe sind für diese Gruppe bewusst passend.
+5. Transiente API-/WebSocket-Probleme korrekt behandeln. Keine erfundenen Item-Sendungen, exakten Fundzeiten oder wiederholten Benutzerbefehle.
+6. `Race`-/Spoilerregeln, private Nachrichten und Slotrechte in allen Ansichten und APIs bewahren.
+7. Bei Styling-Änderungen gemeinsame Tokens/Makros nutzen; für kommende DE/EN- und Theme-Umschaltung siehe `TODO.md`.
+8. Erst Tests ausführen, dann PR erstellen. Welche Tests **nicht** mit echten Archipelago-Spielclients liefen, ausdrücklich sagen.
 
-- `hub/app.py` is the Flask application. It defines auth, CSRF handling, admin routes, session management, and the page-level orchestration for templates and generation.
-- `hub/db.py` is the SQLite layer. It centralizes schema setup and exposes `db.query()` / `db.execute()` for the rest of the app instead of direct database access patterns.
-- `hub/config.py` holds the environment-driven configuration and paths: Archipelago source, venv, `data/`, and the generated working directories.
-- `hub/yamlgen.py` is the option-logic core. It normalizes AP option values, layers defaults/template/user overrides, sanitizes slot names, and serializes YAML output.
-- `hub/ap_bridge.py` is the Archipelago integration boundary. It manages APWorld uploads/activation, verifies trusted custom worlds, extracts option schemas from APWorlds, starts generation, and caches schema files.
-- `ap_runner.py` runs inside the Archipelago source tree. It introspects installed APWorlds and writes JSON schema metadata into the hub’s `data/schemas/` folder; it also drives generation for actual seed creation.
-- `data/` is runtime state, not source code: SQLite database, APWorld archives, extracted schemas, and generated session output all live there.
-- `tests/` contains `unittest` coverage for the core behaviors, especially YAML generation and APWorld metadata handling.
-
-The application treats “current APWorld state” as a first-class concern: if a game isn’t available in the local schema cache or APWorld version registry, the UI can’t render a valid template or generate a result.
-
-## Key conventions in this codebase
-
-- Prefer the project’s config and DB helpers over ad hoc filesystem or SQL code.
-  - Use `config.*` paths for data and AP install locations.
-  - Use `db.query()` / `db.execute()` rather than creating new SQLite access patterns in route handlers.
-- Treat option values as deltas from AP defaults. The layering order is intentionally: AP default < template < personal overrides. See `yamlgen.layer()` and the comment in `hub/yamlgen.py`.
-- World extraction and generation are serialized with `ap_bridge.ap_lock` because both operations rewrite Archipelago’s custom world state and must not race each other.
-- Custom APWorld execution is explicitly not sandboxed. The code requires trusted local sources and environment opt-in via `HUB_TRUSTED_APWORLDS=1` before injecting uploaded worlds into Archipelago.
-- Slot names are normalized and de-duped in the same way as the UI expects: `clean_slot_name()` strips unsafe characters and `assign_slot_names()` appends numbered suffixes when duplicates exist.
-- The project is intentionally Windows-first and PowerShell-oriented; repo scripts and default paths are written around Windows install locations, but the Python app itself remains cross-platform where practical.
-- When changing APWorld logic, verify the same behavior in both the schema extraction path (`ap_runner.py`) and the YAML/export path (`hub/yamlgen.py`); those two layers must agree on option names, types, and defaults.
-
-## Repository-specific guidance
-
-- Do not assume a simple “web app only” change is isolated to templates or routes; APWorld and schema logic are part of the runtime contract.
-- Keep changes compatible with the `data/` runtime layout and the `AP_HOME`/`HUB_DATA` environment variables rather than hard-coding local paths.
-- Preserve the project’s existing `unittest` style; new behavior should ideally be covered in the existing tests under `tests/`.
-- If you need to inspect or modify APWorld versioning or active-world selection, start in `hub/ap_bridge.py` and the APWorld library helpers before touching routes.
+Historische Dokumente sind nicht automatisch aktuelle Anforderungen. Insbesondere ältere Aussagen zu Gruppenpasswörtern, UI-Plan und Archipelago-Tracker-Verfügbarkeit vor Übernahme im Code prüfen.
