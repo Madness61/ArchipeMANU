@@ -217,16 +217,11 @@ def seed_list():
 
 
 @bp.route("/lobbies")
+@bp.route("/rounds")
 def lobby_list():
     _user()
-    rows = db.query("""SELECT s.*, u.username AS host_name,
-        (SELECT COUNT(*) FROM lobby_members lm WHERE lm.session_id=s.id) AS member_count,
-        (SELECT COUNT(*) FROM entries e WHERE e.session_id=s.id) AS game_count,
-        (s.created_by=? OR EXISTS (SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.id AND lm.user_id=?)
-         OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?)) AS is_member
-        FROM sessions s LEFT JOIN users u ON u.id=s.created_by
-        ORDER BY s.locked, s.id DESC""",(g.user["id"],)*3)
-    return render_template("lobbies.html", rooms=rows)
+    from . import rounds
+    return render_template("round_directory.html", rooms=rounds.catalog())
 
 
 @bp.route("/sessions/<int:sid>/join", methods=["POST"])
@@ -237,7 +232,7 @@ def join_open_lobby(sid):
         abort(409, "Die Lobby ist bereits geschlossen.")
     db.execute("INSERT OR IGNORE INTO lobby_members(session_id,user_id) VALUES (?,?)",
                (sid, g.user["id"]))
-    flash("Du bist der Lobby beigetreten. Unter „Deine Spielauswahl“ kannst du dein Spiel und die YAML-Einstellungen festlegen.", "info")
+    flash("Du bist der Lobby beigetreten. Wähle jetzt dein Spiel und übernimm die Grundwerte oder passe die Einstellungen an.", "info")
     return redirect(url_for("session_view", sid=sid))
 
 
@@ -804,7 +799,7 @@ def save_hosting(sid, build_id):
         except Exception:
             conn.rollback()
             raise
-    flash("Verbindung gespeichert. Alle Teilnehmer finden diese Runde jetzt oben unter „Aktive Lobby“.", "info")
+    flash("Verbindung gespeichert. Alle Teilnehmer finden sie unter „Meine Runden“ direkt in eurer Rundenzentrale.", "info")
     if link:
         from . import live_api, live_store
         try:
@@ -924,6 +919,11 @@ def build_item_details(sid, build_id, player_id):
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/play")
 def play_page(sid, build_id):
+    from .app import session_view
+    return session_view(sid, build_id=build_id)
+
+
+def play_context(sid, build_id):
     from . import game_catalog
     from . import live_store
     room = _session(sid)
@@ -942,7 +942,8 @@ def play_page(sid, build_id):
     assets = artifact_files(build_id, build["zip_name"]) if build["status"] == "succeeded" else []
     distribution = _build_distribution(build, snapshot)
     metadata = {row["module"]: dict(row) for row in db.query("SELECT * FROM game_metadata")}
-    return render_template("play.html", room=room, build=build, hosted=hosted,
+    from . import rounds
+    return dict(personal_files=rounds.personal_files(build, own, assets, distribution), room=room, build=build, hosted=hosted,
                            live_connection=live_store.current(build_id),
                            completion=completion_state(build),
                            can_manage_session=_manager(room),

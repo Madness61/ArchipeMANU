@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "ui.html" import icon, progress, game_art, empty_state with context %}
+{% block title %}{{ s.name }} · {{ app_name }}{% endblock %}
+{% block content %}
+<div id="round-center" {% if play %}data-build-status="{{ build.status }}"{% endif %} data-phase="{{ round_phase }}" data-csrf="{{ csrf_token }}" data-hosted="{{ 'true' if play and hosted else 'false' }}" data-archived="{{ 'true' if play and build.completed_at else 'false' }}" {% if play and build.status == 'succeeded' and (is_member or manage) %}{% if live_connection %}data-live="{{ url_for('live.data',sid=s.id,build_id=build.id) }}"{% endif %} {% if not race %}data-console="{{ url_for('console.page',sid=s.id,build_id=build.id) }}"{% if own %} data-logic="{{ url_for('logic.page',sid=s.id,build_id=build.id) }}"{% endif %}{% endif %}{% endif %}>
+<a class="small" href="{{ url_for('mvp.lobby_list') }}">{{ icon('arrow','back-arrow') }} Meine Runden</a>
+<header class="round-header" id="session-overview" data-refresh-fragment>
+  <div><p class="eyebrow">Euer gemeinsamer Spieleabend</p><h1>{{ s.name }}</h1><p class="muted small">Host {{ host_name }} · {{ slots|map(attribute='player_id')|unique|list|length if play else member_count }} Teilnehmer{% if play %} · Seed #{{ build.id }}{% endif %}</p></div>
+  <span class="chip {{ 'ok' if round_phase in ['running','completed'] else 'warn' }}">{{ phase_label }}</span>
+</header>
+{% if round_phase == 'completed' %}<p class="status-note ok">Abgeschlossene Runde · Ergebnisse, Verlauf und Downloads bleiben hier erhalten.</p>
+{% elif not play %}<div class="round-readiness">{{ progress(ready_count, member_count, 'Gemeinsam startklar') }}<p class="small muted">{% if not is_member %}Tritt der Lobby bei und wähle dein Spiel.{% elif not own_entry %}Wähle dein Spiel und übernimm die Standardwerte oder passe die Einstellungen an.{% elif not own_entry.ready_valid %}Deine Auswahl ist gespeichert. Melde dich bereit, wenn sie für dich passt.{% elif manage and all_ready %}Alle sind bereit. Du kannst den Seed generieren.{% else %}Du bist bereit. Der Host startet, sobald alle startklar sind.{% endif %}</p></div>{% endif %}
+<nav class="round-nav" aria-label="Rundenbereiche">
+{% for key,label,symbol in [('play','Spielen','play'),('progress','Fortschritt','chart'),('players','Mitspieler','users'),('more','Mehr','settings')] %}<a href="#{{ key }}" data-round-view="{{ key }}" aria-controls="round-{{ key }}" {% if loop.first %}aria-current="page"{% endif %}>{{ icon(symbol) }}{{ 'Konsole' if key == 'play' and console_primary else label }}</a>{% endfor %}
+</nav>
+<section id="round-play" data-round-panel="play" aria-label="Spielen">
+{% if play and build.status == 'succeeded' %}
+  {% if console_primary %}
+    {% with endpoint=hosted,commands=console_commands,archived=false,console_embedded=true %}{% include "console_workspace.html" %}{% endwith %}
+    <div class="section-head"><h2>Dein Spielstart & Dateien</h2></div>
+  {% endif %}
+  {% include "round_play.html" %}
+{% else %}
+  {% include "round_preparation.html" %}
+  {% include "round_generation.html" %}
+{% endif %}
+</section>
+<section id="round-progress" data-round-panel="progress" aria-label="Fortschritt">
+{% if play and build.status == 'succeeded' and (is_member or manage) %}
+  {% include "round_progress.html" %}
+{% else %}{{ empty_state('Euer Fortschritt beginnt nach dem Spielstart', 'Wählt eure Spiele und meldet euch bereit. Sobald der Seed und der Raum eingerichtet sind, erscheint hier euer gemeinsamer Fortschritt.', 'Zur Vorbereitung', '#play', 'chart') }}{% endif %}
+</section>
+<section id="round-players" data-round-panel="players" aria-label="Mitspieler">
+{% if play and build.status == 'succeeded' %}
+<div class="section-head"><div><h2>Eure Welten</h2><p class="muted small">Gemeldete Checks und Ziele stammen vom verknüpften Raum. Aktivität bestätigt keine Online-Präsenz.</p></div><button type="button" data-round-refresh>Aktualisieren</button></div>
+<div class="round-player-grid" id="round-player-cards">{% for slot in slots %}<article class="panel round-player" data-player-name="{{ slot.slot }}" data-player-game="{{ slot.game_name }}">{{ game_art(slot.game_name,slot.game,true) }}<div><h3>{{ slot.slot }}</h3><p class="muted small">{{ slot.game_name }}</p><p class="small" data-player-summary>Noch kein gemeldeter Fortschritt</p><div class="progress-track"><span data-player-bar style="width:0%"></span></div></div>{% set finished=completion.players|selectattr('id','equalto',slot.player_id)|first %}{% if finished %}<p class="small muted round-confirmation">{{ 'Account gelöscht' if finished.deleted else 'Persönlich als fertig bestätigt' if finished.finished else 'Noch nicht als fertig bestätigt' }}</p>{% endif %}<button type="button" data-player-detail>Statistik ansehen</button><div class="round-player-detail" hidden></div></article>{% endfor %}</div>
+{% else %}{% include "round_preparation_players.html" %}{% endif %}
+</section>
+<section id="round-more" data-round-panel="more" aria-label="Mehr">
+<div class="section-head"><div><h2>Mehr zu eurer Runde</h2><p class="muted small">Analysen, gemeinsame Dateien und Verwaltung.</p></div></div>
+{% if play and build.status == 'succeeded' %}
+<div class="round-tool-grid">
+<a class="panel tool-link" href="{{ url_for('mvp.build_stats',sid=s.id,build_id=build.id) }}">{{ icon('chart') }}<strong>Seed-Analyse</strong><span class="small muted">Verteilung und historische Seed-Daten · Spoiler separat freigeben</span></a>
+<a class="panel tool-link" href="{{ url_for('live.dashboard',sid=s.id,build_id=build.id) }}">{{ icon('activity') }}<strong>Erweiterte Statistiken</strong><span class="small muted">Vergleiche, Interaktionen, Verlauf und Präsentationsmodus</span></a>
+{% if not race %}<a class="panel tool-link" href="{{ url_for('console.page',sid=s.id,build_id=build.id) }}">{{ icon('terminal') }}<strong>Archipelago-Konsole</strong><span class="small muted">Chat, Hinweise, Befehle und vollständiges Itemprotokoll</span></a>{% endif %}
+</div>
+<section class="panel" id="all-files"><h2>Gemeinsame Spieldateien</h2><a class="btn" href="{{ url_for('mvp.build_download',sid=s.id,build_id=build.id) }}">Multiworld-ZIP herunterladen</a><p class="small muted">Alle Dateien aus dem erzeugten ZIP. Deine sicher zugeordneten Patchdateien findest du zuerst unter „Spielen“.</p><div class="stack">{% for asset in assets %}<div class="row spread play-file"><code>{{ asset.name }}</code><a class="btn small" href="{{ url_for('mvp.build_asset',sid=s.id,build_id=build.id,file_index=asset.index) }}">Herunterladen</a></div>{% endfor %}</div></section>
+<section class="panel table-wrap" id="compatibility"><h2>Spielversionen dieses Seeds</h2><table><thead><tr><th>Spielername</th><th>Spiel</th><th>Modul-Version</th><th>APWorld SHA-256</th></tr></thead><tbody>{% for slot in slots %}<tr><td>{{ slot.slot }}</td><td>{{ slot.game_name }}</td><td>{{ slot.game_version or 'nicht angegeben' }}</td><td><code>{{ slot.apworld_sha256 or 'In Archipelago enthalten' }}</code></td></tr>{% endfor %}</tbody></table></section>
+<section class="panel" id="play-technical"><h2>Technische Informationen & Check-Analyse</h2>{% if race %}<p class="muted">Race-Modus: Die Seed-Analyse ist für diese Runde ausgeblendet.</p>{% elif stats %}<div class="table-wrap" id="check-analysis"><table><thead><tr><th>Spiel</th><th>Welten</th><th>Checks mit platziertem Item</th></tr></thead><tbody>{% for game in overview %}<tr><td>{{ game.name }}</td><td>{{ game.players|length }}</td><td>{{ game.locations }}</td></tr>{% endfor %}</tbody></table><p class="small muted">{{ stats.total_placements }} platzierte Items insgesamt. Adressierte Fundorte; Events und Startinventar sind ausgenommen.</p></div><a class="btn" href="{{ url_for('mvp.build_stats',sid=s.id,build_id=build.id) }}">Progression-Items und Seed-Analyse öffnen</a>{% else %}<p class="muted">Für diesen Seed sind keine verifizierten Statistikdaten gespeichert.</p>{% endif %}</section>
+{% if manage and not build.completed_at %}<section class="panel host-panel" id="round-host-connection"><h2>Verbindung verwalten · Host</h2><p><a class="btn" href="{{ url_for('mvp.build_download',sid=s.id,build_id=build.id) }}">Multiworld-ZIP herunterladen</a></p>{% include "live_connect.html" %}{% with hosting_build=build,hosting_sid=s.id,hosting_data=hosted %}{% include "hosting_form.html" %}{% endwith %}</section>{% endif %}
+{% endif %}
+{% include "round_manage.html" %}
+</section>
+<p class="small muted" id="session-refresh-status" role="status" aria-live="polite"></p>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if console_primary %}<link rel="stylesheet" href="{{ url_for('static',filename='console.css') }}"><script src="{{ url_for('static',filename='console.js') }}" defer></script>{% endif %}
+<script>window.HUB_TEMPLATES_URL = {{ url_for('api_templates', slug='__SLUG__')|tojson }};window.HUB_SELECTION_TEMPLATES = {{ selection_template_info|tojson }};</script>
+{% if selection %}<script>window.HUB_NAMES_URL = {{ url_for('api_names',slug=selection.schema.slug)|tojson }};</script>{% endif %}
+<script src="{{ url_for('static',filename='round.js') }}" defer></script>
+{% endblock %}

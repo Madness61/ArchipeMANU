@@ -9,6 +9,7 @@
   </div>
 </div>
 <p class="status-note">„Für Lobby auswählbar“ bedeutet, dass du das Spiel in einer Lobby auswählen und einstellen kannst. Fürs Spielen können noch Originalspiel, ROM, Emulator oder Mods nötig sein. Benötigt die Generierung eine ROM, muss der Host sie vorher auf dem Rechner einrichten, auf dem dieser Hub die Runde generiert.</p>
+<p class="muted small">Die Check-Vorschau zählt tatsächliche Item-Fundorte in einem Probelauf mit den Spielvorgaben, ohne Gruppen-Vorlage oder Profilwerte. Events und Startinventar zählen nicht mit. Andere Einstellungen, Zufallswerte und eure Multiworld können die Anzahl verändern.</p>
 <form method="get" class="panel filter-bar library-filters" role="search" aria-label="Spiele filtern" id="library-filters">
   <label class="search-field">Spiel suchen <input name="q" value="{{ q }}" placeholder="Name oder hinzugefügt von …" type="search"></label>
   <label>Archipelago-Unterstützung<select name="state" aria-label="Archipelago-Unterstützung"><option value="all">Alle Status</option>{% for value,label in support_states.items() %}<option value="{{ value }}" {% if state == value %}selected{% endif %}>{{ label }}</option>{% endfor %}<option value="unloaded" {% if state == 'unloaded' %}selected{% endif %}>Optionen fehlen (alle)</option></select></label>
@@ -35,6 +36,7 @@
     {% if item.catalog.tags %}<div class="row catalog-tags" aria-label="Tags">{% for tag in item.catalog.tags %}<span class="chip">{{ tag }}</span>{% endfor %}</div>{% endif %}
     <p class="small game-description">{{ item.catalog.description }}</p>
     <p class="small"><strong>Zum Spielen:</strong> {{ item.catalog.setup_label }}</p>
+    {% if item.installed %}{% with check_slug=item.slug %}{% include "check_preview.html" %}{% endwith %}{% endif %}
     {% if item.catalog.host_rom %}<p class="status-note warn small"><strong>Für den Host:</strong> Original-ROM vor der Generierung auf dem Generator-Rechner einrichten.</p>{% endif %}
     <p class="muted small" style="margin:8px 0">
       {{ 'Von ' ~ item.added_by if item.added_by else 'In Archipelago enthalten' }}
@@ -73,3 +75,4 @@
 </div>
 <div class="panel empty-state" id="library-empty" {% if rows %}hidden{% endif %}><h3>Keine passenden Spiele gefunden</h3><p>Versuche einen anderen Suchbegriff oder setze die Filter zurück. Du kannst auch ein weiteres Spiel hinzufügen.</p><a class="btn" href="{{ url_for('games') }}" data-filter-reset>Alle Spiele anzeigen</a></div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static',filename='check_preview.js') }}" defer></script>{% endblock %}

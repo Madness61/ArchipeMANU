@@ -1,6 +1,14 @@
 // Small progressive enhancements; every page works without JS except the name pickers.
 (function () {
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  // Never replace a page with an English 401 or silently discard an open composer.
+  window.HUB_AUTH_REQUIRED = loginUrl => {
+    const notice=document.getElementById('auth-required'),link=document.getElementById('auth-required-link');
+    if(!notice||!link)return;
+    const target=new URL(loginUrl||'/login',location.origin);
+    if(target.origin!==location.origin||target.pathname!=='/login')return;
+    link.href=target.href;notice.classList.add('flash','warn');notice.hidden=false;
+  };
 
   // One navigation drawer on small screens, with keyboard focus containment.
   const menuToggle = document.getElementById("menu-toggle");
@@ -212,13 +220,24 @@
       const response = await fetch(button.href, {cache: "no-store", headers: {"Accept": "text/html"}});
       if (!response.ok) throw new Error("Refresh failed");
       const page = new DOMParser().parseFromString(await response.text(), "text/html");
-      if (!page.getElementById("participants-section")) throw new Error("Session unavailable");
+      if (!page.getElementById("round-center") && !page.getElementById("participants-section")) throw new Error("Session unavailable");
       const drafts = $$("form[data-preserve-draft][data-dirty='1']").map(form => ({
         id: form.id,
         fields: $$("input,select,textarea", form).filter(field => field.name !== "_csrf").map(field => ({
           name: field.name, value: field.value, checked: field.checked,
         })),
       }));
+      const currentRound = document.getElementById("round-center"), nextRound = page.getElementById("round-center");
+      if (currentRound && nextRound && (currentRound.dataset.phase !== nextRound.dataset.phase || currentRound.dataset.buildStatus !== nextRound.dataset.buildStatus)) {
+        if (drafts.length) {
+          status.textContent = "Der Rundenstatus hat sich geändert. Deine Eingaben bleiben hier erhalten. Öffne die Runde erneut, um den neuen Stand zu sehen.";
+          return;
+        }
+        history.replaceState(null, "", response.url + "#play");
+        location.reload();
+        return;
+      }
+      if (currentRound && nextRound) Object.assign(currentRound.dataset, nextRound.dataset);
       $$("[data-refresh-fragment], #main-navigation").forEach(fragment => {
         const updated = page.getElementById(fragment.id);
         if (updated) fragment.replaceWith(updated);

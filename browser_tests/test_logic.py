@@ -1,7 +1,7 @@
 """Logic tracker presentation with controlled API responses; no game logic mock in production."""
 import json
 from playwright.sync_api import expect
-from .test_players import register, upload_world, create_lobby, select_game, mark_ready
+from .test_players import area, generated, register, upload_world, create_lobby, select_game, mark_ready
 
 
 def test_logic_ui_filters_spoilers_and_mobile(actors, artifact_dir):
@@ -9,9 +9,8 @@ def test_logic_ui_filters_spoilers_and_mobile(actors, artifact_dir):
     register(page,'Alice');upload_world(page)
     lobby=create_lobby(page,'Logikrunde');select_game(page);mark_ready(page,'Alice')
     page.reload();page.get_by_role('button',name='Seed generieren',exact=True).click()
-    build=page.locator('[data-build-status="succeeded"]')
-    expect(build).to_be_visible(timeout=15000)
-    build.get_by_role('link',name='Jetzt spielen',exact=True).click()
+    generated(page)
+    page.goto(lobby.split("#")[0]+"/builds/1/play")
     logic_url=page.url+'/live/logic'  # play_page is the build root
     logic_url=logic_url.replace('/play/live/logic','/live/logic')
     # The real route still enforces account ownership; only computed data is a fixture.

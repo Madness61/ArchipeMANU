@@ -10,6 +10,8 @@ PREFIX = "/sessions/<int:sid>/builds/<int:build_id>/live/logic"
 
 @bp.errorhandler(HTTPException)
 def api_error(error):
+    if error.code == 401:
+        return auth.login_required_response()
     if request.path.endswith("/logic"):
         return error
     return jsonify(error=str(error.description)), error.code

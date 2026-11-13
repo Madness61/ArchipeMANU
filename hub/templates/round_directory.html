@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "rounds_card.html" import round_card with context %}
+{% from "ui.html" import empty_state with context %}
+{% block title %}Meine Runden · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="eyebrow">Ein Ort für jeden Spieleabend</p><h1>Meine Runden</h1><p class="muted">Vorbereiten, gemeinsam spielen und auf eure Abenteuer zurückblicken.</p></div><a class="btn primary" href="#new-lobby">Neue Lobby</a></div>
+<form method="post" action="{{ url_for('session_create') }}" class="panel create-lobby" id="new-lobby"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><label>Neue Lobby<input name="name" placeholder="z. B. Freitags-Multiworld" maxlength="80" required></label><button class="primary">+ Lobby erstellen</button><span class="small muted">Du wirst Host dieser Runde.</span></form>
+<div class="round-directory">
+{% for key,label in [('preparation','In Vorbereitung'),('running','Laufend'),('completed','Abgeschlossen')] %}
+{% set group=rooms|selectattr('is_member')|selectattr('phase','equalto',key)|list %}
+<section><div class="section-head"><h2>{{ label }}</h2><span class="small muted">{{ group|length }} Runden</span></div>{% if group %}<div class="grid">{% for r in group %}{{ round_card(r) }}{% endfor %}</div>{% else %}<p class="directory-empty muted small">{{ 'Noch keine eigene Runde in Vorbereitung. Erstelle eine Lobby oder tritt unten einer bei.' if key == 'preparation' else 'Hier erscheinen deine Runden nach der Generierung.' if key == 'running' else 'Hier bleiben eure abgeschlossenen Abenteuer erhalten.' }}</p>{% endif %}</section>
+{% endfor %}
+<section><div class="section-head"><h2>Offene Lobbys der Gruppe</h2></div>{% set public=rooms|rejectattr('is_member')|rejectattr('locked')|list %}{% if public %}<div class="grid">{% for r in public %}{{ round_card(r) }}{% endfor %}</div>{% else %}{{ empty_state('Noch keine offene Lobby', 'Neue offene Lobbys deiner Freunde erscheinen hier. Deine eigenen Runden stehen oben.') }}{% endif %}</section>
+{% if g.user.is_admin %}{% set managed=rooms|rejectattr('is_member')|selectattr('locked')|list %}{% if managed %}<section><h2>Weitere Runden verwalten · Admin</h2><div class="grid">{% for r in managed %}{{ round_card(r) }}{% endfor %}</div></section>{% endif %}{% endif %}
+</div>
+<p class="small muted"><a href="{{ url_for('mvp.seed_list') }}">Alle historischen Seeds und Analysen</a></p>
+{% endblock %}

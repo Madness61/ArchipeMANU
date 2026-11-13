@@ -2,7 +2,7 @@
 <section class="panel analysis-section" id="completion">
   <div class="row spread"><h2 style="margin:0">Spielabschluss</h2><span class="chip {{ 'ok' if completion.completed_at else 'warn' }}">{{ 'Abgeschlossen' if completion.completed_at else completion.finished_count ~ ' von ' ~ completion.total ~ ' fertig' }}</span></div>
   {% if completion.completed_at %}
-    <p class="status-note ok">Alle Spieler haben bestätigt, dass sie fertig sind. Die Lobby ist im Hub abgeschlossen und erscheint nicht mehr unter „Aktive Lobby“.</p>
+    <p class="status-note ok">Alle Spieler haben bestätigt, dass sie fertig sind. Unter „Meine Runden“ findet ihr die Runde jetzt bei „Abgeschlossen“.</p>
     <p class="muted small">Seed, Analyse und Downloads bleiben erhalten. Ein externer Archipelago-Server wird dadurch nicht beendet.</p>
   {% else %}
     <p>Hast du dein Spielziel erreicht? Bestätige es hier, sobald du mit deinen Spielen in diesem Seed fertig bist. Wenn alle bestätigt haben, wird die Lobby im Hub automatisch abgeschlossen.</p>

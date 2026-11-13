@@ -10,7 +10,7 @@ import sqlite3
 import time
 from datetime import timedelta
 
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from . import config, db, yamlgen
@@ -127,6 +127,31 @@ def safe_next(target):
     # Backslashes and controls can turn apparently relative URLs into redirects to another host.
     return (target if target.startswith("/") and not target.startswith("//")
             and "\\" not in target and not any(ord(c) < 32 for c in target) else url_for("index"))
+
+
+def login_required_response():
+    """Cookie authentication needs a login page, not a Basic-Auth error document."""
+    endpoint = request.endpoint or ""
+    is_api = (request.path.startswith("/api/") or request.accept_mimetypes.best == "application/json"
+              or request.blueprint in ("console", "logic") and endpoint not in ("console.page", "logic.page")
+              or endpoint in ("live.data", "live.refresh", "mvp.build_status", "session_status"))
+    args = request.view_args or {}
+    if not is_api and request.method == "GET":
+        target = safe_next(request.full_path.rstrip("?"))
+    elif args.get("sid") is not None:
+        target = url_for("session_view", sid=args["sid"], build=args.get("build_id"), _anchor="play")
+    elif args.get("slug"):
+        target = url_for("game", slug=args["slug"])
+    else:
+        target = url_for("index")
+    login_url = url_for("login", next=target)
+    if is_api:
+        return jsonify(error="Deine Anmeldung fehlt oder ist nicht mehr gültig. Bitte melde dich erneut an.",
+                       authentication_required=True, login_url=login_url), 401, {"Cache-Control": "no-store"}
+    flash("Bitte melde dich an, um die gewünschte Seite zu öffnen.", "info")
+    response = redirect(login_url)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 def login():

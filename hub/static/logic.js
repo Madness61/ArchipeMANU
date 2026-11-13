@@ -7,6 +7,7 @@
     const options=body ? {method:'POST',headers:{'X-CSRF-Token':root.dataset.csrf},body:new URLSearchParams(body)} : {};
     const response=await fetch(base+path,{...options,cache:'no-store'});
     const data=await response.json().catch(()=>({error:'Die Antwort konnte nicht gelesen werden.'}));
+    if(response.status===401)window.HUB_AUTH_REQUIRED?.(data.login_url);
     if(!response.ok)throw new Error(data.error||'Die Anfrage konnte nicht abgeschlossen werden.');return data;
   };
   function clear(){state=null;placements.clear();$('logic-reachable').textContent='—';$('logic-remaining').textContent='—';$('logic-go').textContent='Unbekannt';$('logic-inventory').replaceChildren();$('logic-count').textContent='Noch keine Berechnung';$('logic-locations').replaceChildren(node('p','Für den aktuellen Serverstand liegen noch keine Logikdaten vor.','muted'));}

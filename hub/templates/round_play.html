@@ -1,0 +1,31 @@
+<div class="round-play-grid">
+<div>
+{% for slot in own %}
+<article class="panel own-game-card" id="{{ 'prepare-games' if loop.first else 'prepare-game-' ~ loop.index }}">
+<div class="row">{{ game_art(slot.game_name,slot.game,true) }}<div><p class="eyebrow">Mein Spiel</p><h2>{{ slot.game_name }}</h2></div></div>
+<div class="slot-identity"><div><small>Dein Spielername im Spiel-Client</small><code id="slot-{{ loop.index }}">{{ slot.slot }}</code></div><button type="button" data-copy="#slot-{{ loop.index }}">Slotnamen kopieren {{ icon('copy') }}</button></div>
+<p class="small muted">Spielmodul-Version {{ slot.game_version or 'nicht angegeben' }} · Verwende die zur Runde passende Mod-/Clientversion.</p>
+<h3>Meine Dateien</h3>
+{% for asset in personal_files.get(slot.slot,[]) %}<div class="row spread play-file personal-file"><code>{{ asset.name }}</code><a class="btn primary" href="{{ url_for('mvp.build_asset',sid=s.id,build_id=build.id,file_index=asset.index) }}">Meine Patchdatei herunterladen</a></div>{% else %}<p class="small muted">Keine Patchdatei eindeutig deinem Slot zugeordnet. Manche Spiele benötigen keine. Prüfe die Spielanleitung und bei Bedarf die <a href="#all-files">gemeinsamen Dateien</a>.</p>{% endfor %}
+<a class="btn" href="#setup-{{ loop.index }}" data-show-setup="setup-{{ loop.index }}">Installationsanleitung öffnen</a>
+<div id="setup-{{ loop.index }}" class="round-setup" hidden>
+{% set game_info=setup_infos[slot.game] %}
+<h3>Das brauchst du</h3><ul>{% for requirement in game_info.requirements %}<li>{{ requirement }}</li>{% endfor %}</ul>
+<h3>So richtest du {{ slot.game_name }} ein</h3><ol class="setup-steps">{% for step in game_info.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+<div class="row">{% if game_info.guide_url %}<a class="btn" href="{{ game_info.guide_url }}" target="_blank" rel="noopener noreferrer">Ausführliche Spielanleitung</a>{% endif %}{% for link in game_info.links %}<a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>{% endfor %}</div>
+{% set guide=guides.get(slot.game) %}{% if guide and guide.steps %}<h3>Zusätzliche Anleitung eurer Gruppe</h3>{% if guide.game_version %}<p>Spielversion: {{ guide.game_version }}</p>{% endif %}<pre class="log">{{ guide.steps }}</pre><div class="row">{% if guide.mod_url %}<a class="btn" href="{{ guide.mod_url }}" target="_blank" rel="noopener noreferrer">Mod-/Client-Download der Gruppe</a>{% endif %}{% if guide.source_url %}<a href="{{ guide.source_url }}" target="_blank" rel="noopener noreferrer">Weitere Informationen der Gruppe</a>{% endif %}</div>{% if guide.trouble %}<h4>Hilfe bei Problemen</h4><pre class="log">{{ guide.trouble }}</pre>{% endif %}{% endif %}
+</div>
+</article>
+{% else %}<div class="panel"><h2>Du hast in diesem Seed keinen eigenen Slot</h2><p class="muted">Du kannst die Runde begleiten und ihre gemeinsamen Informationen ansehen.</p></div>{% endfor %}
+</div>
+<div>
+<section class="panel connection-card" id="connection">
+<p class="eyebrow">In deinen Spiel-Client eintragen</p><h2>Verbindung</h2>
+{% if hosted %}<code id="host-address" class="connection-address">{{ hosted.host }}:{{ hosted.port }}</code><p><button class="primary" type="button" data-copy="#host-address">Adresse kopieren {{ icon('copy') }}</button></p><p class="small muted">{{ 'Vom Host bestätigt.' if hosted.confirmed else 'Vom Host hinterlegt.' }} Eine gespeicherte Adresse bestätigt nicht, dass der Server gerade online ist.</p>{% if hosted.room_url %}<a href="{{ hosted.room_url }}" target="_blank" rel="noopener noreferrer">Archipelago-Raum öffnen ↗</a>{% endif %}
+{% elif manage and not build.completed_at %}<p>Hinterlege den Raumlink oder Server und Port, damit alle losspielen können.</p><a class="btn primary" href="#round-host-connection">Verbindung einrichten</a><p><a href="{{ url_for('mvp.build_download',sid=s.id,build_id=build.id) }}">Multiworld-ZIP zum Hosten herunterladen</a></p>
+{% else %}<p class="muted">Der Host hat noch keine Serveradresse hinterlegt. Die Spielanleitung und Dateien kannst du bereits vorbereiten.</p>{% endif %}
+</section>
+{% if not build.completed_at %}<a class="panel tool-link" href="#progress">{{ icon('chart') }}<strong>Gemeinsam weiterspielen</strong><span class="small muted">Fortschritt, erhaltene Items und deine nächsten Checks</span></a>{% endif %}
+</div>
+</div>
+{% include "completion.html" %}

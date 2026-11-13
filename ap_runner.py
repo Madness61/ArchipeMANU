@@ -252,9 +252,38 @@ def generate(players: str, out: str, spoiler: int, race: bool) -> None:
         logging.exception("Item distribution analytics unavailable for this seed.")
 
 
+def preview_checks(players: str, out: str) -> None:
+    """Real single-player generation, using AP's native no-output mode.
+
+    No ROM patch, multidata, spoiler, or hub round is produced. The fixed seed
+    makes this a reproducible reference, not a promise about every multiworld.
+    """
+    import settings
+    settings.no_gui = True
+    settings.skip_autosave = True
+    sys.argv = ["Generate.py", "--player_files_path", players, "--outputpath", out,
+                "--spoiler", "0", "--skip_output", "--seed", "20261110"]
+    import Generate
+    from Main import main as ERmain
+    validate_player_files(players)
+    args, seed = Generate.main()
+    multiworld = ERmain(args, seed)
+    if len(multiworld.player_ids) != 1:
+        raise ValueError("Standard check preview requires exactly one player.")
+    locations = [loc for loc in multiworld.get_filled_locations()
+                 if loc.player == 1 and type(loc.address) is int
+                 and loc.item and type(loc.item.code) is int]
+    if len({loc.address for loc in locations}) != len(locations):
+        raise ValueError("Duplicate check addresses in preview.")
+    result = dict(source="archipelago_standard_probe", checks=len(locations),
+                  game=multiworld.game[1], seed=20261110)
+    with open(os.path.join(out, "check_preview.json"), "w", encoding="utf-8") as fp:
+        json.dump(result, fp)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["extract", "generate"])
+    parser.add_argument("command", choices=["extract", "generate", "preview"])
     parser.add_argument("--out", required=True)
     parser.add_argument("--players")
     parser.add_argument("--hide", default="")
@@ -268,6 +297,8 @@ def main() -> None:
 
     if args.command == "extract":
         extract(args.out)
+    elif args.command == "preview":
+        preview_checks(args.players, args.out)
     else:
         generate(args.players, args.out, args.spoiler, args.race)
 

@@ -29,6 +29,8 @@ COMMANDS = [
     ("/hint [Item]", "Hinweis anfragen; der Server entscheidet über Kosten und Verfügbarkeit"),
     ("/hint_location [Check]", "Hinweis zu einem Check anfragen"),
     ("/status", "Serverstatus abfragen"), ("/players", "Mitspieler abfragen"),
+    ("!remaining", "Verbleibende Items abfragen; abhängig von den Serverregeln"),
+    ("!countdown [Sekunden]", "Countdown im Archipelago-Chat anfragen"),
 ]
 SERVER_COMMANDS = {"!help", "!hint", "!hint_location", "!status", "!players", "!remaining", "!countdown"}
 _clients = {}

@@ -1,0 +1,31 @@
+{% if not s.locked %}
+  {% if not is_member %}
+  <div class="panel">
+    <h2 style="margin-top:0">Du möchtest mitspielen?</h2><p class="muted">Tritt der Lobby bei. Dein Spiel und die Einstellungen wählst du anschließend.</p>
+    <form method="post" action="{{ url_for('mvp.join_open_lobby', sid=s.id) }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="primary">Ich möchte mitmachen →</button>
+    </form>
+  </div>
+  {% else %}
+  <section class="panel" id="game-selection">
+    <div class="row spread"><div><p class="eyebrow">Dein Teil der Runde</p><h2 style="margin:0 0 7px">Deine Spielauswahl</h2></div>
+      <form method="post" action="{{ url_for('mvp.leave_lobby', sid=s.id) }}" class="inline" data-confirm="Du verlässt die Lobby; dein Spielslot wird entfernt."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish small">Lobby verlassen</button></form>
+    </div>
+    <p class="muted small">{% if own_entry %}Gespeichert: <strong>{{ own_entry.game_name }}</strong>. Du kannst deine Auswahl bis zum Rundenstart ändern.{% else %}Wähle dein Spiel. Du kannst die Grundwerte direkt übernehmen oder die Einstellungen vorher anpassen.{% endif %}</p>
+    {% if own_entry %}<div class="row own-readiness" id="own-readiness"><span class="chip {{ 'ok' if own_entry.ready_valid else 'warn' }}">{{ 'Bereit' if own_entry.ready_valid else 'Noch nicht bereit' }}</span><form method="post" action="{{ url_for('mvp.entry_ready',eid=own_entry.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="ready" value="{{ 0 if own_entry.ready else 1 }}"><button class="{{ '' if own_entry.ready_valid else 'primary' }}">{{ 'Bereitschaft aufheben' if own_entry.ready else 'Bereit melden' }}</button></form></div>{% endif %}
+    <div class="selection-art">{{ game_art(selected_game or 'Dein Spiel', selected_game, true) }}<div><h3 data-chosen-game-name>{% if selected_game %}{% for slug,info in games %}{% if slug == selected_game %}{{ info.game }}{% endif %}{% endfor %}{% else %}Welche Welt wird deine?{% endif %}</h3><p>Übernimm die Grundwerte oder passe die Einstellungen an deinen Spieleabend an.</p></div></div>
+    <form method="post" action="{{ url_for('mvp.lobby_selection_start', sid=s.id) }}" class="selection-form" id="select-game">
+      <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+      <label>Ich spiele:<select name="game" id="add-game" required><option value="">Spiel wählen …</option>{% for slug,info in games %}<option value="{{ slug }}" data-hue="{{ slug|game_hue }}" {% if slug == selected_game %}selected{% endif %}>{{ info.game }}</option>{% endfor %}</select></label>
+      <label>Grundeinstellungen<select name="ref" id="add-ref" aria-label="Grundeinstellungen"><option value="">Standardauswahl der Gruppe</option>{% for t in selection_templates %}<option value="{{ t.ref }}" {% if t.ref == selected_ref %}selected{% endif %} {% if t.errors %}disabled{% endif %}>{{ t.name }} · {{ 'Spielvorgaben' if t.ref == 'default' else t.source }}{{ ' · ' ~ t.summary|length ~ ' Änderungen' if t.summary else '' }}{{ ' (inkompatibel)' if t.errors else '' }}</option>{% endfor %}</select></label>
+      <div class="row selection-actions"><button name="_action" value="edit">Einstellungen anpassen</button><button name="_action" value="base" class="primary" id="use-base-values">{{ 'Vorlage übernehmen' if selected_template and selected_template.ref != 'default' else 'Standardwerte übernehmen' }}</button></div>
+    </form>
+    <details class="technical-options game-picker"><summary>Spielkatalog öffnen</summary><label>Spiel im Katalog suchen<input type="search" data-game-search placeholder="Welches Spiel möchtest du spielen?"></label><div class="selection-catalog">{% for slug,info in games %}<button type="button" data-choose-game="{{ slug }}">{{ game_art(info.game, slug, true) }}<span>{{ info.game }}</span></button>{% endfor %}</div><p class="small muted" data-game-empty hidden>Kein passendes Spiel gefunden.</p></details>
+    <div class="template-explanation" id="template-explanation" aria-live="polite">
+      {% if selected_template %}<strong>{{ selected_template.name }}</strong><p class="small">{{ selected_template.description }}</p>{% if selected_template.summary %}<p class="small muted">{{ selected_template.summary|length }} Abweichungen vom Spiel-Standard:</p><ul class="summary">{% for name,value in selected_template.summary[:6] %}<li>{{ name }}: {{ value }}</li>{% endfor %}</ul>{% if selected_template.summary|length > 6 %}<p class="small muted">Weitere Werte siehst du unter „Einstellungen anpassen“.</p>{% endif %}{% endif %}{% else %}<p class="small muted">Wähle ein Spiel, um die Grundwerte und verfügbaren Vorlagen zu sehen.</p>{% endif %}
+    </div>
+    <p class="muted small">Deine Grundwerte gelten automatisch. Nach dem Speichern kannst du hier direkt „Bereit melden“ wählen.</p>
+    {% if selection %}{% include "lobby_selection.html" %}{% elif own_entry %}<p class="status-note {{ 'ok' if own_entry.ready_valid else '' }}">{{ 'Du bist bereit. Warte auf den Start durch den Host.' if own_entry.ready_valid else 'Deine Auswahl ist gespeichert. Prüfe unten deine Teilnahme und klicke auf „Bereit“.' }}</p>{% endif %}
+  </section>
+  {% endif %}
+{% endif %}
