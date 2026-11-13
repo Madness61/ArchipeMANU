@@ -70,7 +70,9 @@ class ConsoleTests(unittest.TestCase):
         self.assertEqual(delivery["recipient"]["name"],"Host")
         self.assertEqual(delivery["item"],"Progression Key")
         self.assertEqual(delivery["location"]["name"],"Old Fortress - Chest")
-        self.assertEqual(self.friend.get(self.url+"/data?kind=items").get_json()["events"],items)
+        friend_items=self.friend.get(self.url+"/data?kind=items").get_json()["events"]
+        self.assertEqual([(e['id'],e['text'],e['delivery']) for e in friend_items],[(e['id'],e['text'],e['delivery']) for e in items])
+        self.assertTrue(items[0]['for_me']);self.assertTrue(friend_items[0]['from_me'])
         hello = next(p for p in self.server.packets if p["cmd"]=="Connect")
         self.assertEqual((hello["game"],hello["tags"],hello["items_handling"],hello["slot_data"]),("",["TextOnly"],7,True))
         self.assertFalse(any(p["cmd"] in ("LocationChecks","StatusUpdate","LocationScouts") for p in self.server.packets))

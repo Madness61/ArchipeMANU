@@ -1,58 +1,58 @@
 <section id="participants-section" data-refresh-fragment>
-<div class="section-head"><div><h2>Teilnehmer ({{ member_count }})</h2><p class="muted small">Alle müssen ein Spiel wählen und ihre Einstellungen bestätigen.</p></div><div class="row"><a class="btn small" href="{{ url_for('session_view',sid=s.id,_anchor='players') }}" data-session-refresh>Teilnehmer aktualisieren</a><span class="chip {{ 'ok' if all_ready else 'warn' }}">{{ ready_count }} von {{ member_count }} bereit</span></div></div>
-<p class="muted small">Checks zählen die tatsächlich platzierten, adressierten Items im angegebenen Seed; Events und Startinventar sind ausgenommen. Vor der Generierung und im Race-Modus ist keine genaue Zahl verfügbar.</p>
+<div class="section-head"><div><h2>{{ _("Teilnehmer (") }}{{ member_count|localnumber }})</h2><p class="muted small">{{ _("Alle müssen ein Spiel wählen und ihre Einstellungen bestätigen.") }}</p></div><div class="row"><a class="btn small" href="{{ url_for('session_view',sid=s.id,_anchor='players') }}" data-session-refresh>{{ _("Teilnehmer aktualisieren") }}</a><span class="chip {{ _('ok') if all_ready else 'warn' }}">{{ ready_count|localnumber }} {{ _("von") }} {{ member_count|localnumber }} {{ _("bereit") }}</span></div></div>
+<p class="muted small">{{ _("Checks zählen die tatsächlich platzierten, adressierten Items im angegebenen Seed; Events und Startinventar sind ausgenommen. Vor der Generierung und im Race-Modus ist keine genaue Zahl verfügbar.") }}</p>
 <div class="round-prep-players" id="participants">
 {% for e in entries %}
 <article class="panel preparation-player" data-ready="{{ 'true' if e.ready_valid else 'false' }}">
-  <div><span class="avatar" aria-hidden="true">{{ e.username[:1]|upper }}</span><div class="participant-name"><strong>{{ e.username }}</strong><div class="muted small">Spielername: {{ e.slot }}</div></div></div>
-  <div><div class="participant-game">{{ game_art(e.game_name, e.game, true) }}<div>{% if e.installed %}<a href="{{ url_for('game', slug=e.game) }}">{{ e.game_name }}</a>{% else %}<span class="err">{{ e.game }} nicht installiert</span>{% endif %}
+  <div><span class="avatar" aria-hidden="true">{{ e.username[:1]|upper }}</span><div class="participant-name"><strong>{{ e.username }}</strong><div class="muted small">{{ _("Spielername:") }} {{ e.slot }}</div></div></div>
+  <div><div class="participant-game">{{ game_art(e.game_name, e.game, true) }}<div>{% if e.installed %}<a href="{{ url_for('game', slug=e.game) }}">{{ e.game_name }}</a>{% else %}<span class="err">{{ e.game }} {{ _("nicht installiert") }}</span>{% endif %}
     <div class="muted small">{{ e.template_label }}</div>
     </div></div>
-    {% if e.world_error %}<p class="err small">{{ e.world_error }}</p>{% endif %}
-    {% if not e.template_found %}<p class="err small">Vorlage fehlt oder ist inkompatibel – Generierung gesperrt</p>{% endif %}
-    {% if e.summary %}<details class="small"><summary>{{ e.summary|length }} angepasste Einstellungen</summary><ul class="summary">{% for name,val in e.summary %}<li>{{ name }}: {{ val }}</li>{% endfor %}</ul></details>{% endif %}
+    {% if e.world_error %}<p class="err small">{{ _(e.world_error) }}</p>{% endif %}
+    {% if not e.template_found %}<p class="err small">{{ _("Vorlage fehlt oder ist inkompatibel – Generierung gesperrt") }}</p>{% endif %}
+    {% if e.summary %}<details class="small"><summary>{{ e.summary|length }} {{ _("angepasste Einstellungen") }}</summary><ul class="summary">{% for name,val in e.summary %}<li>{{ name }}: {{ val }}</li>{% endfor %}</ul></details>{% endif %}
   </div>
-  <div>{% if e.generated_checks is not none %}<strong>{{ e.generated_checks }}</strong><div class="muted small"><a href="{{ url_for('mvp.build_stats', sid=s.id, build_id=e.checks_build_id) }}">Seed #{{ e.checks_build_id }}</a>{{ ' / Einstellungen geändert' if not e.checks_current else '' }}</div>{% else %}<span class="muted small">Nach Generierung verfügbar</span>{% endif %}</div>
-  <div><span class="chip {{ 'ok' if e.ready_valid else 'warn' }}">{{ 'Bereit' if e.ready_valid else 'Bitte prüfen' if e.ready else 'Nicht bereit' }}</span></div>
+  <div>{% if e.generated_checks is not none %}<strong>{{ e.generated_checks }}</strong><div class="muted small"><a href="{{ url_for('mvp.build_stats', sid=s.id, build_id=e.checks_build_id) }}">{{ _("Seed #") }}{{ e.checks_build_id }}</a>{{ _(' / Einstellungen geändert') if not e.checks_current else '' }}</div>{% else %}<span class="muted small">{{ _("Nach Generierung verfügbar") }}</span>{% endif %}</div>
+  <div><span class="chip {{ _('ok') if e.ready_valid else 'warn' }}">{{ _('Bereit') if e.ready_valid else _('Bitte prüfen') if e.ready else _('Nicht bereit') }}</span></div>
   <div>
     <div class="row">
     {% if s.locked and manage %}
-      <form method="post" action="{{ url_for('session_lock', sid=s.id) }}" class="inline" data-confirm="Lobby zum Bearbeiten öffnen? Alle müssen sich erneut bereit melden. Vorhandene Seeds bleiben erhalten."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="small">Spiel / YAML ändern: Lobby öffnen</button></form>
-    {% elif s.locked and e.user_id == g.user.id %}<span class="muted small">Zum ändern muss der Host die Lobby öffnen.</span>{% endif %}
-    {% if not s.locked and e.user_id == g.user.id %}<a class="btn small" href="#game-selection">Spiel wechseln</a>{% endif %}
+      <form method="post" action="{{ url_for('session_lock', sid=s.id) }}" class="inline" data-confirm="{{ _("Lobby zum Bearbeiten öffnen? Alle müssen sich erneut bereit melden. Vorhandene Seeds bleiben erhalten.") }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="small">{{ _("Spiel / YAML ändern: Lobby öffnen") }}</button></form>
+    {% elif s.locked and e.user_id == g.user.id %}<span class="muted small">{{ _("Zum ändern muss der Host die Lobby öffnen.") }}</span>{% endif %}
+    {% if not s.locked and e.user_id == g.user.id %}<a class="btn small" href="#game-selection">{{ _("Spiel wechseln") }}</a>{% endif %}
     {% if not s.locked and e.user_id == g.user.id and e.installed %}
-      <form method="post" action="{{ url_for('mvp.entry_ready', eid=e.id) }}" class="inline"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="ready" value="{{ 0 if e.ready else 1 }}"><button class="{{ '' if e.ready_valid else 'primary' }} small">{{ 'Bereitschaft aufheben' if e.ready else 'Bereit' }}</button></form>
+      <form method="post" action="{{ url_for('mvp.entry_ready', eid=e.id) }}" class="inline"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="ready" value="{{ 0 if e.ready else 1 }}"><button class="{{ '' if e.ready_valid else 'primary' }} small">{{ _('Bereitschaft aufheben') if e.ready else _('Bereit') }}</button></form>
     {% endif %}
     {% if not s.locked and (e.user_id == g.user.id or manage) and e.installed %}
       {% if e.user_id == g.user.id and own_entry and e.id == own_entry.id %}
-      <a class="btn small" href="{{ url_for('session_view', sid=s.id, game=e.game, ref=e.template_ref, _anchor='game-selection') }}">Einstellungen</a>
-      {% else %}<a class="btn small" href="{{ url_for('mvp.entry_options', eid=e.id) }}">Einstellungen</a>{% endif %}
+      <a class="btn small" href="{{ url_for('session_view', sid=s.id, game=e.game, ref=e.template_ref, _anchor='game-selection') }}">{{ _("Einstellungen") }}</a>
+      {% else %}<a class="btn small" href="{{ url_for('mvp.entry_options', eid=e.id) }}">{{ _("Einstellungen") }}</a>{% endif %}
     {% endif %}
     </div>
     {% if not s.locked and (e.user_id == g.user.id or manage) %}
-    <details class="technical-options"><summary>Weitere Slotoptionen</summary>
+    <details class="technical-options"><summary>{{ _("Weitere Slotoptionen") }}</summary>
       {% if e.installed %}
       {% set versions = world_versions|selectattr('module','equalto',e.game)|list %}
       {% if versions %}
       <form method="post" action="{{ url_for('mvp.entry_world_version', eid=e.id) }}">
-        <input type="hidden" name="_csrf" value="{{ csrf_token }}"><label>APWorld-Version<select name="sha256" aria-label="APWorld-Version">{% for v in versions %}<option value="{{ v.sha256 }}" {% if v.sha256 == e.requested_world_sha %}selected{% endif %}>{{ v.version or 'Unbekannt' }} · {{ v.sha256[:8] }}{{ ' (aktiv)' if v.active else '' }}</option>{% endfor %}</select></label><button class="small">Übernehmen</button>
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}"><label>{{ _("APWorld-Version") }}<select name="sha256" aria-label="{{ _("APWorld-Version") }}">{% for v in versions %}<option value="{{ v.sha256 }}" {% if v.sha256 == e.requested_world_sha %}selected{% endif %}>{{ v.version or 'Unbekannt' }} · {{ v.sha256[:8] }}{{ ' (aktiv)' if v.active else '' }}</option>{% endfor %}</select></label><button class="small">{{ _("Übernehmen") }}</button>
       </form>
-      {% if e.requested_world_sha != e.active_world_sha %}<p class="small err">Diese Version in der Spielebibliothek aktivieren und Optionen einlesen.</p>{% endif %}
+      {% if e.requested_world_sha != e.active_world_sha %}<p class="small err">{{ _("Diese Version in der Spielebibliothek aktivieren und Optionen einlesen.") }}</p>{% endif %}
       {% endif %}
       <form method="post" action="{{ url_for('entry_template', eid=e.id) }}">
-        <input type="hidden" name="_csrf" value="{{ csrf_token }}"><select name="ref" class="entry-ref" data-game="{{ e.game }}" data-current="{{ e.template_ref }}" aria-label="Gespeicherte Vorlage ersetzen"><option value="{{ e.template_ref }}">Gespeicherte Vorlage ersetzen …</option></select><button class="small">Vorlage ersetzen</button>
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}"><select name="ref" class="entry-ref" data-game="{{ e.game }}" data-current="{{ e.template_ref }}" aria-label="{{ _("Gespeicherte Vorlage ersetzen") }}"><option value="{{ e.template_ref }}">{{ _("Gespeicherte Vorlage ersetzen …") }}</option></select><button class="small">{{ _("Vorlage ersetzen") }}</button>
       </form>
       {% endif %}
-      <form method="post" action="{{ url_for('entry_delete', eid=e.id) }}" data-confirm="Gespeicherte Spielauswahl entfernen?"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish danger small">Spiel entfernen</button></form>
+      <form method="post" action="{{ url_for('entry_delete', eid=e.id) }}" data-confirm="{{ _("Gespeicherte Spielauswahl entfernen?") }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish danger small">{{ _("Spiel entfernen") }}</button></form>
     </details>
     {% endif %}
   </div>
 </article>
 {% endfor %}
 {% for u in lobby_guests %}{% if not u.entry_id %}
-<article class="panel preparation-player" data-ready="false"><div><span class="avatar" aria-hidden="true">{{ u.username[:1]|upper }}</span><div class="participant-name"><strong>{{ u.username }}</strong></div></div><div class="muted"><div class="participant-game">{{ game_art('Spiel wählen', '', true) }}<span>Noch kein Spiel ausgewählt</span></div></div><div><span class="chip warn">{{ u.username }} · Spiel fehlt</span></div><div><span class="chip warn">Wählt noch</span></div><div>{% if u.user_id == g.user.id %}<a class="btn small" href="#game-selection">Spiel wählen</a>{% endif %}</div></article>
+<article class="panel preparation-player" data-ready="false"><div><span class="avatar" aria-hidden="true">{{ u.username[:1]|upper }}</span><div class="participant-name"><strong>{{ u.username }}</strong></div></div><div class="muted"><div class="participant-game">{{ game_art(_('Spiel wählen'), '', true) }}<span>{{ _("Noch kein Spiel ausgewählt") }}</span></div></div><div><span class="chip warn">{{ u.username }} {{ _("· Spiel fehlt") }}</span></div><div><span class="chip warn">{{ _("Wählt noch") }}</span></div><div>{% if u.user_id == g.user.id %}<a class="btn small" href="#game-selection">{{ _("Spiel wählen") }}</a>{% endif %}</div></article>
 {% endif %}{% endfor %}
-{% if not entries and not lobby_guests %}<article class="panel"><div class="muted">Noch keine Teilnehmer. Tritt dieser Lobby bei, um mitzuspielen.</div></article>{% endif %}
+{% if not entries and not lobby_guests %}<article class="panel"><div class="muted">{{ _("Noch keine Teilnehmer. Tritt dieser Lobby bei, um mitzuspielen.") }}</div></article>{% endif %}
 
 </div>
 </section>

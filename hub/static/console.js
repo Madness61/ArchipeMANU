@@ -9,13 +9,13 @@
   const older = document.getElementById('console-older');
   let cursor = 0, first = 0, generation = 0, fetching = false, sending=false, catalogVersion = 0, endpointId, authLost=false;
   const ids = new Set();
-  const labels = {connecting:'Verbindung wird aufgebaut',authenticating:'Slot wird angemeldet',connected:'Mit Archipelago verbunden',reconnecting:'Verbindung wird wiederhergestellt',temporarily_unavailable:'Vorübergehend nicht erreichbar',action_required:'Erneutes Verbinden erforderlich',disconnected:'Nicht verbunden',error:'Verbindung fehlgeschlagen'};
+  const labels = {connecting:window.HUB_I18N.t('Verbindung wird aufgebaut'),authenticating:window.HUB_I18N.t('Slot wird angemeldet'),connected:window.HUB_I18N.t('Mit Archipelago verbunden'),reconnecting:window.HUB_I18N.t('Verbindung wird wiederhergestellt'),temporarily_unavailable:window.HUB_I18N.t('Vorübergehend nicht erreichbar'),action_required:window.HUB_I18N.t('Erneutes Verbinden erforderlich'),disconnected:window.HUB_I18N.t('Nicht verbunden'),error:window.HUB_I18N.t('Verbindung fehlgeschlagen')};
   const fail = (text) => { error.textContent = text; error.hidden = !text; };
   async function api(path, form) {
     const response = await fetch(root.dataset.base + path, form ? {method:'POST',body:form,headers:{'X-CSRF-Token':root.dataset.csrf},cache:'no-store'} : {cache:'no-store'});
-    const data = await response.json().catch(() => ({error:response.status === 429 ? 'Zu viele Anfragen. Bitte kurz warten.' : 'Die Anfrage konnte nicht verarbeitet werden. Bitte gegebenenfalls erneut anmelden.'}));
+    const data = await response.json().catch(() => ({error:response.status === 429 ? 'Zu viele Anfragen. Bitte kurz warten.' : window.HUB_I18N.t('Die Anfrage konnte nicht verarbeitet werden. Bitte gegebenenfalls erneut anmelden.')}));
     if(response.status===401){authLost=true;window.HUB_AUTH_REQUIRED?.(data.login_url);}
-    if (!response.ok) throw new Error(data.error || 'Die Anfrage ist fehlgeschlagen.');
+    if (!response.ok) throw new Error(data.error || window.HUB_I18N.t('Die Anfrage ist fehlgeschlagen.'));
     return data;
   }
   function append(entries, prepend=false) {
@@ -25,25 +25,27 @@
       ids.add(entry.id);
       const line = document.createElement('div');
       line.className = 'console-line console-' + entry.kind;
-      line.dataset.text = entry.text.toLocaleLowerCase('de');
+      if(entry.for_me)line.classList.add('console-for-me');
+      line.dataset.text = entry.text.toLocaleLowerCase(window.HUB_I18N.locale);
       const stamp = document.createElement('time');
       stamp.dateTime = new Date(entry.at * 1000).toISOString();
-      stamp.textContent = new Date(entry.at * 1000).toLocaleTimeString('de-DE');
-      stamp.title = 'Vom Hub aufgezeichnet: ' + new Date(entry.at * 1000).toLocaleString('de-DE');
+      stamp.textContent = new Date(entry.at * 1000).toLocaleTimeString(window.HUB_I18N.locale);
+      stamp.title = window.HUB_I18N.t('Vom Hub aufgezeichnet: ') + new Date(entry.at * 1000).toLocaleString(window.HUB_I18N.locale);
       const text = document.createElement('span');
       if(entry.delivery){
         const route=document.createElement('span');route.className='console-item-route';
         const sender=document.createElement('strong'),recipient=document.createElement('strong'),item=document.createElement('strong');
         sender.textContent=entry.delivery.sender.name;recipient.textContent=entry.delivery.recipient.name;item.textContent=entry.delivery.item;item.className='console-item-name';
+        for(const [node,name] of [[sender,entry.delivery.sender.name],[recipient,entry.delivery.recipient.name]]){node.classList.add('console-player-name');node.style.setProperty('--player',window.HUB_UI.playerColor(name));}
         route.append(sender,document.createTextNode(' → '),recipient,document.createTextNode(': '),item);
         const place=document.createElement('small');place.className='console-item-place';place.textContent=entry.delivery.location.name+' · '+entry.delivery.sender.game;
         text.append(route,place);
       }else text.textContent = entry.text;
       if(entry.visibility==='personal'){
-        const privateLabel=document.createElement('small');privateLabel.className='console-private-label';privateLabel.textContent='Nur für dich';text.append(privateLabel);
+        const privateLabel=document.createElement('small');privateLabel.className='console-private-label';privateLabel.textContent=window.HUB_I18N.t('Nur für dich');text.append(privateLabel);
       }
       line.append(stamp,text);
-      line.hidden = !line.dataset.text.includes(search.value.toLocaleLowerCase('de'));
+      line.hidden = !line.dataset.text.includes(search.value.toLocaleLowerCase(window.HUB_I18N.locale));
       fragment.append(line);
     });
     const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 90;
@@ -72,7 +74,7 @@
       if(state.textContent!==stateLabel)state.textContent=stateLabel;
       state.className = 'chip ' + (data.state === 'connected' ? 'ok' : ['error','action_required'].includes(data.state) ? 'err' : '');
       const diagnostic=document.getElementById('console-diagnostics');
-      if(diagnostic)diagnostic.textContent='Textkonsole: '+(labels[data.state]||data.state)+' · Letzter Kontakt: '+(data.last_contact?new Date(data.last_contact*1000).toLocaleString('de-DE'):'noch keiner')+(data.next_retry_at?' · Nächster Versuch: '+new Date(data.next_retry_at*1000).toLocaleTimeString('de-DE'):'')+' · Lokaler Spielclient: unbekannt';
+      if(diagnostic)diagnostic.textContent=window.HUB_I18N.t('Textkonsole: ')+(labels[data.state]||data.state)+window.HUB_I18N.t(' · Letzter Kontakt: ')+(data.last_contact?new Date(data.last_contact*1000).toLocaleString(window.HUB_I18N.locale):window.HUB_I18N.t('noch keiner'))+(data.next_retry_at?window.HUB_I18N.t(' · Nächster Versuch: ')+new Date(data.next_retry_at*1000).toLocaleTimeString(window.HUB_I18N.locale):'')+window.HUB_I18N.t(' · Lokaler Spielclient: unbekannt');
       const connectLink=document.getElementById('console-connect-link');if(connectLink)connectLink.hidden=data.state==='connected';
       const connectForm=document.getElementById('console-connect'),connectedSlot=document.getElementById('console-connected-slot');
       if(connectForm){
@@ -80,7 +82,7 @@
         const slot=connectForm.elements.namedItem('slot');
         if(data.slot&&!slot.dataset.dirty&&[...slot.options].some(o=>o.value===data.slot))slot.value=data.slot;
       }
-      if(connectedSlot){connectedSlot.hidden=data.state!=='connected';connectedSlot.textContent='Verbunden als '+(data.slot||'dein Spielslot');}
+      if(connectedSlot){connectedSlot.hidden=data.state!=='connected';connectedSlot.textContent=window.HUB_I18N.t('Verbunden als ')+(data.slot||window.HUB_I18N.t('dein Spielslot'));}
       document.dispatchEvent(new CustomEvent('hub:console-state',{detail:data}));
       if (data.error) fail(data.error);
       else if (data.state === 'connected') fail('');
@@ -126,7 +128,7 @@
     }
     const original=values.get('text');
     const submit=form.querySelector('[type=submit]');if(submit)submit.disabled=true;
-    try{if(await post('/command',values)){if(form.elements.namedItem('text').value===original)form.reset();}}
+    try{if(await post('/command',values)){if(form.elements.namedItem('text').value===original){form.reset();try{sessionStorage.removeItem(draftKey);}catch{}}}}
     finally{sending=false;if(submit)submit.disabled=false;}
     values.delete('password');
   });
@@ -137,11 +139,13 @@
     load();
   });
   search.addEventListener('input',() => log.querySelectorAll('.console-line').forEach(line => {
-    line.hidden=!line.dataset.text.includes(search.value.toLocaleLowerCase('de'));
+    line.hidden=!line.dataset.text.includes(search.value.toLocaleLowerCase(window.HUB_I18N.locale));
   }));
   older.addEventListener('click',() => load(true));
   // Commands are inserted into the composer. Selection never sends a request.
   const composer=document.getElementById('console-message'),menu=document.getElementById('console-command-menu'),toggle=document.getElementById('console-command-toggle');
+  const draftKey='hub.console.draft.v1:'+root.dataset.user+':'+root.dataset.base;
+  if(composer){try{if(!composer.value)composer.value=sessionStorage.getItem(draftKey)||'';}catch{}composer.addEventListener('input',()=>{try{sessionStorage.setItem(draftKey,composer.value);}catch{}});}
   const choices=menu?[...menu.querySelectorAll('[data-insert-command]')]:[];
   const showCommands=open=>{if(!menu)return;menu.hidden=!open;toggle.setAttribute('aria-expanded',String(open));};
   const filterCommands=()=>{

@@ -12,9 +12,58 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, r
                    url_for)
 
 from . import ap_bridge, config, db, yamlgen, mvp, community, auth, live_store, live_routes, ap_console, console_routes, logic_routes
+from . import i18n
 
 app = Flask(__name__)
 app.teardown_appcontext(db.close)
+app.jinja_env.globals['_'] = i18n.t
+app.jinja_env.filters['localdate'] = i18n.format_date
+app.jinja_env.filters['localnumber'] = i18n.format_number
+
+from werkzeug.exceptions import HTTPException
+@app.errorhandler(HTTPException)
+def friendly_error(error):
+    if not hasattr(g,'user'):
+        g.user=None
+    if request.path.startswith('/api/') or request.accept_mimetypes.best=='application/json':
+        return jsonify(error=i18n.t(error.description)),error.code
+    return render_template('error.html',error=error),error.code
+
+@app.context_processor
+def interface_context():
+    prefs = i18n.preferences()
+    return dict(ui_prefs=prefs, ui_messages=i18n.MESSAGES if prefs['language']=='en' else {},ui_patterns=i18n.PATTERNS if prefs['language']=='en' else [])
+
+@app.after_request
+def localized_errors(response):
+    if response.is_json and i18n.language() == 'en':
+        payload = response.get_json(silent=True)
+        if isinstance(payload, dict):
+            for key in ('error', 'errors', 'message'):
+                if key in payload:
+                    payload[key] = i18n.error_messages(payload[key])
+            response.set_data(app.json.dumps(payload))
+    return response
+
+@app.route('/preferences', methods=['POST'])
+def save_preferences():
+    language, theme = request.form.get('language'), request.form.get('theme')
+    if language not in ('de','en') or theme not in ('dark','light','system'):
+        return jsonify(error=i18n.t('Ungültige Sprache oder Darstellung.')), 400
+    if g.user:
+        # Interface preferences never alter YAML values or invalidate readiness.
+        with db.transaction() as conn:
+            user=conn.execute('SELECT overrides FROM users WHERE id=?',(g.user['id'],)).fetchone()
+            if not user:
+                abort(401)
+            values=db.loads(user['overrides'])
+            values['_interface']=dict(language=language,theme=theme)
+            conn.execute('UPDATE users SET overrides=? WHERE id=?',(db.dumps(values),g.user['id']))
+    response=jsonify(language=language,theme=theme)
+    for key,value in (('ui_language',language),('ui_theme',theme)):
+        response.set_cookie(key,value,max_age=31536000,samesite='Lax',secure=app.config.get('SESSION_COOKIE_SECURE',False))
+    response.headers['Cache-Control']='no-store'
+    return response
 
 ITEM_LOC_GROUP = "Item & Location Options"
 

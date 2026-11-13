@@ -1,43 +1,42 @@
 {% extends "base.html" %}
-{% block title %}Profil · {{ app_name }}{% endblock %}
+{% block title %}{{ _("Profil ·") }} {{ app_name }}{% endblock %}
 {% block content %}
-<h1>Profil</h1>
+<h1>{{ _("Profil") }}</h1><section class="panel"><h2>{{ _("Sprache und Darstellung") }}</h2>{% include "preferences.html" %}</section>
 <form method="post" class="panel stack profile-form" style="max-width:560px">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-  <div class="profile-setting"><label for="profile-slot-name">Slot-Name (höchstens 16 Zeichen)</label>
+  <div class="profile-setting"><label for="profile-slot-name">{{ _("Slot-Name (höchstens 16 Zeichen)") }}</label>
     <input id="profile-slot-name" name="slot_name" value="{{ g.user.slot_name }}" maxlength="16" required></div>
-  <p class="small muted" style="margin-top:2px">Wird in jede YAML eingesetzt. Spielst du mehrere Spiele in einer Session,
-    wird automatisch eine Zahl angehängt (Max Mustermann, Max Mustermann2 …).</p>
+  <p class="small muted" style="margin-top:2px">{{ _("Wird in jede YAML eingesetzt. Spielst du mehrere Spiele in einer Session, wird automatisch eine Zahl angehängt (Max Mustermann, Max Mustermann2 …).") }}</p>
 
-  <h2 style="margin-top:8px">Gilt bei mir immer</h2>
-  <p class="small muted">Wird auf jede Vorlage angewendet, wenn das Spiel die Option hat.</p>
-  <div class="profile-setting"><label for="profile-death-link">DeathLink</label>
+  <h2 style="margin-top:8px">{{ _("Gilt bei mir immer") }}</h2>
+  <p class="small muted">{{ _("Wird auf jede Vorlage angewendet, wenn das Spiel die Option hat.") }}</p>
+  <div class="profile-setting"><label for="profile-death-link">{{ _("DeathLink") }}</label>
     <select id="profile-death-link" name="death_link">
-      <option value="" {% if 'death_link' not in overrides %}selected{% endif %}>wie in der Vorlage</option>
-      <option value="on" {% if overrides.death_link is sameas true %}selected{% endif %}>immer an</option>
-      <option value="off" {% if overrides.death_link is sameas false %}selected{% endif %}>immer aus</option>
+      <option value="" {% if 'death_link' not in overrides %}selected{% endif %}>{{ _("wie in der Vorlage") }}</option>
+      <option value="on" {% if overrides.death_link is sameas true %}selected{% endif %}>{{ _("immer an") }}</option>
+      <option value="off" {% if overrides.death_link is sameas false %}selected{% endif %}>{{ _("immer aus") }}</option>
     </select></div>
-  <div class="profile-setting"><label for="profile-balancing">Progression Balancing (0–99)</label>
+  <div class="profile-setting"><label for="profile-balancing">{{ _("Progression Balancing (0–99)") }}</label>
     <input id="profile-balancing" name="progression_balancing" value="{{ overrides.progression_balancing if 'progression_balancing' in overrides else '' }}"
-           placeholder="wie in der Vorlage" inputmode="numeric" size="14"></div>
-  <div><button class="primary">Speichern</button></div>
+           placeholder="{{ _("wie in der Vorlage") }}" inputmode="numeric" size="14"></div>
+  <div><button class="primary">{{ _("Speichern") }}</button></div>
 </form>
 
-<h2>Meine Vorlagen</h2>
+<h2>{{ _("Meine Vorlagen") }}</h2>
 {% if mine %}
 <div class="panel table-wrap">
   <table>
-    <tr><th>Spiel</th><th>Vorlage</th><th>Sichtbar</th></tr>
+    <tr><th>{{ _("Spiel") }}</th><th>{{ _("Vorlage") }}</th><th>{{ _("Sichtbar") }}</th></tr>
     {% for t in mine %}
     <tr>
       <td>{{ games_index[t.game].game if t.game in games_index else t.game }}</td>
-      <td><a href="{{ url_for('template_edit', tid=t.id) }}">{{ t.name }}</a></td>
+      <td><a href="{{ url_for('template_edit', tid=t.id) }}">{{ _(t.name) if t.ref == 'default' else t.name }}</a></td>
       <td>{{ 'Gruppe' if t.shared else 'nur ich' }}</td>
     </tr>
     {% endfor %}
   </table>
 </div>
 {% else %}
-<p class="muted">Noch keine eigenen Vorlagen. <a href="{{ url_for('import_view') }}">Bestehende YAML importieren</a>?</p>
+<p class="muted">{{ _("Noch keine eigenen Vorlagen.") }} <a href="{{ url_for('import_view') }}">{{ _("Bestehende YAML importieren") }}</a>?</p>
 {% endif %}
 {% endblock %}

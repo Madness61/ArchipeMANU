@@ -4,7 +4,7 @@ import queue
 from flask import Blueprint, abort, g, jsonify, render_template, request, session
 from werkzeug.exceptions import HTTPException
 
-from . import ap_console, auth, config, db, live_routes
+from . import ap_console, auth, config, db, live_routes, i18n
 
 bp = Blueprint("console", __name__)
 PREFIX = "/sessions/<int:sid>/builds/<int:build_id>/console"
@@ -90,7 +90,7 @@ def data(sid, build_id):
     except ValueError:
         abort(400, "Ungültiger Protokoll-Cursor.")
     kind = request.args.get("kind", "all")
-    if kind not in ("all", "items", "chat", "system", "sent"):
+    if kind not in ("all", "items", "chat", "system", "sent", "for_me", "from_me", "others"):
         abort(400)
     # Read invalidation metadata first: a package arriving during event rendering
     # must trigger a reload next time, rather than permanently caching raw IDs.
@@ -105,7 +105,7 @@ def data(sid, build_id):
 @bp.route(PREFIX + "/commands")
 def commands(sid, build_id):
     access(sid, build_id)
-    return jsonify(commands=[dict(command=cmd, description=description) for cmd, description in ap_console.COMMANDS])
+    return jsonify(commands=[dict(command=cmd, description=i18n.t(description)) for cmd, description in ap_console.COMMANDS])
 
 
 @bp.route(PREFIX + "/connect", methods=["POST"])

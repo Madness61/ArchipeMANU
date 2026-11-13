@@ -1,30 +1,30 @@
 {% extends "base.html" %}
-{% block title %}Vorlage · {{ schema.game }}{% endblock %}
+{% block title %}{{ _("Vorlage ·") }} {{ schema.game }}{% endblock %}
 
 {% from "option_fields.html" import field with context %}
 {% from "ui.html" import option_tools with context %}
 
 {% block content %}
 <p class="small"><a href="{{ url_for('game', slug=schema.slug) }}">← {{ schema.game }}</a></p>
-<h1>{% if template %}Vorlage bearbeiten{% else %}Neue Vorlage{% endif %} · {{ schema.game }}</h1>
-<p class="muted small">Explizite Einstellungen bleiben erhalten, auch wenn sie dem APWorld-Standard entsprechen. Hochgeladene Originalvorlagen sind unveränderlich; Anpassungen erzeugen eine Kopie.
-  {% if expert %}<a href="{{ simple_url }}">Einfacher Modus</a>
-  {% else %}{% if hidden %}{{ hidden }} Experten-Optionen ausgeblendet. {% endif %}
-  <a href="{{ expert_url }}">Experten-Modus</a>{% endif %}
+<h1>{% if template %}{{ _("Vorlage bearbeiten") }}{% else %}{{ _("Neue Vorlage") }}{% endif %} · {{ schema.game }}</h1>
+<p class="muted small">{{ _("Explizite Einstellungen bleiben erhalten, auch wenn sie dem APWorld-Standard entsprechen. Hochgeladene Originalvorlagen sind unveränderlich; Anpassungen erzeugen eine Kopie.") }}
+  {% if expert %}<a href="{{ simple_url }}">{{ _("Einfacher Modus") }}</a>
+  {% else %}{% if hidden %}{{ hidden }} {{ _("Experten-Optionen ausgeblendet.") }} {% endif %}
+  <a href="{{ expert_url }}">{{ _("Experten-Modus") }}</a>{% endif %}
 </p>
 
 <form method="post" class="panel" data-option-editor>
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-  {% for key,message in errors.items() %}<p class="err">{{ key }}: {{ message }}</p>{% endfor %}
+  {% for key,message in errors.items() %}<p class="err">{{ key }}: {{ _(message) }}</p>{% endfor %}
   <div class="row" style="align-items:flex-start">
-    <label style="flex:1;min-width:220px">Name der Vorlage<br>
+    <label style="flex:1;min-width:220px">{{ _("Name der Vorlage") }}<br>
       <input name="name" value="{{ name }}" maxlength="80" required style="width:100%"></label>
-    <label style="flex:2;min-width:220px">Beschreibung<br>
-      <input name="description" value="{{ description }}" maxlength="200" style="width:100%"></label>
+    <label style="flex:2;min-width:220px">{{ _("Beschreibung") }}<br>
+      <input name="description" value="{{ _(description) }}" maxlength="200" style="width:100%"></label>
   </div>
-  {% if errors._name %}<div class="err">{{ errors._name }}</div>{% endif %}
+  {% if errors._name %}<div class="err">{{ _(errors._name) }}</div>{% endif %}
   <p><label><input type="checkbox" name="shared" value="1" {% if shared %}checked{% endif %}>
-    Für die Gruppe freigeben (sonst nur für dich sichtbar)</label></p>
+    {{ _("Für die Gruppe freigeben (sonst nur für dich sichtbar)") }}</label></p>
 
   {{ option_tools() }}
   {% for group, opts in groups.items() %}
@@ -35,8 +35,8 @@
   {% endfor %}
 
   <div class="sticky-save row">
-    <button class="primary">Speichern</button>
-    <a href="{{ url_for('game', slug=schema.slug) }}">Abbrechen</a>
+    <button class="primary">{{ _("Speichern") }}</button>
+    <a href="{{ url_for('game', slug=schema.slug) }}">{{ _("Abbrechen") }}</a>
   </div>
 </form>
 {% endblock %}

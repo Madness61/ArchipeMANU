@@ -3,13 +3,13 @@
   const root = document.getElementById("live-dashboard");
   if (!root) return;
   const $ = id => document.getElementById(id);
-  const fmt = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
-  const colors = ["#A89CFF", "#5EE3B1", "#F5BC79", "#EFA2C3", "#85B6F4", "#D8BE91", "#A0D28D", "#C9A2EF"];
+  const fmt = new Intl.NumberFormat(window.HUB_I18N.locale, { maximumFractionDigits: 1 });
+  const colors = Array.from({length:8},(_,i)=>'var(--player-color-'+(i+1)+')');
   const value = n => n == null ? "Nicht verfügbar" : fmt.format(n);
   const pct = n => n == null ? "Nicht verfügbar" : value(n) + " %";
-  const date = (s, full = false) => s ? new Date(s).toLocaleString("de-DE", full
+  const date = (s, full = false) => s ? new Date(s).toLocaleString(window.HUB_I18N.locale, full
     ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }
-    : { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Nicht verfügbar";
+    : { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : window.HUB_I18N.t("Nicht verfügbar");
   const set = (id, text) => { const el = $(id); if (el && el.textContent !== String(text)) el.textContent = text; };
   const el = (tag, text, className) => {
     const node = document.createElement(tag);
@@ -29,7 +29,7 @@
     constructor(container) {
       this.container = container;
       this.hidden = new Set();
-      this.svg = svgNode("svg", { viewBox: "0 0 640 220", role: "img", "aria-label": "Gemessener Verlauf, Details über den Zeitregler darunter" });
+      this.svg = svgNode("svg", { viewBox: "0 0 640 220", role: "img", "aria-label": window.HUB_I18N.t("Gemessener Verlauf, Details über den Zeitregler darunter") });
       this.grid = svgNode("g");
       this.paths = svgNode("g");
       this.cursor = svgNode("line", { class: "chart-cursor", y1: 20, y2: 180, visibility: "hidden" });
@@ -37,8 +37,8 @@
       this.tooltip = el("div", "", "chart-tooltip");
       this.tooltip.hidden = true;
       this.legend = el("div", null, "chart-legend");
-      this.empty = el("p", "Ab dem ersten erfolgreichen Abruf erscheint hier der Verlauf.", "chart-empty");
-      const label = el("label", "Zeitpunkt im Diagramm", "small muted");
+      this.empty = el("p", window.HUB_I18N.t("Ab dem ersten erfolgreichen Abruf erscheint hier der Verlauf."), "chart-empty");
+      const label = el("label", window.HUB_I18N.t("Zeitpunkt im Diagramm"), "small muted");
       this.range = el("input", null, "chart-time-selector");
       this.range.type = "range"; this.range.min = "0"; this.range.step = "1";
       label.append(this.range);
@@ -141,7 +141,7 @@
     if (!charts.has(id)) charts.set(id, new Chart($(id)));
     charts.get(id).update(points, series, percentage, ceiling);
   };
-  const seriesFor = players => players.map((p, i) => ({ key: p.key, label: p.name, color: colors[i % colors.length],
+  const seriesFor = players => players.map((p, i) => ({ key: p.key, label: p.name, color: window.HUB_UI.playerColor(p.name),
     get: point => point.players.find(v => v.key === p.key)?.progress ?? null }));
 
   function tab(name, changeHash = true) {
@@ -178,7 +178,7 @@
   function rankings(id, rows, format = value) {
     const container = $(id), known = rows.filter(row => row.value != null).sort((a, b) => b.value - a.value).slice(0, 12);
     container.replaceChildren();
-    if (!known.length) { container.append(el("li", "Nicht verfügbar – noch keine ausreichenden Daten.", "muted small")); return; }
+    if (!known.length) { container.append(el("li", window.HUB_I18N.t("Nicht verfügbar – noch keine ausreichenden Daten."), "muted small")); return; }
     const maximum = Math.max(1, ...known.map(row => row.value));
     known.forEach(row => {
       const li = el("li"), label = el("div", null, "ranking-label");
@@ -191,7 +191,7 @@
   }
   function timeline(container, events, limit = 100) {
     const existing = new Map([...container.querySelectorAll("[data-event-id]")].map(node => [node.dataset.eventId, node]));
-    if (!events.length) { container.replaceChildren(el("li", "Noch keine passenden Beobachtungen.", "muted")); return; }
+    if (!events.length) { container.replaceChildren(el("li", window.HUB_I18N.t("Noch keine passenden Beobachtungen."), "muted")); return; }
     [...container.children].filter(node => !node.dataset.eventId).forEach(node => node.remove());
     const wanted = new Set();
     events.slice(0, limit).forEach(event => {
@@ -199,7 +199,7 @@
       let item = existing.get(id);
       if (!item) {
         item = el("li"); item.dataset.eventId = id; item.dataset.kind = event.kind;
-        const observed = el("time", "Beobachtet " + date(event.at, true) + (event.since ? " · seit " + date(event.since) : ""));
+        const observed = el("time", window.HUB_I18N.t("Beobachtet ") + date(event.at, true) + (event.since ? " · seit " + date(event.since) : ""));
         observed.dateTime = event.at;
         item.append(el("span", event.text), observed);
       }
@@ -212,12 +212,12 @@
     $("live-player-detail").hidden = !player;
     if (!player) return;
     set("live-player-title", player.name + " · " + player.game);
-    set("live-player-info", value(player.checks) + " / " + value(player.total) + " Checks · " + pct(player.progress)
-      + " · " + value(player.received) + " empfangene Items · letzte Aktivität: " + date(player.activity, true));
+    set("live-player-info", value(player.checks) + " / " + value(player.total) + window.HUB_I18N.t(" Checks · ") + pct(player.progress)
+      + " · " + value(player.received) + window.HUB_I18N.t(" empfangene Items · letzte Aktivität: ") + date(player.activity, true));
     const series = seriesFor(state.metrics.players).find(s => s.key === player.key);
     chart("player-chart", state.history, [series], true);
     const categories = $("live-player-categories"); categories.replaceChildren();
-    Object.entries({ progression: "Progression", useful: "Nützlich", trap: "Fallen", filler: "Füllitems" }).forEach(([field, label]) => {
+    Object.entries({ progression: "Progression", useful: window.HUB_I18N.t("Nützlich"), trap: "Fallen", filler: window.HUB_I18N.t("Füllitems") }).forEach(([field, label]) => {
       const box = el("div");
       box.append(el("span", label), el("strong", player.categories ? value(player.categories[field] || 0) : "—"));
       categories.append(box);
@@ -239,11 +239,11 @@
         card.addEventListener("click", () => { tab("players"); selectedPlayer = player.key; playerDetail(true); });
         overviewNodes.set(player.key, card); overview.append(card);
       }
-      card.style.setProperty("--player", colors[i % colors.length]);
+      card.style.setProperty("--player", window.HUB_UI.playerColor(player.name));
       card.querySelector("strong").textContent = player.name;
       card.querySelector("small").textContent = player.game;
       card.querySelector(".overview-player-progress>span").textContent = pct(player.progress);
-      card.querySelector(".overview-player-progress>span:last-child").textContent = value(player.checks) + " Checks";
+      card.querySelector(".overview-player-progress>span:last-child").textContent = value(player.checks) + window.HUB_I18N.t(" Checks");
       card.querySelector(".progress-track>span").style.width = Math.min(100, player.progress || 0) + "%";
     });
     overviewNodes.forEach((node, id) => { if (!visibleKeys.has(id)) { node.remove(); overviewNodes.delete(id); } });
@@ -268,14 +268,14 @@
         node.append(track, spark, el("div", null, "player-card-meta"), el("p", null, "small muted player-activity"));
         playerNodes.set(player.key, node);
       }
-      node.style.setProperty("--player", colors[data.players.findIndex(p => p.key === player.key) % colors.length]);
-      node.querySelector("button").textContent = player.name + (data.players.some(p => p.team !== player.team) ? " · Team " + (player.team + 1) : "");
+      node.style.setProperty("--player", window.HUB_UI.playerColor(player.name));
+      node.querySelector("button").textContent = player.name + (data.players.some(p => p.team !== player.team) ? window.HUB_I18N.t(" · Team ") + (player.team + 1) : "");
       node.querySelector(".player-game").textContent = player.game;
-      node.querySelector(".live-player-number").replaceChildren(el("span", value(player.checks)), el("small", " / " + value(player.total) + " Checks"));
+      node.querySelector(".live-player-number").replaceChildren(el("span", value(player.checks)), el("small", " / " + value(player.total) + window.HUB_I18N.t(" Checks")));
       node.querySelector(".live-progress-track>span").style.width = Math.min(100, player.progress || 0) + "%";
-      node.querySelector(".player-card-meta").replaceChildren(el("span", pct(player.progress)), el("span", value(player.received) + " Items"),
-        el("span", player.goal ? "✓ Ziel erreicht" : player.goal === false ? "Ziel noch offen" : "Zielstatus unbekannt"));
-      node.querySelector(".player-activity").textContent = "Aktivität: " + date(player.activity, true);
+      node.querySelector(".player-card-meta").replaceChildren(el("span", pct(player.progress)), el("span", value(player.received) + window.HUB_I18N.t(" Items")),
+        el("span", player.goal ? "✓ Ziel erreicht" : player.goal === false ? "Ziel noch offen" : window.HUB_I18N.t("Zielstatus unbekannt")));
+      node.querySelector(".player-activity").textContent = window.HUB_I18N.t("Aktivität: ") + date(player.activity, true);
       const segment = state.history.at(-1)?.segment;
       const points = state.history.filter(point => point.segment === segment).map(point => point.players.find(p => p.key === player.key)?.progress).filter(v => v != null);
       node.querySelector("polyline").setAttribute("points", points.map((n, i) => (points.length === 1 ? 125 : i / (points.length - 1) * 250) + "," + (42 - Math.min(100, n) / 100 * 39)).join(" "));
@@ -291,17 +291,17 @@
     const missing = data.interactions == null;
     const notice = $("live-interaction-notice");
     notice.hidden = !missing;
-    notice.textContent = state.race ? "Race-Modus: Empfangsdetails und Beziehungen sind ausgeblendet." : "Keine verlässlich zugeordneten Empfangsdaten verfügbar.";
+    notice.textContent = state.race ? "Race-Modus: Empfangsdetails und Beziehungen sind ausgeblendet." : window.HUB_I18N.t("Keine verlässlich zugeordneten Empfangsdaten verfügbar.");
     set("live-foreign", value(data.foreign)); set("live-own", value(data.own));
     const unassigned = data.players.every(p => p.unattributed != null) ? data.players.reduce((n, p) => n + p.unattributed, 0) : null;
     set("live-unattributed", value(unassigned));
     const container = $("live-matrix");
-    if (missing) { container.replaceChildren(el("p", "Keine Matrix verfügbar.", "muted")); return; }
+    if (missing) { container.replaceChildren(el("p", window.HUB_I18N.t("Keine Matrix verfügbar."), "muted")); return; }
     const signature = data.players.map(p => p.key).join("|");
     let table = container.querySelector("table");
     if (!table || table.dataset.signature !== signature) {
       table = el("table"); table.dataset.signature = signature;
-      const head = el("thead"), row = el("tr"); row.append(el("th", "Finder ↓ / Empfänger →"));
+      const head = el("thead"), row = el("tr"); row.append(el("th", window.HUB_I18N.t("Finder ↓ / Empfänger →")));
       data.players.forEach(player => { const th = el("th", player.name); th.scope = "col"; row.append(th); });
       head.append(row); const body = el("tbody");
       data.players.forEach(finder => {
@@ -321,27 +321,27 @@
       button.textContent = value(count); button.title = label; button.setAttribute("aria-label", label);
       button.style.setProperty("--heat", count ? .12 + .75 * count / maximum : .025); button.dataset.strong = String(count / maximum > .6);
     });
-    rankings("live-help-ranking", data.players.map((p, i) => ({ name: p.name, value: p.sent_to_others, color: colors[i % colors.length] })));
+    rankings("live-help-ranking", data.players.map((p, i) => ({ name: p.name, value: p.sent_to_others, color: window.HUB_UI.playerColor(p.name) })));
   }
   function render(payload) {
     if (state && state.connection_id !== payload.connection_id) {
       ["checks", "progress", "players", "received", "goals", "games"].forEach(id => {
-        kpi(id, "—"); set("kpi-" + id + "-detail", "Warte auf den neuen Raum.");
+        kpi(id, "—"); set("kpi-" + id + "-detail", window.HUB_I18N.t("Warte auf den neuen Raum."));
       });
       set("live-ring-label", "—"); $("live-ring").style.setProperty("--progress", "0%");
       $("live-total-bar").style.width = "0%";
-      set("live-progress-caption", "Für den neu verbundenen Raum liegen noch keine Daten vor.");
+      set("live-progress-caption", window.HUB_I18N.t("Für den neu verbundenen Raum liegen noch keine Daten vor."));
       playerNodes.clear(); selectedPlayer = null;
       overviewNodes.clear(); $("live-overview-players").replaceChildren();
-      $("live-player-cards").replaceChildren(el("p", "Warte auf die Spieler des neuen Raums.", "panel muted"));
+      $("live-player-cards").replaceChildren(el("p", window.HUB_I18N.t("Warte auf die Spieler des neuen Raums."), "panel muted"));
       $("live-player-detail").hidden = true;
       charts.forEach(instance => { instance.hidden.clear(); instance.signature = null; instance.update([], []); });
       ["live-active-ranking", "live-help-ranking", "live-check-ranking", "live-progress-ranking", "live-gain-ranking", "live-game-ranking", "live-history-table"].forEach(id => $(id).replaceChildren());
       ["live-recent", "live-events-list"].forEach(id => timeline($(id), []));
       ["live-foreign", "live-own", "live-unattributed", "live-average", "live-spread", "live-goal-share"].forEach(id => set(id, "—"));
-      $("live-matrix").replaceChildren(el("p", "Für den neuen Raum noch nicht verfügbar.", "muted"));
-      set("live-history-caption", "Die Aufzeichnung dieses Raums beginnt mit seinem ersten erfolgreichen Abruf.");
-      set("live-gain-caption", "Für den neuen Raum noch kein Vergleich verfügbar.");
+      $("live-matrix").replaceChildren(el("p", window.HUB_I18N.t("Für den neuen Raum noch nicht verfügbar."), "muted"));
+      set("live-history-caption", window.HUB_I18N.t("Die Aufzeichnung dieses Raums beginnt mit seinem ersten erfolgreichen Abruf."));
+      set("live-gain-caption", window.HUB_I18N.t("Für den neuen Raum noch kein Vergleich verfügbar."));
       lastChartStamp = "";
     }
     state = payload;
@@ -349,19 +349,19 @@
     set("live-room-code", payload.room_id);
     $("live-room-link").href = payload.room_url;
     set("live-status-chip", payload.completed ? "Runde abgeschlossen" : payload.stale ? "Warte auf aktuellen Stand"
-      : data && data.player_count > 0 && data.goals === data.player_count ? "Alle Spielziele gemeldet" : "Tracker verbunden");
-    set("live-update", payload.updated_at ? "Letzter erfolgreicher Datenstand: " + date(payload.updated_at, true) : "Warte auf den ersten erfolgreichen Abruf …");
-    set("live-next", payload.completed ? "Aufzeichnung abgeschlossen" : "Gemeinsame Aktualisierung alle 60 Sekunden");
+      : data && data.player_count > 0 && data.goals === data.player_count ? "Alle Spielziele gemeldet" : window.HUB_I18N.t("Tracker verbunden"));
+    set("live-update", payload.updated_at ? window.HUB_I18N.t("Letzter erfolgreicher Datenstand: ") + date(payload.updated_at, true) : window.HUB_I18N.t("Warte auf den ersten erfolgreichen Abruf …"));
+    set("live-next", payload.completed ? "Aufzeichnung abgeschlossen" : window.HUB_I18N.t("Gemeinsame Aktualisierung alle 60 Sekunden"));
     $("live-warning").hidden = !payload.error && !payload.stale;
     $("live-warning").textContent = payload.error
-      ? payload.error + (data ? " Der letzte erfolgreiche Datenstand bleibt sichtbar." : " Es werden noch keine Werte angezeigt.")
+      ? payload.error + (data ? " Der letzte erfolgreiche Datenstand bleibt sichtbar." : window.HUB_I18N.t(" Es werden noch keine Werte angezeigt."))
       : payload.stale ? data ? "Der letzte erfolgreiche Stand ist älter als zwei Minuten. Er bleibt sichtbar, während neue Daten abgerufen werden."
         : "Der erste Tracker-Datenstand wird vorbereitet. Die Anzeige aktualisiert sich automatisch." : "";
     $("live-seed-warning").hidden = payload.seed_matches !== false;
     set("live-port", payload.room.port == null ? "Nicht verfügbar" : String(payload.room.port));
     set("live-room-activity", date(payload.room.last_activity, true));
-    set("live-server-state", payload.room.port ? "Port gemeldet · Erreichbarkeit ungeprüft" : "Noch kein gültiger Port gemeldet");
-    set("live-recording", payload.recording_since ? date(payload.recording_since, true) : "Noch kein erfolgreicher Abruf");
+    set("live-server-state", payload.room.port ? "Port gemeldet · Erreichbarkeit ungeprüft" : window.HUB_I18N.t("Noch kein gültiger Port gemeldet"));
+    set("live-recording", payload.recording_since ? date(payload.recording_since, true) : window.HUB_I18N.t("Noch kein erfolgreicher Abruf"));
     $("live-tracker-link").hidden = !payload.tracker_id;
     if (payload.tracker_id) {
       $("live-tracker-link").href = "https://archipelago.gg/tracker/" + encodeURIComponent(payload.tracker_id);
@@ -370,32 +370,32 @@
     }
     if (!data) return;
     kpi("checks", data.checks == null ? "—" : value(data.checks));
-    set("kpi-checks-detail", value(data.total) + " Gesamtchecks laut Tracker");
+    set("kpi-checks-detail", value(data.total) + window.HUB_I18N.t(" Gesamtchecks laut Tracker"));
     kpi("progress", data.progress == null ? "—" : pct(data.progress));
     kpi("players", value(data.player_count)); kpi("games", value(data.games));
-    set("kpi-progress-detail", "Erledigte Checks / Gesamtchecks");
-    set("kpi-players-detail", "Individuelle Spielerslots, keine Gruppen");
-    set("kpi-games-detail", "Spiele der verknüpften Multiworld");
+    set("kpi-progress-detail", window.HUB_I18N.t("Erledigte Checks / Gesamtchecks"));
+    set("kpi-players-detail", window.HUB_I18N.t("Individuelle Spielerslots, keine Gruppen"));
+    set("kpi-games-detail", window.HUB_I18N.t("Spiele der verknüpften Multiworld"));
     kpi("received", data.received == null ? "—" : value(data.received));
-    set("kpi-received-detail", payload.race ? "Im Race-Modus ausgeblendet" : data.received == null ? "Nicht verfügbar" : "Empfangsliste des Servers, kein Spielinventar");
+    set("kpi-received-detail", payload.race ? "Im Race-Modus ausgeblendet" : data.received == null ? "Nicht verfügbar" : window.HUB_I18N.t("Empfangsliste des Servers, kein Spielinventar"));
     kpi("goals", data.known_goals ? value(data.goals) + " / " + value(data.known_goals) : "—");
-    set("kpi-goals-detail", data.known_goals === data.player_count ? "Alle Zielstatus verfügbar" : "Nur " + data.known_goals + " von " + data.player_count + " Zielstatus bekannt");
+    set("kpi-goals-detail", data.known_goals === data.player_count ? "Alle Zielstatus verfügbar" : window.HUB_I18N.t("Nur ") + data.known_goals + " von " + data.player_count + window.HUB_I18N.t(" Zielstatus bekannt"));
     set("live-ring-label", data.progress == null ? "—" : pct(data.progress));
     $("live-ring").style.setProperty("--progress", Math.min(100, data.progress || 0) + "%");
     $("live-total-bar").style.width = Math.min(100, data.progress || 0) + "%";
-    set("live-progress-caption", value(data.checks) + " von " + value(data.total) + " Checks in " + data.games + " Spielen. " + data.goals + " gemeldete Spielziele erreicht.");
-    if (data.progress > 100) { $("live-warning").hidden = false; $("live-warning").textContent = "Der Tracker meldet mehr Checks als die gespeicherten Gesamtzahlen. Statische Daten werden beim nächsten regulären Abruf geprüft."; }
+    set("live-progress-caption", value(data.checks) + " von " + value(data.total) + window.HUB_I18N.t(" Checks in ") + data.games + window.HUB_I18N.t(" Spielen. ") + data.goals + window.HUB_I18N.t(" gemeldete Spielziele erreicht."));
+    if (data.progress > 100) { $("live-warning").hidden = false; $("live-warning").textContent = window.HUB_I18N.t("Der Tracker meldet mehr Checks als die gespeicherten Gesamtzahlen. Statische Daten werden beim nächsten regulären Abruf geprüft."); }
     players(data); interactions(data);
     const filter = $("live-event-filter").value;
     timeline($("live-events-list"), payload.events.filter(e => filter === "all" || e.kind === filter));
     timeline($("live-recent"), payload.events, 4);
-    const rowFor = field => data.players.map((p, i) => ({ name: p.name, value: p[field], color: colors[i % colors.length] }));
+    const rowFor = field => data.players.map((p, i) => ({ name: p.name, value: p[field], color: window.HUB_UI.playerColor(p.name) }));
     rankings("live-check-ranking", rowFor("checks"));
     rankings("live-progress-ranking", rowFor("progress"), pct);
-    rankings("live-gain-ranking", data.players.map((p, i) => ({ name: p.name, value: payload.gains[p.key], color: colors[i % colors.length] })));
-    set("live-gain-caption", payload.gains_since ? "Seit " + date(payload.gains_since, true) + " · höchstens die aufgezeichnete letzte Stunde." : "Noch kein Vergleich verfügbar.");
+    rankings("live-gain-ranking", data.players.map((p, i) => ({ name: p.name, value: payload.gains[p.key], color: window.HUB_UI.playerColor(p.name) })));
+    set("live-gain-caption", payload.gains_since ? window.HUB_I18N.t("Seit ") + date(payload.gains_since, true) + " · höchstens die aufgezeichnete letzte Stunde." : window.HUB_I18N.t("Noch kein Vergleich verfügbar."));
     rankings("live-active-ranking", data.players.map((p, i) => {
-      return { name: p.name, value: payload.recent_gains[p.key], color: colors[i % colors.length] };
+      return { name: p.name, value: payload.recent_gains[p.key], color: window.HUB_UI.playerColor(p.name) };
     }));
     const games = new Map();
     data.players.forEach(p => {
@@ -405,22 +405,22 @@
     rankings("live-game-ranking", [...games].map(([name, n]) => ({ name, value: n })));
     set("live-average", pct(data.average_progress));
     const progress = data.players.map(p => p.progress).filter(p => p != null);
-    set("live-spread", progress.length === data.players.length ? value(Math.max(...progress) - Math.min(...progress)) + " Prozentpunkte" : "Nicht verfügbar");
-    set("live-goal-share", data.known_goals === data.player_count ? pct(data.goals / data.player_count * 100) : "Nicht verfügbar");
-    set("live-history-caption", (payload.recording_since ? "Aufzeichnung seit " + date(payload.recording_since, true) + ". " : "")
-      + (payload.history_sampled ? "Ausgewählte echte Messpunkte für diesen Zeitraum." : "Nur tatsächlich beobachtete Datenstände.")
+    set("live-spread", progress.length === data.players.length ? value(Math.max(...progress) - Math.min(...progress)) + " Prozentpunkte" : window.HUB_I18N.t("Nicht verfügbar"));
+    set("live-goal-share", data.known_goals === data.player_count ? pct(data.goals / data.player_count * 100) : window.HUB_I18N.t("Nicht verfügbar"));
+    set("live-history-caption", (payload.recording_since ? window.HUB_I18N.t("Aufzeichnung seit ") + date(payload.recording_since, true) + ". " : "")
+      + (payload.history_sampled ? "Ausgewählte echte Messpunkte für diesen Zeitraum." : window.HUB_I18N.t("Nur tatsächlich beobachtete Datenstände."))
       + (payload.history.length < 2 ? " Weitere Abrufe ergänzen den Verlauf." : ""));
     const chartStamp = payload.connection_id + "/" + payload.updated_at + "/" + $("live-window").value;
     if (lastChartStamp !== chartStamp) {
-      const total = [{ key: "total", label: "Multiworld-Fortschritt", color: colors[0], get: p => p.progress }];
+      const total = [{ key: "total", label: window.HUB_I18N.t("Multiworld-Fortschritt"), color: colors[0], get: p => p.progress }];
       chart("overview-chart", payload.history, total, true);
       chart("history-chart", payload.history, seriesFor(data.players), true);
       const activity = payload.history.map((point, i) => {
         const before = payload.history[i - 1];
         return { ...point, delta: before && point.segment === before.segment && point.checks != null && before.checks != null ? Math.max(0, point.checks - before.checks) : null };
       });
-      chart("activity-chart", activity, [{ key: "checks", label: "Neue Checks seit voriger Beobachtung", color: colors[1], get: p => p.delta }]);
-      chart("goals-chart", payload.history, [{ key: "goals", label: "Erreichte Ziele", color: colors[2], get: p => p.known_goals ? p.goals : null }], false, data.player_count);
+      chart("activity-chart", activity, [{ key: "checks", label: window.HUB_I18N.t("Neue Checks seit voriger Beobachtung"), color: colors[1], get: p => p.delta }]);
+      chart("goals-chart", payload.history, [{ key: "goals", label: window.HUB_I18N.t("Erreichte Ziele"), color: colors[2], get: p => p.known_goals ? p.goals : null }], false, data.player_count);
       const table = $("live-history-table"); table.replaceChildren();
       payload.history.forEach(point => {
         const tr = el("tr");
@@ -433,7 +433,7 @@
   async function load(manual = false) {
     if (inflight || root.dataset.linked !== "1") return;
     clearTimeout(timer); inflight = true; $("live-refresh").disabled = true;
-    $("live-refresh").textContent = "Wird aktualisiert …";
+    $("live-refresh").textContent = window.HUB_I18N.t("Wird aktualisiert …");
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15000);
     try {
       const windowValue = $("live-window").value;
@@ -442,15 +442,15 @@
         headers: { "Accept": "application/json", ...(manual ? { "X-CSRF-Token": root.dataset.csrf } : {}) },
       });
       if(response.status===401){const auth=await response.json().catch(()=>({}));window.HUB_AUTH_REQUIRED?.(auth.login_url);}
-      if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "Bitte erneut anmelden oder die Lobbyberechtigung prüfen." : "Der Datenstand konnte nicht geladen werden.");
+      if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "Bitte erneut anmelden oder die Lobbyberechtigung prüfen." : window.HUB_I18N.t("Der Datenstand konnte nicht geladen werden."));
       const payload = await response.json();
       render(payload);
     } catch (error) {
       $("live-warning").hidden = false;
       $("live-warning").textContent = (error.name === "AbortError" ? "Der Abruf dauert zu lange." : error.message) + (state?.metrics ? " Der letzte Datenstand bleibt sichtbar." : "");
-      set("live-status-chip", "Verbindung unterbrochen");
+      set("live-status-chip", window.HUB_I18N.t("Verbindung unterbrochen"));
     } finally {
-      clearTimeout(timeout); inflight = false; $("live-refresh").disabled = false; $("live-refresh").textContent = "Jetzt aktualisieren";
+      clearTimeout(timeout); inflight = false; $("live-refresh").disabled = false; $("live-refresh").textContent = window.HUB_I18N.t("Jetzt aktualisieren");
       if (!state?.completed) timer = setTimeout(() => load(), state?.refresh_pending ? 1200 : state?.metrics ? 30000 : 5000);
     }
   }
@@ -462,14 +462,14 @@
   $("live-present")?.addEventListener("click", async () => {
     const active = document.body.classList.toggle("live-presenting");
     $("live-present").setAttribute("aria-pressed", String(active));
-    $("live-present").textContent = active ? "Präsentation beenden" : "Präsentationsmodus";
+    $("live-present").textContent = active ? "Präsentation beenden" : window.HUB_I18N.t("Präsentationsmodus");
     if (active) {
       tab("overview");
       try { await document.documentElement.requestFullscreen?.(); } catch { /* CSS presentation also works without fullscreen. */ }
     } else if (document.fullscreenElement) { try { await document.exitFullscreen(); } catch { /* Optional browser feature. */ } }
   });
   document.addEventListener("fullscreenchange", () => {
-    if (!document.fullscreenElement) { document.body.classList.remove("live-presenting"); $("live-present").setAttribute("aria-pressed", "false"); $("live-present").textContent = "Präsentationsmodus"; }
+    if (!document.fullscreenElement) { document.body.classList.remove("live-presenting"); $("live-present").setAttribute("aria-pressed", "false"); $("live-present").textContent = window.HUB_I18N.t("Präsentationsmodus"); }
   });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
   window.addEventListener("pagehide", () => clearTimeout(timer));

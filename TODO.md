@@ -72,37 +72,38 @@ Technische Stabilisierung und visuelles Redesign sind **zwei getrennte Arbeitspa
 - [x] Die **Live-Konsole** als Herzstück laufender Runden behalten: Finder → Empfänger, Item, Check, Chat und Befehle direkt sichtbar.
 - [x] Konsole auf Desktop im Hauptbereich priorisieren; ergänzende Spiel- und Verbindungsinformationen erreichbar halten. Auf Mobilgeräten Konsole zuerst.
 - [x] Vorbereitung, laufende Runde und Abschluss visuell und funktional unterscheiden; in der Vorbereitung Spielauswahl/Bereitschaft und beim Abschluss Ergebnisse priorisieren.
-- [ ] Gleichartige große Karten, redundante Host-/Portanzeigen und unnötige Scrollstrecken reduzieren; Features **nicht** in zusätzliche verschachtelte Tabs verstecken.
-- [ ] Die Archipelago-Fachbegriffe **beibehalten**; die Gruppe kennt Seed, Slot, Check, APWorld und Go-Mode.
+- [x] Gleichartige große Karten, redundante Host-/Portanzeigen und unnötige Scrollstrecken reduzieren; Features **nicht** in zusätzliche verschachtelte Tabs verstecken.
+- [x] Die Archipelago-Fachbegriffe **beibehalten**; die Gruppe kennt Seed, Slot, Check, APWorld und Go-Mode.
 
 ### B2 – Konsole als soziales Erlebnis
 
-- [ ] Schnellfilter: Alle, Für mich, Von mir, Andere Spieler, Chat und System. Bestehende Suche/Protokollhistorie erhalten.
-- [ ] Persönlich empfangene Items visuell hervorheben; konsistente Spielerfarben in Konsole, Spielerkarten und Charts nutzen.
-- [ ] Vollständigen Finder-/Empfänger-/Item-/Location-Kontext anzeigen, wenn vom Server geliefert; keine erfundenen Namen/Zeiten.
-- [ ] Status aus Arbeitspaket A (verbunden, Reconnect, Unterbrechung, letzter Kontakt) unaufdringlich im Konsolenkopf anzeigen.
-- [ ] Bestehende private Nachrichten, Rollen, Race- und Spoilerregeln unangetastet lassen.
+- [x] Schnellfilter: Alle, Für mich, Von mir, Andere Spieler, Chat und System. Bestehende Suche/Protokollhistorie erhalten.
+- [x] Persönlich empfangene Items visuell hervorheben; konsistente Spielerfarben in Konsole, Spielerkarten und Charts nutzen.
+- [x] Vollständigen Finder-/Empfänger-/Item-/Location-Kontext anzeigen, wenn vom Server geliefert; keine erfundenen Namen/Zeiten.
+- [x] Status aus Arbeitspaket A (verbunden, Reconnect, Unterbrechung, letzter Kontakt) unaufdringlich im Konsolenkopf anzeigen.
+- [x] Bestehende private Nachrichten, Rollen, Race- und Spoilerregeln unangetastet lassen.
 
 ### B3 – Deutsch / Englisch
 
-- [ ] Zentralisierte Übersetzungsressourcen und einheitliche Übersetzungs-API für **Jinja und JavaScript** implementieren.
-- [ ] Beide Sprachen vollständig abdecken: Navigation, Formulare, Hilfen, Fehlermeldungen, Status, Admin, Konsolen-UI und kuratierte Installationsanleitungen.
-- [ ] Sprache direkt umschaltbar; Einstellung im Profil speichern, Browser-Sprache beim ersten Besuch optional nutzen; dokumentierter Fallback.
-- [ ] Zeit-, Datums- und Zahlenformate lokalisieren. Spiel-, Slot-, Item- und Location-Namen, YAML-Schlüssel sowie originale Archipelago-Servermeldungen und -Befehle **nicht übersetzen**.
-- [ ] Tests für fehlende Übersetzungen und dynamisch erzeugte Fehlermeldungen ergänzen.
+- [x] Zentralisierte Übersetzungsressourcen und einheitliche Übersetzungs-API für **Jinja und JavaScript** implementieren.
+- [x] Beide Sprachen vollständig abdecken: Navigation, Formulare, Hilfen, Fehlermeldungen, Status, Admin, Konsolen-UI und kuratierte Installationsanleitungen.
+- [x] Sprache direkt umschaltbar; Einstellung im Profil speichern, Browser-Sprache beim ersten Besuch optional nutzen; dokumentierter Fallback.
+- [x] Zeit-, Datums- und Zahlenformate lokalisieren. Spiel-, Slot-, Item- und Location-Namen, YAML-Schlüssel sowie originale Archipelago-Servermeldungen und -Befehle **nicht übersetzen**.
+- [x] Tests für fehlende Übersetzungen und dynamisch erzeugte Fehlermeldungen ergänzen.
 
 ### B4 – Light / Dark / System
 
-- [ ] Beide Themes vollständig über zentrale Design-Tokens umsetzen, inklusive Konsole, Diagrammen, Tabellen, Formularen und Statusfarben; nicht nur CSS-Farben invertieren.
-- [ ] Wahl `light` / `dark` / `system` anbieten, im Profil speichern, ohne Seitenreload wechseln und vor dem sichtbaren Rendern anwenden (kein Theme-Flash).
-- [ ] Lesbare Kontraste, Tastaturfokus, responsive Layouts und `prefers-reduced-motion` prüfen.
-- [ ] Desktop/Tablet/Mobil bei 390, 768, 1440 und 2560 px mit DE/EN und beiden Themes visuell testen.
+- [x] Beide Themes vollständig über zentrale Design-Tokens umsetzen, inklusive Konsole, Diagrammen, Tabellen, Formularen und Statusfarben; nicht nur CSS-Farben invertieren.
+- [x] Wahl `light` / `dark` / `system` anbieten, im Profil speichern, ohne Seitenreload wechseln und vor dem sichtbaren Rendern anwenden (kein Theme-Flash).
+- [x] Lesbare Kontraste, Tastaturfokus, responsive Layouts und `prefers-reduced-motion` prüfen.
+- [x] Desktop/Tablet/Mobil bei 390, 768, 1440 und 2560 px mit DE/EN und beiden Themes visuell testen.
 
 ### B5 – Abnahme
 
-- [ ] Von einer neuen Lobby bis zum Spielstart und gemeinsamen Item-Austausch den tatsächlichen User-Flow prüfen.
-- [ ] Automatisierte Tests für Sprache, Theme-Persistenz, Konsolenfilter, Spielerkarten, Rechte, Setup-/Download-Aktionen und Verbindungsstatus.
-- [ ] `DESIGN_SYSTEM.md`, Übersetzungshinweise und README aktualisieren.
+- [x] User-Flow von neuer Lobby bis Spielstart und Item-Austausch automatisiert mit isoliertem Protokollserver geprüft.
+- [ ] Diesen Ablauf zusätzlich mit echten Spielclients und mindestens zwei Spielern manuell abnehmen.
+- [x] Automatisierte Tests für Sprache, Theme-Persistenz, Konsolenfilter, Spielerkarten, Rechte, Setup-/Download-Aktionen und Verbindungsstatus.
+- [x] `DESIGN_SYSTEM.md`, Übersetzungshinweise und README aktualisieren.
 
 **Definition of Done B:** Eine laufende Runde öffnet direkt die große, gut lesbare Konsole; ergänzende Aufgaben bleiben schnell erreichbar. Jede wesentliche Seite funktioniert in DE und EN sowie Light und Dark einschließlich dynamischer Meldungen.
 

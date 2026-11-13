@@ -1,7 +1,7 @@
 <div class="check-preview" data-check-preview data-url="{{ url_for('game_check_preview',slug=check_slug) }}" data-csrf="{{ csrf_token }}">
-  <p class="small"><strong data-check-result>Standard-Checks noch nicht ermittelt</strong></p>
-  <p class="small muted">Spiel-Standard · Einzelspiel-Probelauf</p>
+  <p class="small"><strong data-check-result>{{ _("Standard-Checks noch nicht ermittelt") }}</strong></p>
+  <p class="small muted">{{ _("Spiel-Standard · Einzelspiel-Probelauf") }}</p>
   <p class="small muted" data-check-status role="status" aria-live="polite"></p>
-  <button type="button" class="small" data-check-start>Standard-Checks ermitteln</button>
-  <noscript><p class="small muted">Aktiviere JavaScript, um die Check-Vorschau anzufordern.</p></noscript>
+  <button type="button" class="small" data-check-start>{{ _("Standard-Checks ermitteln") }}</button>
+  <noscript><p class="small muted">{{ _("Aktiviere JavaScript, um die Check-Vorschau anzufordern.") }}</p></noscript>
 </div>

@@ -157,3 +157,25 @@ Zusätzlich wurden alle sieben Spielmodelle des aktiven Seeds mit dessen echten
 unveränderlichen YAML-/Slotdaten offline rekonstruiert und geprüft. Für Skyward
 Sword werden ausschließlich Layoutdaten aus dem eigenen generierten Patch
 verwendet; die Engine erhält keine Itemplatzierungen oder Hinweise.
+
+
+## Themes und soziale Konsole (13.11.2026)
+
+`themes.css` ergänzt das bestehende dunkle Design mit einem vollständigen hellen
+Tokensatz und einer System-Auswahl. Alle Oberflächen, Eingaben, Statusfarben,
+Konsolenzeilen und Diagramme verwenden gemeinsame Variablen. Hell: Hintergrund
+`#F1F4FB`, Panels `#FFFFFF`, Text `#17223B`, Sekundärtext `#4F607D`, Akzent
+`#6554D5`; Zustände verwenden dunklere Grün-/Orange-/Rottöne für lesbare Kontraste.
+Die ursprüngliche dunkle Palette bleibt bestehen. `prefers-reduced-motion` wird
+in beiden Themes berücksichtigt. Die Wahl wird vor dem ersten Render angewendet.
+
+Die Konsole ist die Hauptfläche laufender Runden. Persönliche Einrichtung,
+Dateien und Abschluss liegen in einem direkt erreichbaren aufklappbaren Bereich.
+Direkte Anker öffnen diesen Bereich automatisch. Eigene Empfangsmeldungen werden
+hervorgehoben. Ein gemeinsamer Namens-Hash wählt dieselbe Spielerfarbe für Konsole,
+Spielerkarten und SVG-Diagramme; pro Theme existiert eine passende Farbpalette.
+
+Sprache und Theme sind im Profil und in der Navigation erreichbar. Details zur
+Erweiterung der gemeinsamen DE/EN-Ressourcen: [TRANSLATIONS.md](TRANSLATIONS.md).
+Die frühere Logikansicht weiter oben ist historisch; produktive Routen berechnen
+keine Erreichbarkeit und keinen Go-Mode mehr.

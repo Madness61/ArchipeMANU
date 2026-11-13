@@ -15,6 +15,7 @@ import threading
 import time
 
 from . import config, db
+from . import i18n
 
 MAX_EVENTS = 10000
 MAX_FRAME = 16 * 1024 * 1024
@@ -118,7 +119,21 @@ def events(build_id, user_id, after=0, kind="all", before=0):
     endpoint = conn.execute("SELECT id FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (build_id,)).fetchone()
     scope += " AND (hosted_id IS NULL OR hosted_id=?)"
     args.append(endpoint["id"] if endpoint else -1)
-    if kind != "all":
+    snapshot=conn.execute('SELECT snapshot FROM seed_builds WHERE id=?',(build_id,)).fetchone()
+    own=[s['slot'] for s in db.loads(snapshot['snapshot']).get('slots',[]) if s.get('player_id')==user_id] if snapshot else []
+    if kind in ('for_me','from_me','others'):
+        names=','.join('?' for _ in own) or 'NULL'
+        scope += " AND kind='items' AND json_extract(payload,'$.type')='item'"
+        if not own:
+            scope += ' AND 0' if kind!='others' else ''
+        elif kind=='others':
+            scope += f" AND json_extract(payload,'$.recipient') NOT IN ({names}) AND json_extract(payload,'$.sender') NOT IN ({names})"
+            args.extend(own+own)
+        else:
+            field='recipient' if kind=='for_me' else 'sender'
+            scope += f" AND json_extract(payload,'$.{field}') IN ({names})"
+            args.extend(own)
+    elif kind != "all":
         scope += " AND kind=?"
         args.append(kind)
     if after:
@@ -130,9 +145,14 @@ def events(build_id, user_id, after=0, kind="all", before=0):
     result = []
     for row in rows:
         payload = db.loads(row["payload"])
-        entry = dict(id=row["id"], kind=row["kind"], at=row["observed_at"], text=render_payload(payload, packages),
+        text=render_payload(payload,packages)
+        if payload.get('origin')=='hub':
+            first,separator,rest=text.partition('\n')
+            text=i18n.t(first)+(separator+rest if separator else '')
+        entry = dict(id=row["id"], kind=row["kind"], at=row["observed_at"], text=text,
                      visibility="team" if row["user_id"] is None else "personal")
         if payload.get("type") == "item":
+            entry['for_me'],entry['from_me']=payload['recipient'] in own,payload['sender'] in own
             entry["delivery"] = dict(item_id=payload["item_id"], item=named(packages,payload["recipient_game"],"items",payload["item_id"]),
                 sender=dict(name=payload["sender"],game=payload["sender_game"]),
                 recipient=dict(name=payload["recipient"],game=payload["recipient_game"]),
@@ -237,8 +257,8 @@ class Client:
         self.last_seen = time.monotonic()
         self.thread = threading.Thread(target=self.run, daemon=True, name=f"ap-console-{self.build_id}-{user_id}")
 
-    def note(self, text, kind="system"):
-        record(self.path, self.build_id, self.user_id, kind, {"text": text}, hosted_id=self.endpoint["id"])
+    def note(self, text, kind="system", origin="hub"):
+        record(self.path, self.build_id, self.user_id, kind, {"text": text,"origin":origin}, hosted_id=self.endpoint["id"])
 
     def valid(self):
         with connection(self.path) as conn:
@@ -477,7 +497,7 @@ class Client:
                        "chat" if packet.get("type") == "Chat" else "system", {"parts": parts},
                        hosted_id=self.endpoint["id"])
         elif cmd in ("Print", "InvalidPacket"):
-            self.note(str(packet.get("text", "Servermeldung"))[:12000])
+            self.note(str(packet.get("text", "Servermeldung"))[:12000], origin='server')
 
     def handle_command(self, text):
         command, _, argument = text.partition(" ")

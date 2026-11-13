@@ -2,80 +2,80 @@
 {% from "ui.html" import icon, game_art with context %}
 {% block title %}{{ schema.game }} · {{ app_name }}{% endblock %}
 {% block content %}
-<p class="small"><a href="{{ url_for('games') }}">← Spiele</a></p>
+<p class="small"><a href="{{ url_for('games') }}">{{ _("← Spiele") }}</a></p>
 <div class="panel game-detail-hero">{{ game_art(schema.game, schema.slug) }}<div class="page-head">
   <div>
     <h1>{{ schema.game }}</h1>
     <p class="muted small">
-      {% if schema.custom %}APWorld{% else %}In Archipelago eingebaut{% endif %}
-      {% if schema.version != '0.0.0' %} · v{{ schema.version }}{% endif %}
-      · {{ schema.options|length }} Optionen
+      {% if schema.custom %}{{ _("APWorld") }}{% else %}{{ _("In Archipelago eingebaut") }}{% endif %}
+      {% if schema.version != '0.0.0' %} {{ _("· v") }}{{ schema.version }}{% endif %}
+      · {{ schema.options|length }} {{ _("Optionen") }}
     </p>
   </div>
   <div class="row">
-    {% if item and item.can_edit_metadata %}<a class="btn" href="{{ url_for('community.metadata_edit', slug=schema.slug) }}">Spiel bearbeiten</a>{% endif %}
+    {% if item and item.can_edit_metadata %}<a class="btn" href="{{ url_for('community.metadata_edit', slug=schema.slug) }}">{{ _("Spiel bearbeiten") }}</a>{% endif %}
     {% if g.user.is_admin %}
-      <a class="btn" href="{{ url_for('mvp.guide_edit', slug=schema.slug) }}">Installationsanleitung pflegen</a>
+      <a class="btn" href="{{ url_for('mvp.guide_edit', slug=schema.slug) }}">{{ _("Installationsanleitung pflegen") }}</a>
     {% endif %}
-    <a class="btn" href="{{ url_for('template_new', slug=schema.slug) }}">+ Neue Vorlage</a>
+    <a class="btn" href="{{ url_for('template_new', slug=schema.slug) }}">{{ _("+ Neue Vorlage") }}</a>
   </div>
 </div>
 </div>
-<section class="panel"><h2>Wie viele Checks hat der Spiel-Standard?</h2><p class="small muted">Gezählt werden Item-Fundorte in einem Einzelspiel-Probelauf mit den reinen Spielvorgaben, ohne Gruppen-Vorlage oder Profilwerte. Events und Startinventar zählen nicht mit. Andere Einstellungen, Zufallswerte und eure spätere Multiworld können die Anzahl verändern.</p>{% with check_slug=schema.slug %}{% include "check_preview.html" %}{% endwith %}</section>
+<section class="panel"><h2>{{ _("Wie viele Checks hat der Spiel-Standard?") }}</h2><p class="small muted">{{ _("Gezählt werden Item-Fundorte in einem Einzelspiel-Probelauf mit den reinen Spielvorgaben, ohne Gruppen-Vorlage oder Profilwerte. Events und Startinventar zählen nicht mit. Andere Einstellungen, Zufallswerte und eure spätere Multiworld können die Anzahl verändern.") }}</p>{% with check_slug=schema.slug %}{% include "check_preview.html" %}{% endwith %}</section>
 {% include "game_setup_panel.html" %}
-<div class="section-head"><div><h2>Vorlagen für deine Einstellungen</h2><p class="muted small">Wähle eine Vorlage und eine Lobby. Die Einstellungen kannst du dort noch ändern, bevor du sie übernimmst.</p></div></div>
+<div class="section-head"><div><h2>{{ _("Vorlagen für deine Einstellungen") }}</h2><p class="muted small">{{ _("Wähle eine Vorlage und eine Lobby. Die Einstellungen kannst du dort noch ändern, bevor du sie übernimmst.") }}</p></div></div>
 
 <div class="preset-grid">
 {% for t in templates %}
   <div class="panel card" id="{{ 't-%s'|format(t.id) if t.id else t.ref }}">
     <h3>
-      {% if t.is_default %}<span class="star" title="Gruppen-Standard">{{ icon('check') }}</span>{% endif %}
-      {{ t.name }}
+      {% if t.is_default %}<span class="star" title="{{ _("Gruppen-Standard") }}">{{ icon('check') }}</span>{% endif %}
+      {{ _(t.name) if t.ref == 'default' else t.name }}
       <span class="chip">{{ t.source }}</span>
-      {% if t.owner %}<span class="muted small">von {{ t.owner }}</span>{% endif %}
+      {% if t.owner %}<span class="muted small">{{ _("von") }} {{ t.owner }}</span>{% endif %}
     </h3>
     {% if t.description %}<p class="muted small" style="margin:4px 0 0">{{ t.description }}</p>{% endif %}
-    {% for key,message in t.errors.items() %}<p class="err small">{{ key }}: {{ message }}</p>{% endfor %}
+    {% for key,message in t.errors.items() %}<p class="err small">{{ key }}: {{ _(message) }}</p>{% endfor %}
     {% if t.summary %}
       <ul class="summary">
         {% for name, val in t.summary[:8] %}<li>{{ name }}: {{ val }}</li>{% endfor %}
-        {% if t.summary|length > 8 %}<li>… und {{ t.summary|length - 8 }} weitere</li>{% endif %}
+        {% if t.summary|length > 8 %}<li>{{ _("… und") }} {{ t.summary|length - 8 }} {{ _("weitere") }}</li>{% endif %}
       </ul>
     {% elif t.ref != 'default' %}
-      <p class="muted small">Keine Abweichungen vom Standard.</p>
+      <p class="muted small">{{ _("Keine Abweichungen vom Standard.") }}</p>
     {% endif %}
     <div class="actions">
       <form method="post" action="{{ url_for('game_play', slug=schema.slug) }}" class="row">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
         <input type="hidden" name="ref" value="{{ t.ref }}">
-        <select name="session" aria-label="Lobby">
+        <select name="session" aria-label="{{ _("Lobby") }}">
           {% for s in sessions %}
             <option value="{{ s.id }}" {% if preselect == s.id %}selected{% endif %}>{{ s.name }} (#{{ s.id }})</option>
           {% endfor %}
-          <option value="new">Neue Lobby anlegen</option>
+          <option value="new">{{ _("Neue Lobby anlegen") }}</option>
         </select>
-        <button class="primary" {% if t.errors %}disabled{% endif %}>Ich spiele das</button>
+        <button class="primary" {% if t.errors %}disabled{% endif %}>{{ _("Ich spiele das") }}</button>
       </form>
     </div>
-    <details class="technical-options"><summary>Vorlage anpassen oder herunterladen</summary><div class="actions">
-      <a class="btn" href="{{ url_for('game_yaml', slug=schema.slug, ref=t.ref) }}">Nur YAML</a>
+    <details class="technical-options"><summary>{{ _("Vorlage anpassen oder herunterladen") }}</summary><div class="actions">
+      <a class="btn" href="{{ url_for('game_yaml', slug=schema.slug, ref=t.ref) }}">{{ _("Nur YAML") }}</a>
       {% if t.editable %}
-        <a class="btn" href="{{ url_for('template_edit', tid=t.id) }}">Bearbeiten</a>
+        <a class="btn" href="{{ url_for('template_edit', tid=t.id) }}">{{ _("Bearbeiten") }}</a>
       {% endif %}
-      {% if t.has_source %}<a class="btn" href="{{ url_for('template_source',tid=t.id) }}" title="SHA-256: {{ t.source_hash }}">Original-YAML</a>{% endif %}
-      <a class="btn" href="{{ url_for('template_new', slug=schema.slug, **{'from': t.ref}) }}">Anpassen (Kopie)</a>
-      {% if g.user.is_admin and not t.is_default and t.source != 'Persönlich' %}
+      {% if t.has_source %}<a class="btn" href="{{ url_for('template_source',tid=t.id) }}" title="{{ _("SHA-256: {v0}",v0=(t.source_hash)) }}">{{ _("Original-YAML") }}</a>{% endif %}
+      <a class="btn" href="{{ url_for('template_new', slug=schema.slug, **{'from': t.ref}) }}">{{ _("Anpassen (Kopie)") }}</a>
+      {% if g.user.is_admin and not t.is_default and t.source != _('Persönlich') %}
         <form method="post" action="{{ url_for('set_game_default', slug=schema.slug) }}" class="inline">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
           <input type="hidden" name="ref" value="{{ t.ref }}">
-          <button class="linkish small">Als Gruppen-Standard</button>
+          <button class="linkish small">{{ _("Als Gruppen-Standard") }}</button>
         </form>
       {% endif %}
       {% if t.editable %}
         <form method="post" action="{{ url_for('template_delete', tid=t.id) }}" class="inline"
-              data-confirm="Vorlage „{{ t.name }}“ löschen?">
+              data-confirm="{{ _('Vorlage „{v0}“ löschen?',v0=t.name) }}">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-          <button class="linkish small danger">Löschen</button>
+          <button class="linkish small danger">{{ _("Löschen") }}</button>
         </form>
       {% endif %}
     </div></details>

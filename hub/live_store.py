@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timezone
 
 from . import config, db, live_api, live_metrics
+from . import i18n
 
 POLL_SECONDS = 60
 LEASE_SECONDS = 55
@@ -295,6 +296,13 @@ def presentation(linked, build, window="6h", now=None):
     events = [dict(id=r["id"], at=iso(r["observed_at"]), since=iso(r["since_at"]),
                    kind=r["kind"], player=r["player_key"], text=r["message"]) for r in db.query(
         "SELECT * FROM live_events WHERE live_id=? ORDER BY id DESC LIMIT 100", (linked["id"],))]
+    names={p['key']:p['name'] for p in (data or {}).get('players',[])}
+    for event in events:
+        prefix=names.get(event['player'],'')+': '
+        if event['player'] in names and event['text'].startswith(prefix):
+            event['text']=prefix+i18n.t(event['text'][len(prefix):])
+        else:
+            event['text']=i18n.t(event['text'])
     room_info = db.loads(linked["room_json"])
     expected = sorted((s["slot"], s["game_name"]) for s in metadata.get("slots", []))
     actual = room_info.get("players")

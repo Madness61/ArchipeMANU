@@ -1,6 +1,6 @@
 {% from "ui.html" import icon with context %}
 <!doctype html>
-<html lang="de">
+<html lang="{{ ui_prefs.language }}" data-theme="{{ ui_prefs.theme }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,46 +9,49 @@
   <script>document.documentElement.classList.add('js');</script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='round.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='themes.css') }}">
+  <script id="ui-configuration" type="application/json">{{ dict(language=ui_prefs.language,theme=ui_prefs.theme,messages=ui_messages,patterns=ui_patterns,endpoint=url_for('save_preferences'),csrf=csrf_token)|tojson }}</script>
+  <script src="{{ url_for('static',filename='preferences.js') }}"></script>
 </head>
 <body class="{{ 'app-shell' if g.user else 'auth-shell' }}" data-page="{{ request.endpoint or '' }}">
-<a class="skip-link" href="#main-content">Zum Inhalt springen</a>
+<a class="skip-link" href="#main-content">{{ _("Zum Inhalt springen") }}</a>
 <header class="top">
-  <div class="sidebar-brand"><a class="brand" href="{{ url_for('index') }}"><span class="brand-symbol">{{ icon('worlds') }}</span><span>{{ app_name }}<small>DEIN MULTIWORLD-HUB</small></span></a>
-    {% if g.user %}<button type="button" class="menu-toggle" id="menu-toggle" aria-label="Menü öffnen" aria-controls="sidebar-body" aria-expanded="false">{{ icon('menu') }}</button>{% endif %}
+  <div class="sidebar-brand"><a class="brand" href="{{ url_for('index') }}"><span class="brand-symbol">{{ icon('worlds') }}</span><span>{{ app_name }}<small>{{ _("DEIN MULTIWORLD-HUB") }}</small></span></a>
+    {% if g.user %}<button type="button" class="menu-toggle" id="menu-toggle" aria-label="{{ _("Menü öffnen") }}" aria-controls="sidebar-body" aria-expanded="false">{{ icon('menu') }}</button>{% endif %}
   </div>
   {% if g.user %}
   <div class="sidebar-body" id="sidebar-body">
-    <p class="nav-label">Dein Spieleabend</p>
-    <nav aria-label="Hauptnavigation" id="main-navigation">
+    <p class="nav-label">{{ _("Dein Spieleabend") }}</p>
+    <nav aria-label="{{ _("Hauptnavigation") }}" id="main-navigation">
       {% set current = request.endpoint or '' %}
-      <a href="{{ url_for('index') }}" {% if current == 'index' %}aria-current="page"{% endif %}>{{ icon('dashboard') }}<span>Übersicht</span></a>
-      <a href="{{ url_for('mvp.lobby_list') }}" {% if current == 'session_view' or current.startswith(('mvp.','live.','console.','logic.')) %}aria-current="page"{% endif %}>{{ icon('users') }}<span>Meine Runden</span></a>
-      <a href="{{ url_for('games') }}" {% if current in ('games','game','game_setup','template_new','template_edit','import_view') or current.startswith('community.') %}aria-current="page"{% endif %}>{{ icon('library') }}<span>Spiele entdecken</span></a>
+      <a href="{{ url_for('index') }}" {% if current == 'index' %}aria-current="page"{% endif %}>{{ icon('dashboard') }}<span>{{ _("Übersicht") }}</span></a>
+      <a href="{{ url_for('mvp.lobby_list') }}" {% if current == 'session_view' or current.startswith(('mvp.','live.','console.','logic.')) %}aria-current="page"{% endif %}>{{ icon('users') }}<span>{{ _("Meine Runden") }}</span></a>
+      <a href="{{ url_for('games') }}" {% if current in ('games','game','game_setup','template_new','template_edit','import_view') or current.startswith('community.') %}aria-current="page"{% endif %}>{{ icon('library') }}<span>{{ _("Spiele entdecken") }}</span></a>
     </nav>
-    <div class="sidebar-note">{{ icon('worlds') }}<p>Verschiedene Spiele.<br><strong>Ein gemeinsames Abenteuer.</strong></p></div>
-    <div class="sidebar-footer"><p class="nav-label">Dein Bereich</p><div class="me">
-      <a href="{{ url_for('profile') }}" class="profile-link" {% if current == 'profile' %}aria-current="page"{% endif %}><span class="avatar" aria-hidden="true">{{ g.user.username[:1]|upper }}</span><span>{{ g.user.username }}<small>Profil & Vorlagen</small></span>{{ icon('chevron') }}</a>
-      {% if g.user.is_admin %}<a href="{{ url_for('admin') }}" class="admin-link" {% if current == 'admin' or current.startswith('admin_') %}aria-current="page"{% endif %}>{{ icon('shield') }} Admin</a>{% endif %}
-      <form class="inline" method="post" action="{{ url_for('logout') }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish small">{{ icon('logout') }} Abmelden</button></form>
+    <div class="sidebar-note">{{ icon('worlds') }}<p>{{ _("Verschiedene Spiele.") }}<br><strong>{{ _("Ein gemeinsames Abenteuer.") }}</strong></p></div>
+    <div class="sidebar-footer"><p class="nav-label">{{ _("Dein Bereich") }}</p><div class="me">{% include "preferences.html" %}
+      <a href="{{ url_for('profile') }}" class="profile-link" {% if current == 'profile' %}aria-current="page"{% endif %}><span class="avatar" aria-hidden="true">{{ g.user.username[:1]|upper }}</span><span>{{ g.user.username }}<small>{{ _("Profil & Vorlagen") }}</small></span>{{ icon('chevron') }}</a>
+      {% if g.user.is_admin %}<a href="{{ url_for('admin') }}" class="admin-link" {% if current == 'admin' or current.startswith('admin_') %}aria-current="page"{% endif %}>{{ icon('shield') }} {{ _("Admin") }}</a>{% endif %}
+      <form class="inline" method="post" action="{{ url_for('logout') }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish small">{{ icon('logout') }} {{ _("Abmelden") }}</button></form>
     </div></div>
   </div>
   {% endif %}
 </header>
-{% if g.user %}<button type="button" class="nav-scrim" id="nav-scrim" aria-label="Navigation schließen" tabindex="-1" hidden></button>{% endif %}
+{% if g.user %}<button type="button" class="nav-scrim" id="nav-scrim" aria-label="{{ _("Navigation schließen") }}" tabindex="-1" hidden></button>{% endif %}
 <main class="inner" id="main-content" tabindex="-1">
-  {% if g.user %}<div class="app-topline"><span>{{ icon('worlds') }} Deine Welten. Euer Abend.</span><span>Private Gaming-Lounge</span></div>
-  {% else %}<div class="auth-layout"><aside class="auth-intro"><p class="eyebrow">Gemeinsam mehr erleben</p><h2>Viele Welten.<br>Ein Abenteuer.</h2><p>Plane euren Spieleabend, finde dein Spiel und verbinde eure Welten mit Archipelago.</p><div class="auth-orbit" aria-hidden="true">{{ icon('worlds') }}</div><ol><li>Lobby beitreten</li><li>Spiel auswählen</li><li>Gemeinsam losspielen</li></ol></aside><div class="auth-content">{% endif %}
+  {% if g.user %}<div class="app-topline"><span>{{ icon('worlds') }} {{ _("Deine Welten. Euer Abend.") }}</span><span>{{ _("Private Gaming-Lounge") }}</span></div>
+  {% else %}{% include "preferences.html" %}<div class="auth-layout"><aside class="auth-intro"><p class="eyebrow">{{ _("Gemeinsam mehr erleben") }}</p><h2>{{ _("Viele Welten.") }}<br>{{ _("Ein Abenteuer.") }}</h2><p>{{ _("Plane euren Spieleabend, finde dein Spiel und verbinde eure Welten mit Archipelago.") }}</p><div class="auth-orbit" aria-hidden="true">{{ icon('worlds') }}</div><ol><li>{{ _("Lobby beitreten") }}</li><li>{{ _("Spiel auswählen") }}</li><li>{{ _("Gemeinsam losspielen") }}</li></ol></aside><div class="auth-content">{% endif %}
   {% if g.user and not ap_ready %}
-    <div class="flash error" role="status">Die Spiele sind noch nicht eingerichtet. {% if g.user.is_admin %}Führe einmal <code>setup.ps1</code> aus; die Anleitung steht in der README.{% else %}Bitte gib dem Administrator Bescheid.{% endif %}</div>
+    <div class="flash error" role="status">{{ _("Die Spiele sind noch nicht eingerichtet.") }} {% if g.user.is_admin %}{{ _("Führe einmal") }} <code>setup.ps1</code> {{ _("aus; die Anleitung steht in der README.") }}{% else %}{{ _("Bitte gib dem Administrator Bescheid.") }}{% endif %}</div>
   {% elif g.user and extract.status in ('queued','running') %}
-    <div class="flash info" id="world-extract-status" role="status" data-url="{{ url_for('world_status') }}" data-status="{{ extract.status }}">Die Spiel-Optionen werden gerade eingelesen – das dauert meist unter einer Minute.</div>
+    <div class="flash info" id="world-extract-status" role="status" data-url="{{ url_for('world_status') }}" data-status="{{ extract.status }}">{{ _("Die Spiel-Optionen werden gerade eingelesen – das dauert meist unter einer Minute.") }}</div>
   {% endif %}
-  {% if g.user %}<div class="auth-required" id="auth-required" role="alert" hidden><span>Deine Anmeldung ist nicht mehr gültig. Melde dich erneut an, um fortzufahren.</span><a class="btn small" id="auth-required-link" href="{{ url_for('login') }}">Erneut anmelden</a></div>{% endif %}
+  {% if g.user %}<div class="auth-required" id="auth-required" role="alert" hidden><span>{{ _("Deine Anmeldung ist nicht mehr gültig. Melde dich erneut an, um fortzufahren.") }}</span><a class="btn small" id="auth-required-link" href="{{ url_for('login') }}">{{ _("Erneut anmelden") }}</a></div>{% endif %}
   {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ icon('check' if category != 'error' else 'shield') }}<span>{{ message }}</span></div>
+    <div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ icon('check' if category != 'error' else 'shield') }}<span>{{ _(message) }}</span></div>
   {% endfor %}
   {% if room is defined and build is defined and request.endpoint != 'session_view' and request.endpoint != 'mvp.play_page' %}
-  <nav class="round-detail-back" aria-label="Zur Rundenzentrale"><a class="btn small" href="{{ url_for('session_view',sid=room.id,build=build.id,_anchor='progress' if request.endpoint in ['live.dashboard','logic.page','console.page'] else 'more') }}">{{ icon('arrow','back-arrow') }} {{ room.name }} · Rundenzentrale</a><span class="small muted">Seed #{{ build.id }} · Detailansicht</span></nav>
+  <nav class="round-detail-back" aria-label="{{ _("Zur Rundenzentrale") }}"><a class="btn small" href="{{ url_for('session_view',sid=room.id,build=build.id,_anchor='progress' if request.endpoint in ['live.dashboard','logic.page','console.page'] else 'more') }}">{{ icon('arrow','back-arrow') }} {{ room.name }} {{ _("· Rundenzentrale") }}</a><span class="small muted">{{ _("Seed #") }}{{ build.id }} {{ _("· Detailansicht") }}</span></nav>
   {% endif %}
   {% block content %}{% endblock %}
   {% if not g.user %}</div></div>{% endif %}
