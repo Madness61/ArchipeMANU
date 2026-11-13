@@ -1,0 +1,2 @@
+{% extends "base.html" %}
+{% block content %}<section class="panel"><h1>Experimenteller Logik-Tracker deaktiviert</h1><p>{{ message }}</p><a class="btn primary" href="{{ url_for('session_view',sid=room.id,build=build.id,_anchor='play') }}">Zur Konsole</a></section>{% endblock %}

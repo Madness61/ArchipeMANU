@@ -1,3 +1,5 @@
+> **Seit 13.11.2026 deaktiviert.** Dieses Dokument beschreibt historischen Code. Die produktive Oberfläche und API führen keine Logikberechnungen, Installationen oder Platzierungsabfragen mehr aus. Aktueller Betrieb: [CONNECTION_RELIABILITY.md](CONNECTION_RELIABILITY.md).
+
 # Logik-Tracker
 
 Einstieg: Rundenzentrale → Fortschritt → Deine nächsten Checks. Der eigene

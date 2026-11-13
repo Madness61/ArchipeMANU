@@ -40,6 +40,12 @@ class FakeAP:
             except Exception:
                 pass
 
+    def interrupt(self):
+        with self.lock:
+            clients = list(self.clients)
+        for wire in clients:
+            wire.close(code=1012, reason="isolated test restart")
+
     def handle(self, wire):
         self.send(wire,[{"cmd":"RoomInfo","seed_name":self.seed,"password":bool(self.password),
                          "version":{"major":0,"minor":6,"build":8,"class":"Version"},"games":[self.game]}])

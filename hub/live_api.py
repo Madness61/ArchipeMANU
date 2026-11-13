@@ -4,6 +4,8 @@ from __future__ import annotations
 import base64
 import json
 import re
+import time
+from email.utils import parsedate_to_datetime
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -19,6 +21,16 @@ class APIError(Exception):
         super().__init__(message)
         self.kind = kind
         self.retry_after = retry_after
+
+
+def retry_delay(headers, default=60):
+    """Honor both Retry-After formats without retrying faster than the API TTL."""
+    value = headers.get("Retry-After", "") if headers else ""
+    try:
+        delay = int(value) if str(value).isdigit() else parsedate_to_datetime(value).timestamp() - time.time()
+        return max(60, min(86400, delay))
+    except (ValueError, TypeError, OverflowError):
+        return default
 
 
 def suuid(value):
@@ -65,6 +77,7 @@ def fetch(endpoint, identifier):
                 raise APIError("Die API liefert derzeit kein JSON.", "invalid")
             payload = json.loads(body)
     except HTTPError as exc:
+        delay = retry_delay(exc.headers, 300 if exc.code == 429 else 60)
         exc.close()
         if exc.code == 404:
             raise APIError("Raum oder Tracker nicht gefunden; möglicherweise entfernt.", "not_found", 300) from None
@@ -72,8 +85,8 @@ def fetch(endpoint, identifier):
             raise APIError("Diese Tracker-Daten sind nicht öffentlich verfügbar.", "protected", 300) from None
         if exc.code == 429:
             raise APIError("Archipelago begrenzt gerade die Abrufe. Wir warten vor dem nächsten Versuch.",
-                           "rate_limited", 300) from None
-        raise APIError("Die Archipelago-API ist vorübergehend nicht erreichbar.") from None
+                           "rate_limited", delay) from None
+        raise APIError("Die Archipelago-API ist vorübergehend nicht erreichbar.", retry_after=delay) from None
     except (URLError, TimeoutError, OSError):
         raise APIError("Die Archipelago-API ist vorübergehend nicht erreichbar.") from None
     except (ValueError, UnicodeError, RecursionError):

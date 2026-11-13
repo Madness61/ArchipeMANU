@@ -7,9 +7,9 @@
   const kind = document.getElementById('console-kind');
   const search = document.getElementById('console-search');
   const older = document.getElementById('console-older');
-  let cursor = 0, first = 0, generation = 0, fetching = false, catalogVersion = 0, endpointId, authLost=false;
+  let cursor = 0, first = 0, generation = 0, fetching = false, sending=false, catalogVersion = 0, endpointId, authLost=false;
   const ids = new Set();
-  const labels = {connecting:'Verbindung wird aufgebaut',authenticating:'Slot wird angemeldet',connected:'Mit Archipelago verbunden',disconnected:'Nicht verbunden',error:'Verbindung fehlgeschlagen'};
+  const labels = {connecting:'Verbindung wird aufgebaut',authenticating:'Slot wird angemeldet',connected:'Mit Archipelago verbunden',reconnecting:'Verbindung wird wiederhergestellt',temporarily_unavailable:'Vorübergehend nicht erreichbar',action_required:'Erneutes Verbinden erforderlich',disconnected:'Nicht verbunden',error:'Verbindung fehlgeschlagen'};
   const fail = (text) => { error.textContent = text; error.hidden = !text; };
   async function api(path, form) {
     const response = await fetch(root.dataset.base + path, form ? {method:'POST',body:form,headers:{'X-CSRF-Token':root.dataset.csrf},cache:'no-store'} : {cache:'no-store'});
@@ -70,7 +70,9 @@
       const state = document.getElementById('console-state');
       const stateLabel=(labels[data.state] || data.state) + (data.state === 'connected' && data.transport ? ' · ' + data.transport.toUpperCase() : '');
       if(state.textContent!==stateLabel)state.textContent=stateLabel;
-      state.className = 'chip ' + (data.state === 'connected' ? 'ok' : data.state === 'error' ? 'err' : '');
+      state.className = 'chip ' + (data.state === 'connected' ? 'ok' : ['error','action_required'].includes(data.state) ? 'err' : '');
+      const diagnostic=document.getElementById('console-diagnostics');
+      if(diagnostic)diagnostic.textContent='Textkonsole: '+(labels[data.state]||data.state)+' · Letzter Kontakt: '+(data.last_contact?new Date(data.last_contact*1000).toLocaleString('de-DE'):'noch keiner')+(data.next_retry_at?' · Nächster Versuch: '+new Date(data.next_retry_at*1000).toLocaleTimeString('de-DE'):'')+' · Lokaler Spielclient: unbekannt';
       const connectLink=document.getElementById('console-connect-link');if(connectLink)connectLink.hidden=data.state==='connected';
       const connectForm=document.getElementById('console-connect'),connectedSlot=document.getElementById('console-connected-slot');
       if(connectForm){
@@ -108,6 +110,8 @@
   document.getElementById('console-connect')?.elements.namedItem('slot')?.addEventListener('change',event=>event.target.dataset.dirty='1');
   document.getElementById('console-command')?.addEventListener('submit',async event => {
     event.preventDefault();
+    if(sending)return;
+    sending=true;
     const form = event.currentTarget;
     const values = new FormData(form);
     const connect = document.getElementById('console-connect');
@@ -120,7 +124,10 @@
         connect.querySelector('[name=password]').value = '';
       }
     }
-    if (await post('/command',values)) form.reset();
+    const original=values.get('text');
+    const submit=form.querySelector('[type=submit]');if(submit)submit.disabled=true;
+    try{if(await post('/command',values)){if(form.elements.namedItem('text').value===original)form.reset();}}
+    finally{sending=false;if(submit)submit.disabled=false;}
     values.delete('password');
   });
   kind.addEventListener('change',() => {

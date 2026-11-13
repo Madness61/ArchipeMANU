@@ -13,7 +13,7 @@
 - **Live-Begleitung:** WebHost-API für Checks, Fortschritt und Verlauf; separate Archipelago-Textkonsole für Item-Sendungen, Chat und Befehle. Die Konsole ersetzt den lokalen Spielclient **nicht**.
 - **Auswertung:** Seed- und Spielerstatistiken; Spoiler erscheinen nur nach ausdrücklicher Freigabe und gemäß Race-Regeln.
 
-**Grenzen:** Die Website installiert oder prüft lokale Spiele, Emulatoren, Mods und ROMs nicht. Eine erfolgreich generierte Multiworld beweist keine Kompatibilität des lokalen Spielclients. Die WebHost-API liefert keinen lückenlosen Echtzeit-Eventlog; die separate Konsole erfasst Nachrichten ab ihrer Verbindung. Der Universal-Logik-Tracker ist experimentell und [zur Entfernung aus der Produktoberfläche vorgesehen](TODO.md).
+**Grenzen:** Die Website installiert oder prüft lokale Spiele, Emulatoren, Mods und ROMs nicht. Eine erfolgreich generierte Multiworld beweist keine Kompatibilität des lokalen Spielclients. Die WebHost-API liefert keinen lückenlosen Echtzeit-Eventlog; die separate Konsole erfasst Nachrichten ab ihrer Verbindung. Der experimentelle Universal-Logik-Tracker ist deaktiviert; seine alten URLs zeigen einen Hinweis.
 
 ## Schnellstart (Windows)
 
@@ -79,7 +79,7 @@ er ist kein Nachweis einer bereits erfolgten Übernahme nach `main`.
 
 Die nächsten **getrennten** Arbeitspakete stehen in [TODO.md](TODO.md):
 
-- **A – Verbindungsstabilität:** automatischer WebSocket-Reconnect, browserunabhängige laufende Textverbindung, klare API-/Konsolen-Statusanzeige, experimentellen Universal-Logik-Tracker deaktivieren.
+- **A – Verbindungsstabilität:** WebSocket-Reconnect und browserunabhängige Textverbindung sind umgesetzt; reale Mehrspieler-Langzeitabnahme bleibt offen.
 - **B – Produkt-UX:** weitere Verbesserung der bereits zentralen Konsole, DE/EN-Umschaltung, Light/Dark/System-Theme, bessere visuelle Priorisierung, persönliche Itemfilter.
 
 ## Dokumentation
@@ -90,10 +90,11 @@ Die nächsten **getrennten** Arbeitspakete stehen in [TODO.md](TODO.md):
 | YAML-Ebenen, Konfiguration und Vorlagen | [YAML_CONFIGURATION.md](YAML_CONFIGURATION.md) |
 | Spielebibliothek, Einrichtung, Quellen | [GAME_LIBRARY.md](GAME_LIBRARY.md) |
 | Live-Dashboard, API-Daten, Cache und Grenzen | [LIVE_DASHBOARD.md](LIVE_DASHBOARD.md) |
+| Verbindungszustände, Wiederverbindung und Diagnose | [CONNECTION_RELIABILITY.md](CONNECTION_RELIABILITY.md) |
 | Textkonsole, Befehle und Live-Item-Ereignisse | [ARCHIPELAGO_CONSOLE.md](ARCHIPELAGO_CONSOLE.md) |
 | Rundenzentrale und vereinfachte Navigation | [UX_SIMPLIFICATION.md](UX_SIMPLIFICATION.md) |
 | Standard-YAML und tatsächliche Item-Checks | [STANDARD_CHECK_PREVIEW.md](STANDARD_CHECK_PREVIEW.md) |
-| Experimenteller Universal-Logik-Tracker (historischer Ist-Stand) | [LOGIC_TRACKER.md](LOGIC_TRACKER.md) |
+| Experimenteller Universal-Logik-Tracker (deaktiviert; historische Dokumentation) | [LOGIC_TRACKER.md](LOGIC_TRACKER.md) |
 | Benutzerkonten und Kontomigration | [AUTH_MIGRATION.md](AUTH_MIGRATION.md) |
 | Layout und Design-Tokens | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
 | Browser-Tests und Testisolation | [BROWSER_TESTS.md](BROWSER_TESTS.md) |

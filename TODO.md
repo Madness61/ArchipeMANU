@@ -19,47 +19,47 @@ Technische Stabilisierung und visuelles Redesign sind **zwei getrennte Arbeitspa
 
 ### A1 – Ursache der Verbindungsabbrüche reproduzieren
 
-- [ ] Vier Verbindungsarten auseinanderhalten: Browser ↔ Hub, Hub ↔ WebHost-API, Hub ↔ Archipelago-WebSocket, lokaler Spielclient ↔ Archipelago-Server.
-- [ ] Nachstellen: Browser im Hintergrund/anderer Tab, Spiel im Vordergrund, 30+ Minuten, kurzzeitiges WLAN-/VPN-Problem, abgelaufene Authentifizierung, Server nicht erreichbar, Raum gewechselt.
-- [ ] In `hub/ap_console.py` die 30-Minuten-Inaktivitätslogik (`IDLE_SECONDS` / `last_seen`) prüfen; die Textverbindung darf nicht nur wegen eines nicht sichtbaren Browserfensters enden.
-- [ ] Bei jedem Ausfall Ursache, Zeitpunkt, Verbindungsart und Wiederherstellungsstatus nachvollziehbar protokollieren, ohne Passwörter oder private Nachrichten zu loggen.
+- [x] Vier Verbindungsarten auseinanderhalten: Browser ↔ Hub, Hub ↔ WebHost-API, Hub ↔ Archipelago-WebSocket, lokaler Spielclient ↔ Archipelago-Server.
+- [ ] Reale WLAN-/VPN- und Spielclient-Abnahme nachstellen (automatisierte Protokoll-/Hintergrundtests sind umgesetzt): Browser im Hintergrund/anderer Tab, Spiel im Vordergrund, 30+ Minuten, kurzzeitiges WLAN-/VPN-Problem, abgelaufene Authentifizierung, Server nicht erreichbar, Raum gewechselt.
+- [x] In `hub/ap_console.py` die 30-Minuten-Inaktivitätslogik (`IDLE_SECONDS` / `last_seen`) prüfen; die Textverbindung darf nicht nur wegen eines nicht sichtbaren Browserfensters enden.
+- [x] Bei jedem Ausfall Ursache, Zeitpunkt, Verbindungsart und Wiederherstellungsstatus nachvollziehbar protokollieren, ohne Passwörter oder private Nachrichten zu loggen.
 
 ### A2 – Zuverlässiger Archipelago-WebSocket
 
-- [ ] Eine **ausdrücklich gestartete** serverseitige Textverbindung während einer aktiven Runde unabhängig vom sichtbaren Browser erhalten; Autorisierung weiterhin regelmäßig prüfen.
-- [ ] Automatische Wiederverbindung für **transiente** Netzwerk-, Socket-, Ping- und Timeoutfehler mit begrenztem exponential Backoff plus Jitter implementieren.
-- [ ] Bei falschem Passwort, ungültigem Slot, Seed-Mismatch, fehlenden Rechten, Logout, absichtlichem Trennen und abgeschlossenen Runden **nicht** automatisch erneut anmelden.
-- [ ] Bestehende Slot-/Seedprüfung, Race-Schutz, WS/WSS-TLS-Regeln und Rechte erhalten; keine automatische Wiederholung bereits gesendeter Chatnachrichten oder Befehle.
-- [ ] Nach Reconnect Serverzustand und Empfangsliste erneut synchronisieren, Deduplizierung fortsetzen, alten Socket und Worker zuverlässig entsorgen; pro Benutzer/Seed keine parallelen Reconnect-Schleifen.
-- [ ] Verpasste ItemSend-Ereignisse **nicht erfinden**: Unterbrechungszeitraum im Protokoll erkennbar machen, vergangene Sendungen nur anzeigen, wenn tatsächlich nachweisbar.
-- [ ] Prüfen, ob eine bewusst aktivierte serverseitige Beobachterverbindung den gruppenweiten Item-Feed robuster macht. Keine fremden Slots ohne Autorisierung verwenden.
-- [ ] Authentifizierungsgeheimnisse nur solange nötig im Arbeitsspeicher behalten; nach Beendigung verwerfen. Nach Prozessneustart keine nahtlose Verbindung ohne erforderliche Daten behaupten.
+- [x] Eine **ausdrücklich gestartete** serverseitige Textverbindung während einer aktiven Runde unabhängig vom sichtbaren Browser erhalten; Autorisierung weiterhin regelmäßig prüfen.
+- [x] Automatische Wiederverbindung für **transiente** Netzwerk-, Socket-, Ping- und Timeoutfehler mit begrenztem exponential Backoff plus Jitter implementieren.
+- [x] Bei falschem Passwort, ungültigem Slot, Seed-Mismatch, fehlenden Rechten, Logout, absichtlichem Trennen und abgeschlossenen Runden **nicht** automatisch erneut anmelden.
+- [x] Bestehende Slot-/Seedprüfung, Race-Schutz, WS/WSS-TLS-Regeln und Rechte erhalten; keine automatische Wiederholung bereits gesendeter Chatnachrichten oder Befehle.
+- [x] Nach Reconnect Serverzustand und Empfangsliste erneut synchronisieren, Deduplizierung fortsetzen, alten Socket und Worker zuverlässig entsorgen; pro Benutzer/Seed keine parallelen Reconnect-Schleifen.
+- [x] Verpasste ItemSend-Ereignisse **nicht erfinden**: Unterbrechungszeitraum im Protokoll erkennbar machen, vergangene Sendungen nur anzeigen, wenn tatsächlich nachweisbar.
+- [x] Prüfen, ob eine bewusst aktivierte serverseitige Beobachterverbindung den gruppenweiten Item-Feed robuster macht. Keine fremden Slots ohne Autorisierung verwenden.
+- [x] Authentifizierungsgeheimnisse nur solange nötig im Arbeitsspeicher behalten; nach Beendigung verwerfen. Nach Prozessneustart keine nahtlose Verbindung ohne erforderliche Daten behaupten.
 
 ### A3 – WebHost-API und Statusanzeige
 
-- [ ] `hub/live_api.py` / `hub/live_store.py` auf Timeout, HTTP 429/5xx, unvollständige Antworten, Raum-/Trackerwechsel, Collector-Neustart und mehrere parallele Browser überprüfen.
-- [ ] Vorhandene gemeinsame Caches und upstream TTLs (dynamisch ca. 60 s, statisch ca. 300 s) erhalten; kontrollierte Retries/Backoff und `Retry-After` berücksichtigen, soweit vorhanden.
-- [ ] Letzten erfolgreichen Fortschrittsstand weiter anzeigen, aber als **veraltet** markieren; WebHost-Fehler dürfen die WebSocket-Konsole nicht als „offline“ markieren.
-- [ ] In der Konsole den Unterschied zwischen `connected`, `reconnecting`, `temporarily unavailable`, `action required` und absichtlich `disconnected` nachvollziehbar darstellen.
-- [ ] Letzten erfolgreichen Kontakt, Fehlerursache und nächsten Versuch in einer kompakten Diagnoseansicht anzeigen.
-- [ ] Lokale Spielclient-Verbindung **unbekannt** nennen, solange sie nicht verlässlich gemessen wird. Konsole ≠ Spielclient.
-- [ ] Browser-Polling auf überlappende Requests, Tab-Wechsel, Sessionablauf und Verlust von nicht gesendeten Chatentwürfen testen.
+- [x] `hub/live_api.py` / `hub/live_store.py` auf Timeout, HTTP 429/5xx, unvollständige Antworten, Raum-/Trackerwechsel, Collector-Neustart und mehrere parallele Browser überprüfen.
+- [x] Vorhandene gemeinsame Caches und upstream TTLs (dynamisch ca. 60 s, statisch ca. 300 s) erhalten; kontrollierte Retries/Backoff und `Retry-After` berücksichtigen, soweit vorhanden.
+- [x] Letzten erfolgreichen Fortschrittsstand weiter anzeigen, aber als **veraltet** markieren; WebHost-Fehler dürfen die WebSocket-Konsole nicht als „offline“ markieren.
+- [x] In der Konsole den Unterschied zwischen `connected`, `reconnecting`, `temporarily unavailable`, `action required` und absichtlich `disconnected` nachvollziehbar darstellen.
+- [x] Letzten erfolgreichen Kontakt, Fehlerursache und nächsten Versuch in einer kompakten Diagnoseansicht anzeigen.
+- [x] Lokale Spielclient-Verbindung **unbekannt** nennen, solange sie nicht verlässlich gemessen wird. Konsole ≠ Spielclient.
+- [x] Browser-Polling auf überlappende Requests, Tab-Wechsel, Sessionablauf und Verlust von nicht gesendeten Chatentwürfen testen.
 
 ### A4 – Experimentellen Universal-Logik-Tracker aus dem Produkt nehmen
 
-- [ ] Universal-Logik-Tracker / „Erreichbare Checks“ / Go-Mode aus produktiver Navigation, Rundenzentrale und Spielstart entfernen.
-- [ ] Automatische Universal-Tracker-Berechnungen, zugehörige Worker und unnötige Logik-Endpunkte deaktivieren; alte URLs verständlich umleiten oder mit Hinweis beantworten.
-- [ ] Historischen Code über Git verfügbar lassen; keine produktiven Benutzer-, Seed- oder Eventdaten unnötig löschen.
-- [ ] **Nicht entfernen:** offizielle WebHost-Tracker-API, Check-/Fortschrittszähler, Live-Dashboard, Itemprotokoll, Chat, `/received`, `/missing`, `/hint`, Seed-Statistiken und Standard-Check-Vorschau.
-- [ ] Tests und Dokumentation an die neue Produktgrenze anpassen; nicht mehr vorhandene Trackerfunktionen nicht weiter in README/Navigation anpreisen.
+- [x] Universal-Logik-Tracker / „Erreichbare Checks“ / Go-Mode aus produktiver Navigation, Rundenzentrale und Spielstart entfernen.
+- [x] Automatische Universal-Tracker-Berechnungen, zugehörige Worker und unnötige Logik-Endpunkte deaktivieren; alte URLs verständlich umleiten oder mit Hinweis beantworten.
+- [x] Historischen Code über Git verfügbar lassen; keine produktiven Benutzer-, Seed- oder Eventdaten unnötig löschen.
+- [x] **Nicht entfernen:** offizielle WebHost-Tracker-API, Check-/Fortschrittszähler, Live-Dashboard, Itemprotokoll, Chat, `/received`, `/missing`, `/hint`, Seed-Statistiken und Standard-Check-Vorschau.
+- [x] Tests und Dokumentation an die neue Produktgrenze anpassen; nicht mehr vorhandene Trackerfunktionen nicht weiter in README/Navigation anpreisen.
 
 ### A5 – Technische Abnahme
 
-- [ ] Mit isoliertem Archipelago-Testserver testen: kurze und längere Abbrüche, simulierte 30-Minuten-Hintergrundzeit, Ping-Timeout, Reconnect, wiederholte Events, falsches Passwort, falscher Slot, Logout, Raumwechsel, Re-Login.
-- [ ] Sicherstellen, dass Chat- und Serverbefehle nicht doppelt gesendet werden.
-- [ ] API-Tests für HTTP 429, Timeout, 5xx, stale cache, mehrere offene Browser und Reset/Trackerwechsel.
-- [ ] Gesamte Python- und Playwright-Suite ausführen; realen Mehrspieler-Langzeittest **separat** kennzeichnen.
-- [ ] `CONNECTION_RELIABILITY.md` mit Zustandsmodell, Grenzen, Backoff, Fehlerdiagnose und manueller Fehlerbehebung ergänzen.
+- [x] Mit isoliertem Archipelago-Testserver und gezielten Zeit-/Ping-Simulationen testen: kurze und längere Abbrüche, simulierte 30-Minuten-Hintergrundzeit, Ping-Timeout, Reconnect, wiederholte Events, falsches Passwort, falscher Slot, Logout, Raumwechsel, Re-Login.
+- [x] Sicherstellen, dass Chat- und Serverbefehle nicht doppelt gesendet werden.
+- [x] API-Tests für HTTP 429, Timeout, 5xx, stale cache, mehrere offene Browser und Reset/Trackerwechsel.
+- [x] Gesamte Python- und Playwright-Suite ausführen; realen Mehrspieler-Langzeittest **separat** kennzeichnen.
+- [x] `CONNECTION_RELIABILITY.md` mit Zustandsmodell, Grenzen, Backoff, Fehlerdiagnose und manueller Fehlerbehebung ergänzen.
 
 **Definition of Done A:** Während eines Spieleabends bleibt eine aktivierte Textverbindung auch ohne sichtbaren Browser bestehen; vorübergehende Verbindungsabbrüche werden automatisch behoben, irreparable Fehler korrekt erklärt, vergangene Nachrichten nicht dupliziert oder erfunden. Der experimentelle Logik-Tracker ist aus der produktiven Oberfläche entfernt.
 

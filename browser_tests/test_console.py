@@ -62,6 +62,11 @@ def test_console_items_commands_private_hints_and_mobile(actors, artifact_dir):
         alice.get_by_label("Nachricht oder Befehl",exact=True).fill("Hallo zusammen!")
         alice.get_by_role("button",name="Senden",exact=True).click()
         expect(alice.locator("#console-log")).to_contain_text("Alice: Hallo zusammen!")
+        alice.get_by_label('Nachricht oder Befehl',exact=True).fill('Entwurf bleibt erhalten')
+        server.interrupt()
+        expect(alice.locator('#console-log')).to_contain_text('Textverbindung wiederhergestellt',timeout=20000)
+        expect(alice.get_by_label('Nachricht oder Befehl',exact=True)).to_have_value('Entwurf bleibt erhalten')
+        assert sum(p.get('text')=='Hallo zusammen!' for p in server.packets)==1
         alice.locator('#main-content').evaluate('n=>{n.focus({preventScroll:true});n.blur()}');alice.evaluate('window.scrollTo(0,0)')
         alice.screenshot(path=str(artifact_dir/"console-desktop.png"),full_page=True)
         alice.get_by_label("Nachrichtenart",exact=True).select_option("items")

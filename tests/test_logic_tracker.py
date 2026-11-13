@@ -27,24 +27,16 @@ class LogicTests(unittest.TestCase):
                 (sid, db.dumps(dict(race=race, spoiler=spoiler, slots=[dict(slot='Host', player_id=1, game='test_world', game_name='Test World')]))))
         return f'/sessions/{sid}/builds/{bid}/live/logic', bid
 
-    def test_api_is_private_and_spoilers_are_only_explicit(self):
+    def test_retired_routes_never_evaluate_or_expose_placements(self):
         url, _ = self.seed()
-        ready = dict(state='ready', go_mode=False, reachable=1, remaining=2, locations=[dict(id=3,name='A',region='Start',reachable=True,checked=False)], inventory=[])
-        with patch('hub.logic_routes.console_routes.client', return_value=SimpleNamespace(endpoint={'id':1})), \
-             patch.object(logic_tracker, 'evaluation_input', return_value=({},None)), \
-             patch.object(logic_tracker, 'status', return_value=ready):
-            response = self.client.get(url+'/data')
-            self.assertEqual(response.status_code, 200)
-            self.assertNotIn('item', response.get_data(as_text=True))
-            self.assertEqual(response.headers['Cache-Control'],'no-store')
-            self.assertEqual(self.client.get(url+'/data?slot=Friend').status_code,403)
-            self.assertEqual(self.client.post(url+'/refresh').status_code,403)
-            self.assertEqual(self.post(url+'/refresh', {}).status_code,200)
-        # Generator IDs are not the ordinal position of slots in the snapshot.
-        with patch.object(mvp,'_build_distribution',return_value={'players':[dict(id=17,name='Host',game='Test World')]}), \
-             patch.object(mvp,'_build_placements',return_value=[dict(finder=17,recipient=17,location_id=3,item='Secret key')]):
-            response=self.post(url+'/placements', {})
-            self.assertIn('Secret key',response.get_data(as_text=True))
+        with patch.object(logic_tracker, 'status') as evaluate, patch.object(logic_tracker, 'install_engine') as install:
+            self.assertEqual(self.client.get(url).status_code,410)
+            for suffix in ('data','refresh','placements','install'):
+                response=self.client.get(url+'/data') if suffix=='data' else self.post(url+'/'+suffix,{})
+                self.assertEqual(response.status_code,410)
+                self.assertEqual(response.get_json()['state'],'disabled')
+                self.assertNotIn('placements',response.get_json())
+            evaluate.assert_not_called();install.assert_not_called()
         self.assertEqual(self.app.test_client().get(url+'/data').status_code,401)
 
     def test_race_no_slot_and_spoiler_setting_are_enforced(self):
@@ -56,7 +48,7 @@ class LogicTests(unittest.TestCase):
             row=db.loads(db.query('SELECT snapshot FROM seed_builds WHERE id=?',(bid,),one=True)['snapshot'])
             row.update(race=False,spoiler=0)
             db.execute('UPDATE seed_builds SET snapshot=? WHERE id=?',(db.dumps(row),bid))
-        self.assertEqual(self.post(url+'/placements', {}).status_code,403)
+        self.assertEqual(self.post(url+'/placements', {}).status_code,410)
         self.friend=self.app.test_client()
         self.post('/login',{'username':'Friend'},client=self.friend)
         with self.app.app_context():
