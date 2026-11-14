@@ -55,3 +55,14 @@ Reale Seed-Generierung und Spielclient-Verbindungen separat prüfen und im PR vo
 8. Erst Tests ausführen, dann PR erstellen. Welche Tests **nicht** mit echten Archipelago-Spielclients liefen, ausdrücklich sagen.
 
 Historische Dokumente sind nicht automatisch aktuelle Anforderungen. Insbesondere ältere Aussagen zu Gruppenpasswörtern, UI-Plan und Archipelago-Tracker-Verfügbarkeit vor Übernahme im Code prüfen.
+
+
+## Sprache und Darstellung
+
+Aktueller Produktzweig: `feature/social-console-localization-themes`, auf dem
+Stabilitätspaket `feature/connection-reliability` (#12). Neue UI-Texte über `_()`
+in Jinja beziehungsweise `window.HUB_I18N.t()` in JavaScript und die gepaarten
+Kataloge in `hub/locales/` pflegen. Hinweise: `TRANSLATIONS.md`. Nutzerinhalte,
+Spiel-/Slot-/Item-/Checknamen und native AP-Meldungen niemals automatisch übersetzen.
+UI-Präferenzen verändern weder YAML-Werte noch Bereitschaft. Theme-Farben über
+zentrale Variablen; alle vier Größen in DE/EN und beiden Themes prüfen.

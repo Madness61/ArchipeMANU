@@ -1,45 +1,43 @@
 {% extends "base.html" %}
-{% block title %}Admin · {{ app_name }}{% endblock %}
+{% block title %}{{ _("Admin ·") }} {{ app_name }}{% endblock %}
 {% block content %}
-<h1>Admin</h1>
-<p class="row"><a href="#accounts">Accounts verwalten</a><a href="#rounds">Runden verwalten</a><a href="#seeds">Seeds verwalten</a></p>
-<p class="muted small">Archipelago {{ ap_version }} ·
-  Optionen eingelesen: <span id="extract-status" data-url="{{ url_for('admin_status') }}" data-status="{{ status.status }}">
-  {% if status.status == 'ok' %}<span class="chip ok">ok</span>
-  {% elif status.status in ('queued', 'running') %}<span class="chip warn">läuft …</span>
-  {% elif status.status == 'error' %}<span class="chip err">Fehler</span>
-  {% else %}<span class="chip">noch nie</span>{% endif %}</span></p>
+<h1>{{ _("Admin") }}</h1>
+<p class="row"><a href="#accounts">{{ _("Accounts verwalten") }}</a><a href="#rounds">{{ _("Runden verwalten") }}</a><a href="#seeds">{{ _("Seeds verwalten") }}</a></p>
+<p class="muted small">{{ _("Archipelago") }} {{ ap_version }} {{ _("· Optionen eingelesen:") }} <span id="extract-status" data-url="{{ url_for('admin_status') }}" data-status="{{ status.status }}">
+  {% if status.status == _('ok') %}<span class="chip ok">{{ _("ok") }}</span>
+  {% elif status.status in ('queued', 'running') %}<span class="chip warn">{{ _("läuft …") }}</span>
+  {% elif status.status == 'error' %}<span class="chip err">{{ _("Fehler") }}</span>
+  {% else %}<span class="chip">{{ _("noch nie") }}</span>{% endif %}</span></p>
 
-<h2>APWorlds</h2>
-<p class="muted small">Neue Uploads aktivieren ihre Version automatisch; vorherige Uploads werden nicht gelöscht.</p>
+<h2>{{ _("APWorlds") }}</h2>
+<p class="muted small">{{ _("Neue Uploads aktivieren ihre Version automatisch; vorherige Uploads werden nicht gelöscht.") }}</p>
 <form method="post" action="{{ url_for('admin_upload') }}" enctype="multipart/form-data" class="panel row">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <input type="file" name="files" accept=".apworld" multiple required>
-  <label class="small">Quell-URL (optional)<br><input type="url" name="source_url" placeholder="https://github.com/.../releases" style="min-width:260px"></label>
-  <button class="primary">Hochladen</button>
-  <span class="small muted">APWorlds enthalten Python-Code, der auf diesem Server läuft – nur vertrauenswürdige hochladen.
-    Eine APWorld mit dem Namen eines eingebauten Spiels ersetzt dessen eingebaute Version.</span>
+  <label class="small">{{ _("Quell-URL (optional)") }}<br><input type="url" name="source_url" placeholder="{{ _("https://github.com/.../releases") }}" style="min-width:260px"></label>
+  <button class="primary">{{ _("Hochladen") }}</button>
+  <span class="small muted">{{ _("APWorlds enthalten Python-Code, der auf diesem Server läuft – nur vertrauenswürdige hochladen. Eine APWorld mit dem Namen eines eingebauten Spiels ersetzt dessen eingebaute Version.") }}</span>
 </form>
 
 {% if apworlds %}
 <div class="panel table-wrap" style="margin-top:12px">
   <table>
-    <tr><th>Datei</th><th>Spiel</th><th>Version</th><th>Status</th><th></th></tr>
+    <tr><th>{{ _("Datei") }}</th><th>{{ _("Spiel") }}</th><th>{{ _("Version") }}</th><th>{{ _("Status") }}</th><th></th></tr>
     {% for a in apworlds %}
     <tr>
       <td><code>{{ a.file }}</code></td>
       <td>{{ a.game or (games_index[a.module].game if a.module in games_index else '–') }}</td>
       <td>{{ a.version or '–' }}</td>
       <td>
-        {% if a.error %}<span class="chip err">{{ a.error }}</span>
-        {% elif a.module in games_index %}<span class="chip ok">geladen</span>
-        {% elif a.game in failed %}<span class="chip err" title="{{ failed[a.game] }}">Fehler</span>
-        {% else %}<span class="chip warn">nicht geladen</span>{% endif %}
+        {% if a.error %}<span class="chip err">{{ _(a.error) }}</span>
+        {% elif a.module in games_index %}<span class="chip ok">{{ _("geladen") }}</span>
+        {% elif a.game in failed %}<span class="chip err" title="{{ failed[a.game] }}">{{ _("Fehler") }}</span>
+        {% else %}<span class="chip warn">{{ _("nicht geladen") }}</span>{% endif %}
       </td>
       <td>
         <form method="post" action="{{ url_for('admin_delete_apworld', module=a.module) }}" class="inline"
-              data-confirm="{{ a.file }} entfernen?">
-  <input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish small danger">Deaktivieren</button></form>
+              data-confirm="{{ _("{v0} entfernen?",v0=(a.file)) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="linkish small danger">{{ _("Deaktivieren") }}</button></form>
       </td>
     </tr>
     {% endfor %}
@@ -47,45 +45,45 @@
 </div>
 {% endif %}
 
-<h2>Gespeicherte APWorld-Versionen</h2>
-<p class="muted small">Alle Versionen bleiben archiviert. Pro Modul ist immer nur eine Version aktiv; alte Versionen können wiederhergestellt und heruntergeladen werden. Die Ausführung des Python-Codes ist derzeit noch nicht sandboxed.</p>
+<h2>{{ _("Gespeicherte APWorld-Versionen") }}</h2>
+<p class="muted small">{{ _("Alle Versionen bleiben archiviert. Pro Modul ist immer nur eine Version aktiv; alte Versionen können wiederhergestellt und heruntergeladen werden. Die Ausführung des Python-Codes ist derzeit noch nicht sandboxed.") }}</p>
 {% if apworld_versions %}
 <div class="panel table-wrap">
   <table>
-    <tr><th>Modul</th><th>Version</th><th>SHA-256</th><th>Größe</th><th>Quelle</th><th>Hinzugefügt</th><th>Status / Aktionen</th></tr>
+    <tr><th>{{ _("Modul") }}</th><th>{{ _("Version") }}</th><th>{{ _("SHA-256") }}</th><th>{{ _("Größe") }}</th><th>{{ _("Quelle") }}</th><th>{{ _("Hinzugefügt") }}</th><th>{{ _("Status / Aktionen") }}</th></tr>
     {% for v in apworld_versions %}
     <tr>
       <td>{{ v.module }}</td>
       <td>{{ v.version or 'Unbekannt' }}</td>
       <td title="{{ v.sha256 }}"><code>{{ v.sha256[:12] }}…</code></td>
-      <td>{{ (v.size / 1024)|round(1) }} KiB</td>
-      <td>{% if v.source_url %}<a href="{{ v.source_url }}" target="_blank" rel="noopener noreferrer">Quelllink</a>
-        {% else %}<span class="muted small">Nicht bestätigt</span>{% endif %}</td>
+      <td>{{ (v.size / 1024)|round(1) }} {{ _("KiB") }}</td>
+      <td>{% if v.source_url %}<a href="{{ v.source_url }}" target="_blank" rel="noopener noreferrer">{{ _("Quelllink") }}</a>
+        {% else %}<span class="muted small">{{ _("Nicht bestätigt") }}</span>{% endif %}</td>
       <td class="small muted">{{ v.added_at[:16] }}</td>
       <td>
-        {% if v.active %}<span class="chip ok">Aktiv</span>{% else %}
+        {% if v.active %}<span class="chip ok">{{ _("Aktiv") }}</span>{% else %}
           <form method="post" action="{{ url_for('admin_activate_apworld', sha256=v.sha256) }}" class="inline">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-            <button>Aktivieren</button>
+            <button>{{ _("Aktivieren") }}</button>
           </form>
         {% endif %}
-        <a class="btn" href="{{ url_for('admin_download_apworld', sha256=v.sha256) }}">Download</a>
+        <a class="btn" href="{{ url_for('admin_download_apworld', sha256=v.sha256) }}">{{ _("Download") }}</a>
       </td>
     </tr>
     {% endfor %}
   </table>
 </div>
 {% else %}
-<p class="muted">Noch keine APWorld-Versionen gespeichert.</p>
+<p class="muted">{{ _("Noch keine APWorld-Versionen gespeichert.") }}</p>
 {% endif %}
 
 <form method="post" action="{{ url_for('admin_extract') }}" style="margin-top:12px">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-  <button>Optionen neu einlesen</button>
+  <button>{{ _("Optionen neu einlesen") }}</button>
 </form>
 
 {% if failed %}
-<h2>Nicht geladene Welten</h2>
+<h2>{{ _("Nicht geladene Welten") }}</h2>
 <div class="panel stack">
   {% for game, reason in failed.items() %}
     <details><summary>{{ game }}</summary><pre class="log">{{ reason }}</pre></details>
@@ -94,41 +92,41 @@
 {% endif %}
 
 {% if status.log %}
-<details style="margin-top:12px"><summary class="small muted">Log vom letzten Einlesen</summary><pre class="log">{{ status.log }}</pre></details>
+<details style="margin-top:12px"><summary class="small muted">{{ _("Log vom letzten Einlesen") }}</summary><pre class="log">{{ status.log }}</pre></details>
 {% endif %}
 
-<h2 id="accounts">Accounts verwalten</h2>
-<p class="muted small">Beim Löschen werden Anmeldung und Teilnahme entfernt. Gemeinsame Runden, Seeds, Vorlagen, Anleitungen und Spiel-Uploads bleiben erhalten und werden dir übertragen. Bereits exportierte Seeds behalten ihre bisherigen Slotnamen. Dein eigenes Admin-Konto kannst du hier nicht löschen.</p>
-<p class="muted small">Neue Spieler erstellen ihr Konto selbst mit Benutzername und Passwort.</p>
-<p class="muted small">Persönliche Einrichtungscodes nur an den jeweiligen Kontobesitzer weitergeben. Nach der Passwortvergabe werden seine bisherigen Sitzungen beendet.</p>
+<h2 id="accounts">{{ _("Accounts verwalten") }}</h2>
+<p class="muted small">{{ _("Beim Löschen werden Anmeldung und Teilnahme entfernt. Gemeinsame Runden, Seeds, Vorlagen, Anleitungen und Spiel-Uploads bleiben erhalten und werden dir übertragen. Bereits exportierte Seeds behalten ihre bisherigen Slotnamen. Dein eigenes Admin-Konto kannst du hier nicht löschen.") }}</p>
+<p class="muted small">{{ _("Neue Spieler erstellen ihr Konto selbst mit Benutzername und Passwort.") }}</p>
+<p class="muted small">{{ _("Persönliche Einrichtungscodes nur an den jeweiligen Kontobesitzer weitergeben. Nach der Passwortvergabe werden seine bisherigen Sitzungen beendet.") }}</p>
 <div class="panel table-wrap">
   <table>
-    <tr><th>Name</th><th>Slot</th><th>Rolle</th><th>Rechte</th><th>Kontoeinrichtung</th><th>Löschen</th></tr>
+    <tr><th>{{ _("Name") }}</th><th>{{ _("Slot") }}</th><th>{{ _("Rolle") }}</th><th>{{ _("Rechte") }}</th><th>{{ _("Kontoeinrichtung") }}</th><th>{{ _("Löschen") }}</th></tr>
     {% for u in users %}
     <tr>
-      <td>{{ u.username }}</td><td>{{ u.slot_name }}</td><td>{{ 'Admin' if u.is_admin else 'Spieler' }}</td>
+      <td>{{ u.username }}</td><td>{{ u.slot_name }}</td><td>{{ _('Admin') if u.is_admin else _('Spieler') }}</td>
       <td>{% if u.id != g.user.id %}
         <form method="post" action="{{ url_for('admin_toggle', uid=u.id) }}" class="inline">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-          <button class="linkish small">{{ 'Admin entziehen' if u.is_admin else 'Zum Admin machen' }}</button></form>
+          <button class="linkish small">{{ _('Admin entziehen') if u.is_admin else _('Zum Admin machen') }}</button></form>
       {% endif %}</td>
       <td><form method="post" action="{{ url_for('admin_setup_account', uid=u.id) }}" class="inline">
         <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-        <button>{{ 'Passwort wiederherstellen' if u.password_hash else 'Einrichtungscode erzeugen' }}</button>
+        <button>{{ _('Passwort wiederherstellen') if u.password_hash else _('Einrichtungscode erzeugen') }}</button>
       </form></td>
-      <td>{% if u.id != g.user.id %}<form method="post" action="{{ url_for('admin_delete_account', uid=u.id) }}" class="inline" data-confirm="Konto {{ u.username }} dauerhaft löschen? Anmeldungen und Teilnahme werden entfernt. Gemeinsame Inhalte bleiben erhalten und werden dir übertragen."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="danger small">Account löschen</button></form>{% else %}<span class="muted small">Dein Konto</span>{% endif %}</td>
+      <td>{% if u.id != g.user.id %}<form method="post" action="{{ url_for('admin_delete_account', uid=u.id) }}" class="inline" data-confirm="{{ _("Konto {v0} dauerhaft löschen? Anmeldungen und Teilnahme werden entfernt. Gemeinsame Inhalte bleiben erhalten und werden dir übertragen.",v0=(u.username)) }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="danger small">{{ _("Account löschen") }}</button></form>{% else %}<span class="muted small">{{ _("Dein Konto") }}</span>{% endif %}</td>
     </tr>
     {% endfor %}
   </table>
 </div>
-<h2 id="rounds">Runden verwalten</h2>
-<p class="muted small">Eine Runde zu löschen entfernt auch alle zugehörigen Seeds, Analysen, Einladungen, Verbindungsdaten und lokalen Dateien. Auf externen Servern gehostete Räume werden dadurch nicht beendet.</p>
-<div class="panel table-wrap"><table><thead><tr><th>Runde</th><th>Host</th><th>Seeds</th><th>Aktion</th></tr></thead><tbody>
-{% for room in admin_rounds %}<tr><td><a href="{{ url_for('session_view', sid=room.id) }}">{{ room.name }} (#{{ room.id }})</a></td><td>{{ room.owner or 'Kein Host' }}</td><td>{{ room.seed_count }}</td><td><form method="post" action="{{ url_for('admin_delete_round', sid=room.id) }}" class="inline" data-confirm="Runde {{ room.name }} samt allen {{ room.seed_count }} Seeds und Dateien dauerhaft löschen?"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="danger small" {% if room.busy or room.gen_status == 'running' %}disabled{% endif %}>Runde löschen</button>{% if room.busy or room.gen_status == 'running' %}<span class="muted small">Generierung läuft</span>{% endif %}</form></td></tr>{% else %}<tr><td colspan="4" class="muted">Keine Runden vorhanden.</td></tr>{% endfor %}
+<h2 id="rounds">{{ _("Runden verwalten") }}</h2>
+<p class="muted small">{{ _("Eine Runde zu löschen entfernt auch alle zugehörigen Seeds, Analysen, Einladungen, Verbindungsdaten und lokalen Dateien. Auf externen Servern gehostete Räume werden dadurch nicht beendet.") }}</p>
+<div class="panel table-wrap"><table><thead><tr><th>{{ _("Runde") }}</th><th>{{ _("Host") }}</th><th>{{ _("Seeds") }}</th><th>{{ _("Aktion") }}</th></tr></thead><tbody>
+{% for room in admin_rounds %}<tr><td><a href="{{ url_for('session_view', sid=room.id) }}">{{ room.name }} (#{{ room.id }})</a></td><td>{{ room.owner or _('Kein Host') }}</td><td>{{ room.seed_count }}</td><td><form method="post" action="{{ url_for('admin_delete_round', sid=room.id) }}" class="inline" data-confirm="{{ _("Runde {v0} samt allen {v1} Seeds und Dateien dauerhaft löschen?",v0=(room.name),v1=(room.seed_count)) }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="danger small" {% if room.busy or room.gen_status == 'running' %}disabled{% endif %}>{{ _("Runde löschen") }}</button>{% if room.busy or room.gen_status == 'running' %}<span class="muted small">{{ _("Generierung läuft") }}</span>{% endif %}</form></td></tr>{% else %}<tr><td colspan="4" class="muted">{{ _("Keine Runden vorhanden.") }}</td></tr>{% endfor %}
 </tbody></table></div>
-<h2 id="seeds">Seeds verwalten</h2>
-<p class="muted small">Einzelne Seeds lassen sich einschließlich Analyse, Verbindungsdaten und lokalen Dateien löschen. Die Lobby und ihre Einstellungen bleiben erhalten.</p>
-<div class="panel table-wrap"><table><thead><tr><th>Seed</th><th>Runde</th><th>Status</th><th>Aktion</th></tr></thead><tbody>
-{% for seed in admin_seeds %}<tr><td><a href="{{ url_for('mvp.build_stats', sid=seed.session_id, build_id=seed.id) }}">Seed #{{ seed.id }}</a></td><td>{{ seed.session_name }}</td><td>{{ status_labels.get(seed.status, seed.status) }}</td><td><form method="post" action="{{ url_for('admin_delete_seed', bid=seed.id) }}" class="inline" data-confirm="Seed #{{ seed.id }} samt Analyse, Verbindungsdaten und Dateien dauerhaft löschen? Die Lobby bleibt erhalten."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="danger small" {% if seed.status in ['queued','running'] %}disabled{% endif %}>Seed löschen</button></form></td></tr>{% else %}<tr><td colspan="4" class="muted">Keine Seeds vorhanden.</td></tr>{% endfor %}
+<h2 id="seeds">{{ _("Seeds verwalten") }}</h2>
+<p class="muted small">{{ _("Einzelne Seeds lassen sich einschließlich Analyse, Verbindungsdaten und lokalen Dateien löschen. Die Lobby und ihre Einstellungen bleiben erhalten.") }}</p>
+<div class="panel table-wrap"><table><thead><tr><th>{{ _("Seed") }}</th><th>{{ _("Runde") }}</th><th>{{ _("Status") }}</th><th>{{ _("Aktion") }}</th></tr></thead><tbody>
+{% for seed in admin_seeds %}<tr><td><a href="{{ url_for('mvp.build_stats', sid=seed.session_id, build_id=seed.id) }}">{{ _("Seed #") }}{{ seed.id }}</a></td><td>{{ seed.session_name }}</td><td>{{ _(status_labels.get(seed.status, seed.status)) }}</td><td><form method="post" action="{{ url_for('admin_delete_seed', bid=seed.id) }}" class="inline" data-confirm="{{ _("Seed #{v0} samt Analyse, Verbindungsdaten und Dateien dauerhaft löschen? Die Lobby bleibt erhalten.",v0=(seed.id)) }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="danger small" {% if seed.status in ['queued','running'] %}disabled{% endif %}>{{ _("Seed löschen") }}</button></form></td></tr>{% else %}<tr><td colspan="4" class="muted">{{ _("Keine Seeds vorhanden.") }}</td></tr>{% endfor %}
 </tbody></table></div>
 {% endblock %}

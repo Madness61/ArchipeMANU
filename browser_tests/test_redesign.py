@@ -134,6 +134,7 @@ def test_dark_platform_navigation_options_and_responsive_pages(actors, live_serv
     expect(alice.locator("#featured-action")).to_have_text("Konsole öffnen")
     capture(alice, artifact_dir, "dashboard-active")
     alice.goto(play_url)
+    alice.get_by_role('link',name='Mein Spiel, Dateien & Verbindung',exact=True).click()
     expect(alice.locator("#host-address")).to_have_text("archipelago.gg:38281")
     expect(alice.locator("#slot-1")).to_have_text("Alice")
     expect(alice.get_by_role("button",name="Adresse kopieren",exact=False)).to_be_visible()

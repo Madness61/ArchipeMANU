@@ -1,39 +1,39 @@
 <section class="panel game-setup" id="{{ guide_id|default('game-guide') }}">
-  <h2 style="margin-top:0">So spielst du mit</h2>
+  <h2 style="margin-top:0">{{ _("So spielst du mit") }}</h2>
   <p>{{ game_info.description }}</p>
-  <div class="row genre-tags">{% for tag in game_info.genres %}<span class="chip">{{ tag }}</span>{% endfor %}<span class="chip">{{ game_info.setup_label }}</span></div>
-  {% if game_info.tags %}<div class="row catalog-tags" aria-label="Tags">{% for tag in game_info.tags %}<span class="chip">{{ tag }}</span>{% endfor %}</div>{% endif %}
-  <p class="status-note warn">Die Bibliothek prüft deine lokale Spieleinrichtung nicht. Eine verfügbare YAML-Vorlage allein reicht zum Spielen noch nicht aus.</p>
-  <h3>Das brauchst du</h3>
+  <div class="row genre-tags">{% for tag in game_info.genres %}<span class="chip">{{ _(tag) }}</span>{% endfor %}<span class="chip">{{ _(game_info.setup_label) }}</span></div>
+  {% if game_info.tags %}<div class="row catalog-tags" aria-label="{{ _("Tags") }}">{% for tag in game_info.tags %}<span class="chip">{{ _(tag) }}</span>{% endfor %}</div>{% endif %}
+  <p class="status-note warn">{{ _("Die Bibliothek prüft deine lokale Spieleinrichtung nicht. Eine verfügbare YAML-Vorlage allein reicht zum Spielen noch nicht aus.") }}</p>
+  <h3>{{ _("Das brauchst du") }}</h3>
   <ul>{% for requirement in game_info.requirements %}<li>{{ requirement }}</li>{% endfor %}</ul>
   {% if game_info.host_rom %}
-  <aside class="status-note warn" aria-label="Voraussetzung für den Host">
-    <strong>Host: ROM vor der Generierung einrichten</strong>
-    <p>{{ game_info.host_rom }} muss auf dem Rechner vorhanden und in Archipelago konfiguriert sein, auf dem dieser Hub den Seed generiert. Die Datei nur auf dem Rechner eines Mitspielers zu haben, reicht dafür nicht aus. Läuft der Hub auf einem separaten Server, wird die ROM dort benötigt.</p>
-    <p class="small">Die YAML enthält keine ROM. Richte den Dateipfad vor „Runde generieren“ gemäß der verlinkten Spielanleitung ein. Spieler benötigen später ihre eigene Originaldatei zum Patchen.</p>
+  <aside class="status-note warn" aria-label="{{ _("Voraussetzung für den Host") }}">
+    <strong>{{ _("Host: ROM vor der Generierung einrichten") }}</strong>
+    <p>{{ game_info.host_rom }} {{ _("muss auf dem Rechner vorhanden und in Archipelago konfiguriert sein, auf dem dieser Hub den Seed generiert. Die Datei nur auf dem Rechner eines Mitspielers zu haben, reicht dafür nicht aus. Läuft der Hub auf einem separaten Server, wird die ROM dort benötigt.") }}</p>
+    <p class="small">{{ _("Die YAML enthält keine ROM. Richte den Dateipfad vor „Runde generieren“ gemäß der verlinkten Spielanleitung ein. Spieler benötigen später ihre eigene Originaldatei zum Patchen.") }}</p>
   </aside>
   {% elif game_info.setup_type == 'rom' %}
-  <p class="status-note">Für den Host: Eine ROM beim Spieler bedeutet nicht automatisch, dass auch der Generator sie benötigt. Prüfe die verlinkte Anleitung für diese APWorld-Version vor der Generierung. Falls sie eine Originaldatei zur Generierung verlangt, muss diese auf dem Generator-Rechner eingerichtet sein.</p>
+  <p class="status-note">{{ _("Für den Host: Eine ROM beim Spieler bedeutet nicht automatisch, dass auch der Generator sie benötigt. Prüfe die verlinkte Anleitung für diese APWorld-Version vor der Generierung. Falls sie eine Originaldatei zur Generierung verlangt, muss diese auf dem Generator-Rechner eingerichtet sein.") }}</p>
   {% endif %}
-  <h3>{{ 'Einrichtung für dieses Spiel' if game_info.documented else 'Einrichtung noch ergänzen' }}</h3>
+  <h3>{{ _('Einrichtung für dieses Spiel') if game_info.documented else _('Einrichtung noch ergänzen') }}</h3>
   {% for step in game_info.steps %}<p>{{ step }}</p>{% endfor %}
-  {% if game_info.setup_type == 'rom' %}<p class="small muted">Original-ROMs und Disc-Abbilder werden hier nicht mitgeliefert. Verwende deine eigenen Originaldateien in der angegebenen Region und Revision. Ein Slot-Patch enthält Änderungen für den Seed und ersetzt die Originaldatei nicht.</p>{% endif %}
-  <h3>Anleitungen & Downloads</h3>
+  {% if game_info.setup_type == 'rom' %}<p class="small muted">{{ _("Original-ROMs und Disc-Abbilder werden hier nicht mitgeliefert. Verwende deine eigenen Originaldateien in der angegebenen Region und Revision. Ein Slot-Patch enthält Änderungen für den Seed und ersetzt die Originaldatei nicht.") }}</p>{% endif %}
+  <h3>{{ _("Anleitungen & Downloads") }}</h3>
   <ul class="setup-links">
-    {% if game_info.guide_url %}<li><a href="{{ game_info.guide_url }}" target="_blank" rel="noopener noreferrer">{{ 'Anleitung des Mod-Entwicklers' if game_info.setup_type == 'unknown' or game_info.guide_url.startswith('https://github.com/') else 'Offizielle Schritt-für-Schritt-Anleitung' }}</a></li>{% endif %}
-    {% for link in game_info.links %}<li><a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }}</a></li>{% endfor %}
-    <li><a href="https://github.com/ArchipelagoMW/Archipelago/releases" target="_blank" rel="noopener noreferrer">Archipelago herunterladen (Launcher und Spielclients)</a></li>
-    <li><a href="https://archipelago.gg/tutorial/Archipelago/setup/en" target="_blank" rel="noopener noreferrer">Allgemeine Anleitung: Generieren, Hosten und Verbinden</a></li>
+    {% if game_info.guide_url %}<li><a href="{{ game_info.guide_url }}" target="_blank" rel="noopener noreferrer">{{ _('Anleitung des Mod-Entwicklers') if game_info.setup_type == 'unknown' or game_info.guide_url.startswith('https://github.com/') else _('Offizielle Schritt-für-Schritt-Anleitung') }}</a></li>{% endif %}
+    {% for link in game_info.links %}<li><a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ _(link.label) }}</a></li>{% endfor %}
+    <li><a href="https://github.com/ArchipelagoMW/Archipelago/releases" target="_blank" rel="noopener noreferrer">{{ _("Archipelago herunterladen (Launcher und Spielclients)") }}</a></li>
+    <li><a href="https://archipelago.gg/tutorial/Archipelago/setup/en" target="_blank" rel="noopener noreferrer">{{ _("Allgemeine Anleitung: Generieren, Hosten und Verbinden") }}</a></li>
   </ul>
-  <details class="technical-options"><summary>Von der Lobby bis zur verbundenen Partie</summary><ol>{% for step in game_info.common_steps %}<li>{{ step }}</li>{% endfor %}</ol></details>
-  {% if game_info.source_url %}<p class="small muted">Die Kurzfassung orientiert sich an der verlinkten <a href="{{ game_info.source_url }}" target="_blank" rel="noopener noreferrer">Projekt-Dokumentation</a>. Prüfe dort die zu deiner APWorld passenden Spiel-, Mod- und Clientversionen.</p>{% endif %}
+  <details class="technical-options"><summary>{{ _("Von der Lobby bis zur verbundenen Partie") }}</summary><ol>{% for step in game_info.common_steps %}<li>{{ step }}</li>{% endfor %}</ol></details>
+  {% if game_info.source_url %}<p class="small muted">{{ _("Die Kurzfassung orientiert sich an der verlinkten") }} <a href="{{ game_info.source_url }}" target="_blank" rel="noopener noreferrer">{{ _("Projekt-Dokumentation") }}</a>{{ _(". Prüfe dort die zu deiner APWorld passenden Spiel-, Mod- und Clientversionen.") }}</p>{% endif %}
   {% if guide and guide.steps %}
   <div class="technical-options">
-    <h3>Zusätzliche Anleitung eurer Gruppe</h3>
-    {% if guide.game_version %}<p class="small">Spielversion: {{ guide.game_version }}</p>{% endif %}
+    <h3>{{ _("Zusätzliche Anleitung eurer Gruppe") }}</h3>
+    {% if guide.game_version %}<p class="small">{{ _("Spielversion:") }} {{ guide.game_version }}</p>{% endif %}
     <pre class="log">{{ guide.steps }}</pre>
-    <div class="row">{% if guide.mod_url %}<a class="btn" href="{{ guide.mod_url }}" target="_blank" rel="noopener noreferrer">Mod-/Client-Download der Gruppe</a>{% endif %}{% if guide.source_url %}<a href="{{ guide.source_url }}" target="_blank" rel="noopener noreferrer">Weitere Informationen der Gruppe</a>{% endif %}</div>
-    {% if guide.trouble %}<details><summary>Hilfe bei Problemen</summary><pre class="log">{{ guide.trouble }}</pre></details>{% endif %}
+    <div class="row">{% if guide.mod_url %}<a class="btn" href="{{ guide.mod_url }}" target="_blank" rel="noopener noreferrer">{{ _("Mod-/Client-Download der Gruppe") }}</a>{% endif %}{% if guide.source_url %}<a href="{{ guide.source_url }}" target="_blank" rel="noopener noreferrer">{{ _("Weitere Informationen der Gruppe") }}</a>{% endif %}</div>
+    {% if guide.trouble %}<details><summary>{{ _("Hilfe bei Problemen") }}</summary><pre class="log">{{ guide.trouble }}</pre></details>{% endif %}
   </div>
   {% endif %}
 </section>

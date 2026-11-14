@@ -1,38 +1,39 @@
-<div id="ap-console" class="console-workspace" data-base="{{ url_for('console.page',sid=room.id,build_id=build.id) }}" data-csrf="{{ csrf_token }}">
+<div id="ap-console" class="console-workspace" data-user="{{ g.user.id }}" data-base="{{ url_for('console.page',sid=room.id,build_id=build.id) }}" data-csrf="{{ csrf_token }}">
   <section class="panel console-main">
-    <div class="row spread"><div><p class="eyebrow">Eure Runde live</p><h2>Itemprotokoll & Chat</h2></div><div class="row"><span id="console-state" class="chip" role="status">Nicht verbunden</span>{% if own and not archived %}<a class="small" href="#console-connect" id="console-connect-link">Slot verbinden</a>{% endif %}</div></div>
-    <p class="small muted">Wer findet was für wen? Sendungen erscheinen ab einer Textverbindung. Frühere Sendungen sind kein vollständig nachträglich abrufbares Serverlog.</p>
-    <details class="console-diagnostics"><summary>Verbindungsdiagnose</summary><p id="console-diagnostics" class="small muted" role="status">Textkonsole, WebHost-API und lokaler Spielclient sind getrennte Verbindungen.</p></details>
-    <div class="row console-filters"><label>Nachrichtenart<select id="console-kind" aria-label="Nachrichtenart"><option value="all">Items & Nachrichten</option><option value="items">Item-Sendungen</option><option value="chat">Chat</option><option value="system">System & Antworten</option><option value="sent">Gesendete Befehle</option></select></label><label>In geladenen Nachrichten suchen<input type="search" id="console-search" maxlength="100"></label><button id="console-older" type="button" class="small">Frühere Nachrichten</button></div>
-    <div id="console-log" class="console-log" role="log" aria-label="Archipelago-Protokoll" aria-live="polite"><p class="muted" id="console-empty">Noch keine Nachrichten aufgezeichnet. Verbinde deinen Slot, um neue Item-Sendungen und Chat zu sehen.</p></div>
+    <div class="row spread"><div><p class="eyebrow">{{ _("Eure Runde live") }}</p><h2>{{ _("Itemprotokoll & Chat") }}</h2></div><div class="row"><span id="console-state" class="chip" role="status">{{ _("Nicht verbunden") }}</span>{% if own and not archived %}<a class="small" href="#console-connect" id="console-connect-link">{{ _("Slot verbinden") }}</a>{% endif %}</div></div>
+    <p class="small muted">{{ _("Wer findet was für wen? Sendungen erscheinen ab einer Textverbindung. Frühere Sendungen sind kein vollständig nachträglich abrufbares Serverlog.") }}</p>
+    <details class="console-diagnostics"><summary>{{ _("Verbindungsdiagnose") }}</summary><p id="console-diagnostics" class="small muted" role="status">{{ _("Textkonsole, WebHost-API und lokaler Spielclient sind getrennte Verbindungen.") }}</p></details>
+    <div class="row console-filters"><label>{{ _("Nachrichtenart") }}<select id="console-kind" aria-label="{{ _("Nachrichtenart") }}"><option value="all">{{ _("Alle") }}</option><option value="for_me">{{ _("Für mich") }}</option><option value="from_me">{{ _("Von mir") }}</option><option value="others">{{ _("Andere Spieler") }}</option><option value="items">{{ _("Item-Sendungen") }}</option><option value="chat">{{ _("Chat") }}</option><option value="system">{{ _("System & Antworten") }}</option><option value="sent">{{ _("Gesendete Befehle") }}</option></select></label><label>{{ _("In geladenen Nachrichten suchen") }}<input type="search" id="console-search" maxlength="100"></label><button id="console-older" type="button" class="small">{{ _("Frühere Nachrichten") }}</button></div>
+    <div id="console-log" class="console-log" role="log" aria-label="{{ _("Archipelago-Protokoll") }}" aria-live="polite"><p class="muted" id="console-empty">{{ _("Noch keine Nachrichten aufgezeichnet. Verbinde deinen Slot, um neue Item-Sendungen und Chat zu sehen.") }}</p></div>
     <p id="console-error" class="err" role="alert" hidden></p>
     {% if own and not archived %}
     <form id="console-command" class="row console-command" method="post" action="{{ url_for('console.command',sid=room.id,build_id=build.id) }}">
       <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-      <label>Nachricht oder Befehl<input id="console-message" name="text" maxlength="500" placeholder="Nachricht schreiben oder / für Befehle" required autocomplete="off" aria-describedby="console-command-help"></label>
-      <button type="button" id="console-command-toggle" aria-controls="console-command-menu" aria-expanded="false">Befehl einfügen</button><button class="primary" type="submit">Senden</button>
+      <label>{{ _("Nachricht oder Befehl") }}<input id="console-message" name="text" maxlength="500" placeholder="{{ _("Nachricht schreiben oder / für Befehle") }}" required autocomplete="off" aria-describedby="console-command-help"></label>
+      <button type="button" id="console-command-toggle" aria-controls="console-command-menu" aria-expanded="false">{{ _("Befehl einfügen") }}</button><button class="primary" type="submit">{{ _("Senden") }}</button>
     </form>
-    <div id="console-command-menu" class="console-command-menu" role="group" aria-label="Befehl auswählen" hidden>
-      {% for cmd,description in commands %}<button type="button" data-insert-command="{{ cmd.split(' ')[0] }}{{ ' ' if ' ' in cmd else '' }}"><code>{{ cmd }}</code><span>{{ description }}</span></button>{% endfor %}
+    <div id="console-command-menu" class="console-command-menu" role="group" aria-label="{{ _("Befehl auswählen") }}" hidden>
+      {% for cmd,description in commands %}<button type="button" data-insert-command="{{ cmd.split(' ')[0] }}{{ ' ' if ' ' in cmd else '' }}"><code>{{ cmd }}</code><span>{{ _(description) }}</span></button>{% endfor %}
     </div>
-    <p class="muted small" id="console-command-help">Text sendet eine Chatnachricht. Mit „/“ oder „Befehl einfügen“ wählst du einen Befehl; erst „Senden“ führt ihn aus. Hinweise können Serverpunkte kosten. Persönliche Antworten sind nur für dich sichtbar.</p>
-    {% elif archived %}<p class="small muted">Abgeschlossene Runde · Das gespeicherte Protokoll bleibt lesbar.</p>{% else %}<p class="small muted">Du kannst gemeinsame Item-Sendungen lesen. Für Chat und Befehle brauchst du einen eigenen Spielslot.</p>{% endif %}
+    <p class="muted small" id="console-command-help">{{ _("Text sendet eine Chatnachricht. Mit „/“ oder „Befehl einfügen“ wählst du einen Befehl; erst „Senden“ führt ihn aus. Hinweise können Serverpunkte kosten. Persönliche Antworten sind nur für dich sichtbar.") }}</p>
+    {% elif archived %}<p class="small muted">{{ _("Abgeschlossene Runde · Das gespeicherte Protokoll bleibt lesbar.") }}</p>{% else %}<p class="small muted">{{ _("Du kannst gemeinsame Item-Sendungen lesen. Für Chat und Befehle brauchst du einen eigenen Spielslot.") }}</p>{% endif %}
   </section>
-  <aside class="console-sidebar" aria-label="Verbindung und Konsolenhilfe">
-    <section class="panel console-connection"><h3>Mitspielen & mitschreiben</h3>
-    {% if endpoint %}<p class="small muted">Server <code>{{ endpoint.host }}:{{ endpoint.port }}</code></p>{% else %}<p class="small muted">Der Host muss zuerst Server und Port hinterlegen.</p>{% endif %}
+  <aside class="console-sidebar" aria-label="{{ _("Verbindung und Konsolenhilfe") }}">
+    <section class="panel console-connection"><h3>{{ _("Mitspielen & mitschreiben") }}</h3>
+    <p class="small muted" id="console-server-row" {% if not endpoint %}hidden{% endif %}>{{ _("Server") }} <code id="console-server-address">{% if endpoint %}{{ endpoint.host }}:{{ endpoint.port }}{% endif %}</code></p>{% if not endpoint %}<p class="small muted">{{ _("Der Host muss zuerst Server und Port hinterlegen.") }}</p>{% endif %}
+    <p class="small muted" id="console-auto-port" hidden>{{ _("Port wird automatisch aktualisiert.") }}</p>
     <p class="small" id="console-connected-slot" hidden></p>
     {% if own and not archived %}
     <form id="console-connect" class="stack" method="post" action="{{ url_for('console.connect',sid=room.id,build_id=build.id) }}">
       <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-      <label>Dein Slot<select name="slot" aria-label="Dein Slot">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label>
-      <label>Raumpasswort (optional)<input type="password" name="password" maxlength="1024" autocomplete="off"></label>
-      <label>Verbindungsart<select name="transport" aria-label="Verbindungsart"><option value="auto">Automatisch (empfohlen)</option><option value="wss">WSS (verschlüsselt)</option><option value="ws">WS (unverschlüsselt)</option></select></label>
-      <button class="primary" {% if not endpoint %}disabled{% endif %}>Mit Archipelago verbinden</button><button id="console-disconnect" type="button">Verbindung trennen</button>
+      <label>{{ _("Dein Slot") }}<select name="slot" aria-label="{{ _("Dein Slot") }}">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label>
+      <label>{{ _("Raumpasswort (optional)") }}<input type="password" name="password" maxlength="1024" autocomplete="off"></label>
+      <label>{{ _("Verbindungsart") }}<select name="transport" aria-label="{{ _("Verbindungsart") }}"><option value="auto">{{ _("Automatisch (empfohlen)") }}</option><option value="wss">{{ _("WSS (verschlüsselt)") }}</option><option value="ws">{{ _("WS (unverschlüsselt)") }}</option></select></label>
+      <button class="primary" {% if not endpoint %}disabled{% endif %}>{{ _("Mit Archipelago verbinden") }}</button><button id="console-disconnect" type="button">{{ _("Verbindung trennen") }}</button>
     </form>{% endif %}
-    <p class="small muted">Diese Textverbindung liest Servermeldungen und ermöglicht Chat. Deinen Spielclient verbindest du separat. Ein Raumpasswort bleibt nur im Arbeitsspeicher der Verbindung.</p>
-    {% if console_embedded|default(false) %}<div class="stack"><a href="#prepare-games">Mein Spiel, Dateien & Verbindung</a><a href="#progress">Fortschritt & nächste Checks</a><a href="#completion">Spielabschluss bestätigen</a></div>{% endif %}
+    <p class="small muted">{{ _("Diese Textverbindung liest Servermeldungen und ermöglicht Chat. Deinen Spielclient verbindest du separat. Ein Raumpasswort bleibt nur im Arbeitsspeicher der Verbindung.") }}</p>
+    {% if console_embedded|default(false) %}<div class="stack"><a href="#prepare-games">{{ _("Mein Spiel, Dateien & Verbindung") }}</a><a href="#progress">{{ _("Fortschritt & nächste Checks") }}</a><a href="#completion">{{ _("Spielabschluss bestätigen") }}</a></div>{% endif %}
     </section>
-    <section class="panel console-help"><h3>Direkt im Chat</h3><p class="small muted"><code>/received</code> zeigt empfangene Items, <code>/missing</code> offene Checks und <code>/hint Itemname</code> fragt einen Hinweis an. Der Server entscheidet über Verfügbarkeit, Kosten und Berechtigungen.</p><p class="small muted">Item-Sendungen sind gemeinsam sichtbar. Chat und Befehlsantworten werden in deinem persönlichen Konsolenverlauf gespeichert; andere verbundene Spielclients erhalten Chat über Archipelago.</p></section>
+    <section class="panel console-help"><h3>{{ _("Direkt im Chat") }}</h3><p class="small muted"><code>/received</code> {{ _("zeigt empfangene Items,") }} <code>/missing</code> {{ _("offene Checks und") }} <code>/hint Itemname</code> {{ _("fragt einen Hinweis an. Der Server entscheidet über Verfügbarkeit, Kosten und Berechtigungen.") }}</p><p class="small muted">{{ _("Item-Sendungen sind gemeinsam sichtbar. Chat und Befehlsantworten werden in deinem persönlichen Konsolenverlauf gespeichert; andere verbundene Spielclients erhalten Chat über Archipelago.") }}</p></section>
   </aside>
 </div>

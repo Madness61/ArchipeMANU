@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Archipelago-Konsole · {{ room.name }}{% endblock %}
+{% block title %}{{ _("Archipelago-Konsole ·") }} {{ room.name }}{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='console.css') }}">
-<p class="small"><a href="{{ url_for('mvp.play_page',sid=room.id,build_id=build.id) }}">← Zur Runde & Verbindung</a></p>
+<p class="small"><a href="{{ url_for('mvp.play_page',sid=room.id,build_id=build.id) }}">{{ _("← Zur Runde & Verbindung") }}</a></p>
 {% if own %}<p></p>{% endif %}
-<div class="page-head"><div><p class="eyebrow">Archipelago live</p><h1>Konsole · {{ room.name }}</h1></div></div>
+<div class="page-head"><div><p class="eyebrow">{{ _("Archipelago live") }}</p><h1>{{ _("Konsole ·") }} {{ room.name }}</h1></div></div>
 {% include "console_workspace.html" %}
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static',filename='console.js') }}"></script>{% endblock %}

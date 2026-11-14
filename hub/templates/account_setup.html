@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Passwort einrichten · {{ app_name }}{% endblock %}
+{% block title %}{{ _("Passwort einrichten ·") }} {{ app_name }}{% endblock %}
 {% block content %}
 <div class="panel" style="max-width:460px;margin:40px auto">
-  <h1>Persönliches Passwort einrichten</h1>
-  <p class="muted">Der persönliche Einrichtungscode gilt 24 Stunden und kann einmal verwendet werden. Benutzername, Spiele und Vorlagen bleiben erhalten.</p>
+  <h1>{{ _("Persönliches Passwort einrichten") }}</h1>
+  <p class="muted">{{ _("Der persönliche Einrichtungscode gilt 24 Stunden und kann einmal verwendet werden. Benutzername, Spiele und Vorlagen bleiben erhalten.") }}</p>
   <form method="post" class="stack">
     <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-    <div><label>Persönlicher Einrichtungscode<br><input name="code" autocomplete="off" required maxlength="128"></label></div>
-    <div><label>Neues Passwort<br><input name="password" type="password" autocomplete="new-password" maxlength="1024" required></label></div>
-    <div><label>Passwort wiederholen<br><input name="password_confirm" type="password" autocomplete="new-password" maxlength="1024" required></label></div>
-    <button class="primary">Passwort speichern</button>
+    <div><label>{{ _("Persönlicher Einrichtungscode") }}<br><input name="code" autocomplete="off" required maxlength="128"></label></div>
+    <div><label>{{ _("Neues Passwort") }}<br><input name="password" type="password" autocomplete="new-password" maxlength="1024" required></label></div>
+    <div><label>{{ _("Passwort wiederholen") }}<br><input name="password_confirm" type="password" autocomplete="new-password" maxlength="1024" required></label></div>
+    <button class="primary">{{ _("Passwort speichern") }}</button>
   </form>
-  <p><a href="{{ url_for('login') }}">Zur Anmeldung</a></p>
+  <p><a href="{{ url_for('login') }}">{{ _("Zur Anmeldung") }}</a></p>
 </div>
 {% endblock %}

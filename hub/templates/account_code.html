@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Einrichtungscode · {{ app_name }}{% endblock %}
+{% block title %}{{ _("Einrichtungscode ·") }} {{ app_name }}{% endblock %}
 {% block content %}
 <div class="panel" style="max-width:600px;margin:40px auto">
-  <h1>Einrichtung für {{ account.username }}</h1>
-  <p>Diesen Code nur an den bestätigten Besitzer dieses Kontos weitergeben. Er gilt 24 Stunden und ersetzt vorherige Einrichtungscodes.</p>
-  <p>Der Spieler öffnet <a href="{{ url_for('auth.setup_password') }}">Passwort einrichten</a> und gibt den Code dort ein.</p>
-  <p><code id="account-code">{{ code }}</code></p><button data-copy="#account-code">Code kopieren</button>
-  <p class="muted small">Der Code wird nur hier angezeigt. Falls er verloren geht, einen neuen ausstellen.</p>
-  <a class="btn" href="{{ url_for('admin') }}">Zurück zum Adminbereich</a>
+  <h1>{{ _("Einrichtung für") }} {{ account.username }}</h1>
+  <p>{{ _("Diesen Code nur an den bestätigten Besitzer dieses Kontos weitergeben. Er gilt 24 Stunden und ersetzt vorherige Einrichtungscodes.") }}</p>
+  <p>{{ _("Der Spieler öffnet") }} <a href="{{ url_for('auth.setup_password') }}">{{ _("Passwort einrichten") }}</a> {{ _("und gibt den Code dort ein.") }}</p>
+  <p><code id="account-code">{{ code }}</code></p><button data-copy="#account-code">{{ _("Code kopieren") }}</button>
+  <p class="muted small">{{ _("Der Code wird nur hier angezeigt. Falls er verloren geht, einen neuen ausstellen.") }}</p>
+  <a class="btn" href="{{ url_for('admin') }}">{{ _("Zurück zum Adminbereich") }}</a>
 </div>
 {% endblock %}

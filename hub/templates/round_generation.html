@@ -1,29 +1,29 @@
 {% if manage and not s.completed_at %}
 <section class="panel host-panel analysis-section" id="host-controls" data-refresh-fragment>
-  <div class="row spread"><div><p class="eyebrow">Nur für den Host</p><h2 style="margin:0">Runde starten</h2></div><span class="chip {{ 'ok' if all_ready else 'warn' }}">{{ 'Alle bereit' if all_ready else 'Es fehlt noch etwas' }}</span></div>
+  <div class="row spread"><div><p class="eyebrow">{{ _("Nur für den Host") }}</p><h2 style="margin:0">{{ _("Runde starten") }}</h2></div><span class="chip {{ _('ok') if all_ready else 'warn' }}">{{ _('Alle bereit') if all_ready else _('Es fehlt noch etwas') }}</span></div>
   {% if host_rom_requirements %}
-  <aside class="status-note warn" id="host-rom-requirements" aria-label="ROM-Voraussetzungen für den Host">
-    <strong>Vor der Generierung: Originaldateien prüfen</strong>
-    <p>Benötigt ein Spiel seine ROM bereits zur Generierung, muss sie auf dem Rechner vorhanden und in Archipelago konfiguriert sein, auf dem dieser Hub läuft. Eine ROM nur beim Mitspieler reicht nicht. Bei einem separaten Hub-Server wird die Datei dort benötigt; die YAML enthält sie nicht.</p>
-    <ul>{% for item in host_rom_requirements %}<li><strong>{{ item.name }}:</strong> {% if item.required %}{{ item.required }} vor „Runde generieren“ auf dem Generator-Rechner einrichten.{% else %}Originaldatei zum Spielen erforderlich. Ob sie auch der Generator benötigt, hängt von der APWorld-Version ab; Anleitung prüfen.{% endif %} <a href="{{ url_for('game_setup', slug=item.slug) }}">Voraussetzungen & Einrichtung</a></li>{% endfor %}</ul>
-    <p class="small">Die Bereitschaft der Spieler bestätigt ihre Einstellungen. Sie bestätigt nicht, dass diese Dateien auf dem Generator-Rechner eingerichtet sind.</p>
+  <aside class="status-note warn" id="host-rom-requirements" aria-label="{{ _("ROM-Voraussetzungen für den Host") }}">
+    <strong>{{ _("Vor der Generierung: Originaldateien prüfen") }}</strong>
+    <p>{{ _("Benötigt ein Spiel seine ROM bereits zur Generierung, muss sie auf dem Rechner vorhanden und in Archipelago konfiguriert sein, auf dem dieser Hub läuft. Eine ROM nur beim Mitspieler reicht nicht. Bei einem separaten Hub-Server wird die Datei dort benötigt; die YAML enthält sie nicht.") }}</p>
+    <ul>{% for item in host_rom_requirements %}<li><strong>{{ item.name }}:</strong> {% if item.required %}{{ item.required }} {{ _("vor „Runde generieren“ auf dem Generator-Rechner einrichten.") }}{% else %}{{ _("Originaldatei zum Spielen erforderlich. Ob sie auch der Generator benötigt, hängt von der APWorld-Version ab; Anleitung prüfen.") }}{% endif %} <a href="{{ url_for('game_setup', slug=item.slug) }}">{{ _("Voraussetzungen & Einrichtung") }}</a></li>{% endfor %}</ul>
+    <p class="small">{{ _("Die Bereitschaft der Spieler bestätigt ihre Einstellungen. Sie bestätigt nicht, dass diese Dateien auf dem Generator-Rechner eingerichtet sind.") }}</p>
   </aside>
   {% endif %}
-  {% if waiting %}<div class="status-note warn"><strong>Darauf wartet die Runde:</strong><ul>{% for u in waiting %}<li>{{ u.name }}: {{ u.reason }}</li>{% endfor %}</ul></div>
-  {% elif all_ready %}<p class="status-note ok">Alle Einstellungen sind bestätigt. Du kannst jetzt den gemeinsamen Seed generieren – das ist die Spieldatei für eure Runde.</p>{% endif %}
+  {% if waiting %}<div class="status-note warn"><strong>{{ _("Darauf wartet die Runde:") }}</strong><ul>{% for u in waiting %}<li>{{ u.name }}: {{ u.reason }}</li>{% endfor %}</ul></div>
+  {% elif all_ready %}<p class="status-note ok">{{ _("Alle Einstellungen sind bestätigt. Du kannst jetzt den gemeinsamen Seed generieren – das ist die Spieldatei für eure Runde.") }}</p>{% endif %}
   <form method="post" action="{{ url_for('session_generate', sid=s.id) }}" id="generate-round" data-preserve-draft>
     <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-    <button class="primary" {% if s.gen_status == 'running' or not all_ready or build_history|selectattr('status','in',['queued','running'])|list %}disabled{% endif %}>Seed generieren</button>
-    <details class="technical-options"><summary>Weitere Einstellungen zur Generierung</summary><div class="row">
-      <label>Spoiler-Datei<select name="spoiler">{% for v,label in [(0,'Keine'),(1,'Nur Einstellungen'),(2,'Mit Lösungsweg'),(3,'Vollständig')] %}<option value="{{ v }}" {% if s.spoiler == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-      <label><input type="checkbox" name="race" value="1" {% if s.race %}checked{% endif %}> Race-Modus: keine Spoiler in der Analyse</label>
+    <button class="primary" {% if s.gen_status == 'running' or not all_ready or build_history|selectattr('status','in',['queued','running'])|list %}disabled{% endif %}>{{ _("Seed generieren") }}</button>
+    <details class="technical-options"><summary>{{ _("Weitere Einstellungen zur Generierung") }}</summary><div class="row">
+      <label>{{ _("Spoiler-Datei") }}<select name="spoiler">{% for v,label in [(0,_('Keine')),(1,_('Nur Einstellungen')),(2,_('Mit Lösungsweg')),(3,_('Vollständig'))] %}<option value="{{ v }}" {% if s.spoiler == v %}selected{% endif %}>{{ _(label) }}</option>{% endfor %}</select></label>
+      <label><input type="checkbox" name="race" value="1" {% if s.race %}checked{% endif %}> {{ _("Race-Modus: keine Spoiler in der Analyse") }}</label>
     </div></details>
   </form>
 </section>
-{% elif is_member and not s.locked %}<p class="status-note">Der Host startet die Runde, sobald alle bereit sind. Du musst dafür nichts installieren oder eine Datei bearbeiten.</p>{% endif %}
+{% elif is_member and not s.locked %}<p class="status-note">{{ _("Der Host startet die Runde, sobald alle bereit sind. Du musst dafür nichts installieren oder eine Datei bearbeiten.") }}</p>{% endif %}
 <div id="gen" class="analysis-section" role="status" data-status-url="{{ url_for('session_status', sid=s.id) }}" data-status="{{ s.gen_status }}">
-  {% if s.gen_status == 'running' %}<p class="status-note">Eure Runde wird generiert. Du kannst diese Seite offen lassen; sie aktualisiert sich automatisch.</p>
-  {% elif s.gen_status == 'error' %}<p class="status-note warn">Die Runde konnte nicht erstellt werden. Der Host kann das Fehlerprotokoll prüfen und es erneut versuchen.</p>
-  {% elif s.gen_status == 'done' and not build_history %}<a class="btn primary" href="{{ url_for('session_download', sid=s.id) }}">{{ s.gen_file }} herunterladen</a>{% endif %}
-  {% if s.gen_log and not build_history %}<details><summary>Fehlerprotokoll und technische Details</summary><pre class="log">{{ s.gen_log }}</pre></details>{% endif %}
+  {% if s.gen_status == 'running' %}<p class="status-note">{{ _("Eure Runde wird generiert. Du kannst diese Seite offen lassen; sie aktualisiert sich automatisch.") }}</p>
+  {% elif s.gen_status == 'error' %}<p class="status-note warn">{{ _("Die Runde konnte nicht erstellt werden. Der Host kann das Fehlerprotokoll prüfen und es erneut versuchen.") }}</p>
+  {% elif s.gen_status == 'done' and not build_history %}<a class="btn primary" href="{{ url_for('session_download', sid=s.id) }}">{{ s.gen_file }} {{ _("herunterladen") }}</a>{% endif %}
+  {% if s.gen_log and not build_history %}<details><summary>{{ _("Fehlerprotokoll und technische Details") }}</summary><pre class="log">{{ s.gen_log }}</pre></details>{% endif %}
 </div>

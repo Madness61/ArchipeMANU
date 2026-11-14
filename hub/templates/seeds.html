@@ -1,24 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Seed-Historie · {{ app_name }}{% endblock %}
+{% block title %}{{ _("Seed-Historie ·") }} {{ app_name }}{% endblock %}
 {% block content %}
-<div class="page-head"><div><p class="eyebrow">Rückblick & Spielstart</p><h1>Seed-Analysen</h1><p class="muted">Die generierten Runden deiner Gruppe. Entdecke die Itemverteilung oder finde die Verbindung für euren Spieleabend.</p></div><a class="btn" href="{{ url_for('mvp.lobby_list') }}">Zu den Lobbys →</a></div>
+<div class="page-head"><div><p class="eyebrow">{{ _("Rückblick & Spielstart") }}</p><h1>{{ _("Seed-Analysen") }}</h1><p class="muted">{{ _("Die generierten Runden deiner Gruppe. Entdecke die Itemverteilung oder finde die Verbindung für euren Spieleabend.") }}</p></div><a class="btn" href="{{ url_for('mvp.lobby_list') }}">{{ _("Zu den Lobbys →") }}</a></div>
 {% if builds %}
 <div class="panel table-wrap" style="margin-top:16px">
-<table><thead><tr><th>Seed</th><th>Lobby</th><th>Erstellt</th><th>Status</th><th>Aktionen</th></tr></thead>
+<table><thead><tr><th>{{ _("Seed") }}</th><th>{{ _("Lobby") }}</th><th>{{ _("Erstellt") }}</th><th>{{ _("Status") }}</th><th>{{ _("Aktionen") }}</th></tr></thead>
 <tbody>
 {% for b in builds %}
 <tr>
   <td><strong>#{{ b.id }}</strong></td>
   <td>{{ b.session_name }}</td>
-  <td class="muted small">{{ b.created_at[:16] }}</td>
-  <td><span class="chip {{ 'ok' if b.status=='succeeded' else 'err' if b.status=='failed' else 'warn' }}">{{ 'Abgeschlossen' if b.completed_at else status_labels.get(b.status,b.status) }}</span></td>
-  <td><a href="{{ url_for('mvp.build_stats', sid=b.session_id, build_id=b.id) }}" class="btn">Statistik ansehen</a>
-  {% if b.status=='succeeded' %}<a href="{{ url_for('mvp.play_page', sid=b.session_id, build_id=b.id) }}" class="btn">{{ 'Runde ansehen' if b.completed_at else 'Jetzt spielen' }}</a>{% endif %}
-  {% if g.user.is_admin %}<form method="post" action="{{ url_for('admin_delete_seed', bid=b.id) }}" class="inline" data-confirm="Seed #{{ b.id }} samt Analyse, Verbindungsdaten und Dateien dauerhaft löschen? Die Lobby bleibt erhalten."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="danger small" {% if b.status in ['queued','running'] %}disabled{% endif %}>Seed löschen</button></form>{% endif %}</td>
+  <td class="muted small">{{ b.created_at|localdate }}</td>
+  <td><span class="chip {{ _('ok') if b.status=='succeeded' else 'err' if b.status=='failed' else 'warn' }}">{{ _('Abgeschlossen') if b.completed_at else _(status_labels.get(b.status,b.status)) }}</span></td>
+  <td><a href="{{ url_for('mvp.build_stats', sid=b.session_id, build_id=b.id) }}" class="btn">{{ _("Statistik ansehen") }}</a>
+  {% if b.status=='succeeded' %}<a href="{{ url_for('mvp.play_page', sid=b.session_id, build_id=b.id) }}" class="btn">{{ _('Runde ansehen') if b.completed_at else _('Jetzt spielen') }}</a>{% endif %}
+  {% if g.user.is_admin %}<form method="post" action="{{ url_for('admin_delete_seed', bid=b.id) }}" class="inline" data-confirm="{{ _("Seed #{v0} samt Analyse, Verbindungsdaten und Dateien dauerhaft löschen? Die Lobby bleibt erhalten.",v0=(b.id)) }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="danger small" {% if b.status in ['queued','running'] %}disabled{% endif %}>{{ _("Seed löschen") }}</button></form>{% endif %}</td>
 </tr>
 {% endfor %}
 </tbody></table></div>
 {% else %}
-<div class="panel empty-state"><h3>Noch keine generierte Runde</h3><p>Bereitet eine Lobby vor. Sobald der Host euren Seed erstellt hat, findest du hier die Auswertung und alles für den Spielstart.</p><a class="btn primary" href="{{ url_for('mvp.lobby_list') }}">Eine Runde vorbereiten</a></div>
+<div class="panel empty-state"><h3>{{ _("Noch keine generierte Runde") }}</h3><p>{{ _("Bereitet eine Lobby vor. Sobald der Host euren Seed erstellt hat, findest du hier die Auswertung und alles für den Spielstart.") }}</p><a class="btn primary" href="{{ url_for('mvp.lobby_list') }}">{{ _("Eine Runde vorbereiten") }}</a></div>
 {% endif %}
 {% endblock %}

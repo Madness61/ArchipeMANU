@@ -2,7 +2,7 @@
 
 **Privater Multiworld-Hub für Archipelago.** ArchipeMANU bündelt Spielebibliothek, APWorlds, YAML-Konfiguration, Lobbys, Seed-Generierung, persönliche Spieldateien und die gemeinsame Live-Konsole in einer lokalen Webanwendung.
 
-> **Gemeinsamer Entwicklungsstand (13.11.2026):** Dieser Branch bündelt die Rundenzentrale, Standard-Check-Vorschau, Konsole und Anmeldekorrekturen aus #7–#9, die Dokumentation aus #10 sowie den standardmäßigen Public-Start. Lokal und auf GitHub wird derselbe Integrationsbranch verwendet. Die Übernahme nach `main` erfolgt separat per Pull Request. Weitere geplante Änderungen stehen in [TODO.md](TODO.md).
+> **Entwicklungsstand (13.11.2026):** `feature/social-console-localization-themes` enthält den vollständigen gemeinsamen Stand aus #11, die Verbindungsstabilisierung aus #12 sowie DE/EN, Themes und persönliche Konsolenfilter. Lokales Checkout und zugehöriger GitHub-Branch werden synchron gehalten. Die Übernahme nach `main` erfolgt separat per Pull Request. Offene manuelle Abnahmen stehen in [TODO.md](TODO.md).
 
 ## Was der Hub macht
 
@@ -77,10 +77,10 @@ Zusätzlich ist der Public-Start ohne Zusatzschalter integriert. Der gemeinsame
 Pull Request ersetzt die einzelnen Änderungszweige für die weitere Abnahme;
 er ist kein Nachweis einer bereits erfolgten Übernahme nach `main`.
 
-Die nächsten **getrennten** Arbeitspakete stehen in [TODO.md](TODO.md):
+Die **getrennt umgesetzten** Arbeitspakete und ihre offenen manuellen Abnahmen stehen in [TODO.md](TODO.md):
 
 - **A – Verbindungsstabilität:** WebSocket-Reconnect und browserunabhängige Textverbindung sind umgesetzt; reale Mehrspieler-Langzeitabnahme bleibt offen.
-- **B – Produkt-UX:** weitere Verbesserung der bereits zentralen Konsole, DE/EN-Umschaltung, Light/Dark/System-Theme, bessere visuelle Priorisierung, persönliche Itemfilter.
+- **B – Produkt-UX:** DE/EN, Light/Dark/System, persönliche Itemfilter und eine kompakte Konsole sind umgesetzt; die reale Spielclient-Abnahme bleibt separat.
 
 ## Dokumentation
 
@@ -96,6 +96,7 @@ Die nächsten **getrennten** Arbeitspakete stehen in [TODO.md](TODO.md):
 | Standard-YAML und tatsächliche Item-Checks | [STANDARD_CHECK_PREVIEW.md](STANDARD_CHECK_PREVIEW.md) |
 | Experimenteller Universal-Logik-Tracker (deaktiviert; historische Dokumentation) | [LOGIC_TRACKER.md](LOGIC_TRACKER.md) |
 | Benutzerkonten und Kontomigration | [AUTH_MIGRATION.md](AUTH_MIGRATION.md) |
+| Sprache, Themes und Erweiterung | [TRANSLATIONS.md](TRANSLATIONS.md) |
 | Layout und Design-Tokens | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
 | Browser-Tests und Testisolation | [BROWSER_TESTS.md](BROWSER_TESTS.md) |
 | Frühere Umsetzungsstände | [UI_PLAN.md](UI_PLAN.md), [PROJEKTANALYSE.md](PROJEKTANALYSE.md), [historisches README](docs/archive/README_legacy_2026-11-11.md) |

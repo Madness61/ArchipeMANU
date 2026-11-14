@@ -2,13 +2,13 @@
 {% from "option_fields.html" import field with context %}
 {% from "ui.html" import option_tools with context %}
 <div id="selection-editor" data-option-editor style="margin-top:20px">
-  <h3>Einstellungen anpassen · {{ schema.game }}</h3>
-  <p class="muted small">Entwurf – noch nicht übernommen. Deine bisherige Lobby-Auswahl bleibt bis zum Speichern erhalten.</p>
-  <p class="muted small">Alle angezeigten Werte gelten automatisch. Ändere nur, was du anders spielen möchtest. Mit „Auswahl übernehmen“ speicherst du dein Spiel für diese Runde.</p>
+  <h3>{{ _("Einstellungen anpassen ·") }} {{ schema.game }}</h3>
+  <p class="muted small">{{ _("Entwurf – noch nicht übernommen. Deine bisherige Lobby-Auswahl bleibt bis zum Speichern erhalten.") }}</p>
+  <p class="muted small">{{ _("Alle angezeigten Werte gelten automatisch. Ändere nur, was du anders spielen möchtest. Mit „Auswahl übernehmen“ speicherst du dein Spiel für diese Runde.") }}</p>
   <form method="post" action="{{ url_for('mvp.lobby_selection_submit', sid=s.id, _anchor='game-selection') }}" id="selection-draft-form" data-preserve-draft>
     <input type="hidden" name="_csrf" value="{{ csrf_token }}">
     <input type="hidden" name="_draft" value="{{ selection.draft }}">
-    {% for key,message in errors.items() %}<p class="err">{{ key }}: {{ message }}</p>{% endfor %}
+    {% for key,message in errors.items() %}<p class="err">{{ key }}: {{ _(message) }}</p>{% endfor %}
     {{ option_tools() }}
     {% for group, opts in selection.groups.items() %}
       <details class="group">
@@ -17,16 +17,16 @@
       </details>
     {% endfor %}
     <div class="row sticky-save">
-      <button name="_action" value="apply" class="primary">Auswahl übernehmen</button>
-      <button name="_action" value="preview">Vorschau aktualisieren</button>
-      <a href="{{ url_for('session_view', sid=s.id) }}">Abbrechen</a>
+      <button name="_action" value="apply" class="primary">{{ _("Auswahl übernehmen") }}</button>
+      <button name="_action" value="preview">{{ _("Vorschau aktualisieren") }}</button>
+      <a href="{{ url_for('session_view', sid=s.id) }}">{{ _("Abbrechen") }}</a>
     </div>
-    <details class="technical-options"><summary>Zurücksetzen und Datei herunterladen</summary><div class="row"><button name="_action" value="reset">Auf Vorlage/Profil zurücksetzen</button><button name="_action" value="download">YAML herunterladen</button></div><p class="muted small">Deine Änderungen haben Vorrang vor Spielerprofil, Vorlage und Spiel-Standard. Ein Download übernimmt die Auswahl noch nicht.</p></details>
+    <details class="technical-options"><summary>{{ _("Zurücksetzen und Datei herunterladen") }}</summary><div class="row"><button name="_action" value="reset">{{ _("Auf Vorlage/Profil zurücksetzen") }}</button><button name="_action" value="download">{{ _("YAML herunterladen") }}</button></div><p class="muted small">{{ _("Deine Änderungen haben Vorrang vor Spielerprofil, Vorlage und Spiel-Standard. Ein Download übernimmt die Auswahl noch nicht.") }}</p></details>
   </form>
   <details id="selection-preview" {% if request.method == 'POST' %}open{% endif %} style="margin-top:16px">
-    <summary>Dateivorschau (YAML) · noch nicht übernommen</summary>
+    <summary>{{ _("Dateivorschau (YAML) · noch nicht übernommen") }}</summary>
     {% if selection.yaml_preview %}<pre class="log">{{ selection.yaml_preview }}</pre>
-    {% else %}<p class="err">Keine gültige YAML: Bitte die markierten Fehler korrigieren.</p>{% endif %}
+    {% else %}<p class="err">{{ _("Keine gültige YAML: Bitte die markierten Fehler korrigieren.") }}</p>{% endif %}
   </details>
 </div>
 {% endwith %}

@@ -1,9 +1,9 @@
 {% macro round_card(r) %}
 {% from "ui.html" import icon with context %}
 <article class="panel card round-card" data-round-id="{{ r.id }}">
-<div class="row spread"><span class="chip {{ 'ok' if r.phase == 'running' else '' }}">{{ r.phase_label }}</span>{% if r.created_by == g.user.id %}<span class="small muted">Du bist Host</span>{% elif r.is_member %}<span class="small muted">Du bist dabei</span>{% endif %}</div>
-<h3>{{ r.name }}</h3><p class="small muted">Host {{ r.host_name or 'nicht mehr vorhanden' }} · {{ r.member_count }} Teilnehmer</p>
+<div class="row spread"><span class="chip {{ _('ok') if r.phase == 'running' else '' }}">{{ _(r.phase_label) }}</span>{% if r.created_by == g.user.id %}<span class="small muted">{{ _("Du bist Host") }}</span>{% elif r.is_member %}<span class="small muted">{{ _("Du bist dabei") }}</span>{% endif %}</div>
+<h3>{{ r.name }}</h3><p class="small muted">{{ _("Host") }} {{ r.host_name or _('nicht mehr vorhanden') }} · {{ r.member_count }} {{ _("Teilnehmer") }}</p>
 {% if r.game_names %}<p class="small round-game-names">{{ r.game_names|join(' · ') }}</p>{% endif %}
-<div class="row">{% if not r.is_member and not r.locked %}<form method="post" action="{{ url_for('mvp.join_open_lobby',sid=r.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="primary">Mitmachen →</button></form>{% endif %}<a class="btn {{ 'primary' if r.is_member else '' }}" href="{{ url_for('session_view',sid=r.id) }}">{{ 'Rückblick öffnen' if r.phase == 'completed' else 'Runde öffnen' if r.is_member else 'Lobby ansehen' }} {{ icon('arrow') }}</a></div>
+<div class="row">{% if not r.is_member and not r.locked %}<form method="post" action="{{ url_for('mvp.join_open_lobby',sid=r.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="primary">{{ _("Mitmachen →") }}</button></form>{% endif %}<a class="btn {{ 'primary' if r.is_member else '' }}" href="{{ url_for('session_view',sid=r.id) }}">{{ _('Rückblick öffnen') if r.phase == 'completed' else _('Runde öffnen') if r.is_member else _('Lobby ansehen') }} {{ icon('arrow') }}</a></div>
 </article>
 {% endmacro %}

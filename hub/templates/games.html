@@ -1,68 +1,68 @@
 {% extends "base.html" %}
 {% from "ui.html" import icon, game_art with context %}
-{% block title %}Spielebibliothek · {{ app_name }}{% endblock %}
+{% block title %}{{ _("Spielebibliothek ·") }} {{ app_name }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><p class="eyebrow">Ein Spiel für jeden</p><h1>Spielebibliothek</h1><p class="muted">Finde dein Spiel und erfahre, was du zum Mitspielen brauchst: Originalspiel, ROM, Emulator, Mod oder Spielclient.</p></div>
-  <div class="row"><a href="{{ url_for('import_view') }}" class="btn">Vorlage importieren</a>
-  <a href="{{ url_for('community.game_add') }}" class="btn primary">+ Spiel hinzufügen</a>
+  <div><p class="eyebrow">{{ _("Ein Spiel für jeden") }}</p><h1>{{ _("Spielebibliothek") }}</h1><p class="muted">{{ _("Finde dein Spiel und erfahre, was du zum Mitspielen brauchst: Originalspiel, ROM, Emulator, Mod oder Spielclient.") }}</p></div>
+  <div class="row"><a href="{{ url_for('import_view') }}" class="btn">{{ _("Vorlage importieren") }}</a>
+  <a href="{{ url_for('community.game_add') }}" class="btn primary">{{ _("+ Spiel hinzufügen") }}</a>
   </div>
 </div>
-<p class="status-note">„Für Lobby auswählbar“ bedeutet, dass du das Spiel in einer Lobby auswählen und einstellen kannst. Fürs Spielen können noch Originalspiel, ROM, Emulator oder Mods nötig sein. Benötigt die Generierung eine ROM, muss der Host sie vorher auf dem Rechner einrichten, auf dem dieser Hub die Runde generiert.</p>
-<p class="muted small">Die Check-Vorschau zählt tatsächliche Item-Fundorte in einem Probelauf mit den Spielvorgaben, ohne Gruppen-Vorlage oder Profilwerte. Events und Startinventar zählen nicht mit. Andere Einstellungen, Zufallswerte und eure Multiworld können die Anzahl verändern.</p>
-<form method="get" class="panel filter-bar library-filters" role="search" aria-label="Spiele filtern" id="library-filters">
-  <label class="search-field">Spiel suchen <input name="q" value="{{ q }}" placeholder="Name oder hinzugefügt von …" type="search"></label>
-  <label>Archipelago-Unterstützung<select name="state" aria-label="Archipelago-Unterstützung"><option value="all">Alle Status</option>{% for value,label in support_states.items() %}<option value="{{ value }}" {% if state == value %}selected{% endif %}>{{ label }}</option>{% endfor %}<option value="unloaded" {% if state == 'unloaded' %}selected{% endif %}>Optionen fehlen (alle)</option></select></label>
-  <label>Spieltyp<select name="kind" aria-label="Spieltyp"><option value="all" {% if kind == 'all' %}selected{% endif %}>Alle Spiele</option><option value="builtin" {% if kind == 'builtin' %}selected{% endif %}>In Archipelago enthalten</option><option value="custom" {% if kind == 'custom' %}selected{% endif %}>Hinzugefügte Spiele</option></select></label>
-  <label>Genre<select name="genre" aria-label="Genre"><option value="all">Alle Genres</option>{% for value in genres %}<option value="{{ value }}" {% if genre == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
-  <label>Tag<select name="tag" aria-label="Tag"><option value="all">Alle Tags</option>{% for value in tags %}<option value="{{ value }}" {% if tag == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
-  <label>Benötigte Einrichtung<select name="setup" aria-label="Benötigte Einrichtung"><option value="all">Alle Einrichtungsarten</option>{% for value,label in setup_types.items() %}<option value="{{ value }}" {% if setup == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-  <button data-filter-submit>Filtern</button>
-  <a class="small" href="{{ url_for('games') }}" data-filter-reset>Zurücksetzen</a>
-  <span class="muted small live-filter-hint" hidden>Suche und Filter wirken sofort.</span>
+<p class="status-note">{{ _("„Für Lobby auswählbar“ bedeutet, dass du das Spiel in einer Lobby auswählen und einstellen kannst. Fürs Spielen können noch Originalspiel, ROM, Emulator oder Mods nötig sein. Benötigt die Generierung eine ROM, muss der Host sie vorher auf dem Rechner einrichten, auf dem dieser Hub die Runde generiert.") }}</p>
+<p class="muted small">{{ _("Die Check-Vorschau zählt tatsächliche Item-Fundorte in einem Probelauf mit den Spielvorgaben, ohne Gruppen-Vorlage oder Profilwerte. Events und Startinventar zählen nicht mit. Andere Einstellungen, Zufallswerte und eure Multiworld können die Anzahl verändern.") }}</p>
+<form method="get" class="panel filter-bar library-filters" role="search" aria-label="{{ _("Spiele filtern") }}" id="library-filters">
+  <label class="search-field">{{ _("Spiel suchen") }} <input name="q" value="{{ q }}" placeholder="{{ _("Name oder hinzugefügt von …") }}" type="search"></label>
+  <label>{{ _("Archipelago-Unterstützung") }}<select name="state" aria-label="{{ _("Archipelago-Unterstützung") }}"><option value="all">{{ _("Alle Status") }}</option>{% for value,label in support_states.items() %}<option value="{{ value }}" {% if state == value %}selected{% endif %}>{{ _(label) }}</option>{% endfor %}<option value="unloaded" {% if state == 'unloaded' %}selected{% endif %}>{{ _("Optionen fehlen (alle)") }}</option></select></label>
+  <label>{{ _("Spieltyp") }}<select name="kind" aria-label="{{ _("Spieltyp") }}"><option value="all" {% if kind == 'all' %}selected{% endif %}>{{ _("Alle Spiele") }}</option><option value="builtin" {% if kind == 'builtin' %}selected{% endif %}>{{ _("In Archipelago enthalten") }}</option><option value="custom" {% if kind == 'custom' %}selected{% endif %}>{{ _("Hinzugefügte Spiele") }}</option></select></label>
+  <label>{{ _("Genre") }}<select name="genre" aria-label="{{ _("Genre") }}"><option value="all">{{ _("Alle Genres") }}</option>{% for value in genres %}<option value="{{ value }}" {% if genre == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
+  <label>{{ _("Tag") }}<select name="tag" aria-label="{{ _("Tag") }}"><option value="all">{{ _("Alle Tags") }}</option>{% for value in tags %}<option value="{{ value }}" {% if tag == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
+  <label>{{ _("Benötigte Einrichtung") }}<select name="setup" aria-label="{{ _("Benötigte Einrichtung") }}"><option value="all">{{ _("Alle Einrichtungsarten") }}</option>{% for value,label in setup_types.items() %}<option value="{{ value }}" {% if setup == value %}selected{% endif %}>{{ _(label) }}</option>{% endfor %}</select></label>
+  <button data-filter-submit>{{ _("Filtern") }}</button>
+  <a class="small" href="{{ url_for('games') }}" data-filter-reset>{{ _("Zurücksetzen") }}</a>
+  <span class="muted small live-filter-hint" hidden>{{ _("Suche und Filter wirken sofort.") }}</span>
 </form>
-<div class="section-head"><h2>Alle Spiele</h2><span class="muted small" role="status" aria-live="polite" aria-atomic="true" id="library-count">{{ rows|length }} von {{ total }} Spielen</span></div>
+<div class="section-head"><h2>{{ _("Alle Spiele") }}</h2><span class="muted small" role="status" aria-live="polite" aria-atomic="true" id="library-count">{{ rows|length|localnumber }} {{ _("von") }} {{ total }} {{ _("Spielen") }}</span></div>
 <div class="grid" id="library-results">
   {% set visible_slugs = rows|map(attribute='slug')|list %}
   {% for item in library %}
   <article class="panel card game-card" data-library-game data-search="{{ (item.name ~ ' ' ~ item.slug ~ ' ' ~ item.added_by ~ ' ' ~ item.catalog.description ~ ' ' ~ item.catalog.genres|join(' ') ~ ' ' ~ item.catalog.tags|join(' '))|lower }}" data-kind="{{ 'custom' if item.custom else 'builtin' }}" data-state="{{ item.support_state }}" data-genres="{{ item.catalog.genres|tojson|forceescape }}" data-tags="{{ item.catalog.tags|tojson|forceescape }}" data-setup="{{ item.catalog.setup_type }}" {% if item.slug not in visible_slugs %}hidden{% endif %}>
     {{ game_art(item.name, item.slug) }}
     <div class="card-content"><div class="row spread">
-      <span class="chip {{ 'ok' if item.installed else 'warn' }}">{{ support_states[item.support_state] }}</span>
-      <span class="muted small">{{ 'Hinzugefügt' if item.custom else 'Integriert' }}</span>
+      <span class="chip {{ _('ok') if item.installed else 'warn' }}">{{ support_states[item.support_state] }}</span>
+      <span class="muted small">{{ _('Hinzugefügt') if item.custom else 'Integriert' }}</span>
     </div>
-    <div class="game-heading"><span class="game-mark" aria-hidden="true">{{ item.name[:2]|upper }}</span><div><h3>{{ item.name }}</h3><span class="muted small">Version {{ item.version or 'unbekannt' }}</span></div></div>
-    <div class="row genre-tags">{% for tag in item.catalog.genres %}<span class="chip">{{ tag }}</span>{% endfor %}</div>
-    {% if item.catalog.tags %}<div class="row catalog-tags" aria-label="Tags">{% for tag in item.catalog.tags %}<span class="chip">{{ tag }}</span>{% endfor %}</div>{% endif %}
+    <div class="game-heading"><span class="game-mark" aria-hidden="true">{{ item.name[:2]|upper }}</span><div><h3>{{ item.name }}</h3><span class="muted small">{{ _("Version") }} {{ item.version or _('unbekannt') }}</span></div></div>
+    <div class="row genre-tags">{% for tag in item.catalog.genres %}<span class="chip">{{ _(tag) }}</span>{% endfor %}</div>
+    {% if item.catalog.tags %}<div class="row catalog-tags" aria-label="{{ _("Tags") }}">{% for tag in item.catalog.tags %}<span class="chip">{{ _(tag) }}</span>{% endfor %}</div>{% endif %}
     <p class="small game-description">{{ item.catalog.description }}</p>
-    <p class="small"><strong>Zum Spielen:</strong> {{ item.catalog.setup_label }}</p>
+    <p class="small"><strong>{{ _("Zum Spielen:") }}</strong> {{ _(item.catalog.setup_label) }}</p>
     {% if item.installed %}{% with check_slug=item.slug %}{% include "check_preview.html" %}{% endwith %}{% endif %}
-    {% if item.catalog.host_rom %}<p class="status-note warn small"><strong>Für den Host:</strong> Original-ROM vor der Generierung auf dem Generator-Rechner einrichten.</p>{% endif %}
+    {% if item.catalog.host_rom %}<p class="status-note warn small"><strong>{{ _("Für den Host:") }}</strong> {{ _("Original-ROM vor der Generierung auf dem Generator-Rechner einrichten.") }}</p>{% endif %}
     <p class="muted small" style="margin:8px 0">
-      {{ 'Von ' ~ item.added_by if item.added_by else 'In Archipelago enthalten' }}
+      {{ _('Von ') ~ item.added_by if item.added_by else _('In Archipelago enthalten') }}
     </p>
     <div class="row library-actions">
-      {% if item.can_edit_metadata %}<a class="btn small" href="{{ url_for('community.metadata_edit', slug=item.slug) }}">Spiel bearbeiten</a>{% endif %}
-      {% if item.installed %}<a class="btn primary" href="{{ url_for('game', slug=item.slug) }}">Spiel öffnen</a>{% else %}
-        <span class="muted small">{% if item.active %}Die APWorld ist aktiviert. Das Einlesen läuft automatisch; bei Fehlern das Admin-Protokoll prüfen.{% else %}Eine gespeicherte Version aktivieren, um die Spieloptionen automatisch einzulesen.{% endif %}</span>
+      {% if item.can_edit_metadata %}<a class="btn small" href="{{ url_for('community.metadata_edit', slug=item.slug) }}">{{ _("Spiel bearbeiten") }}</a>{% endif %}
+      {% if item.installed %}<a class="btn primary" href="{{ url_for('game', slug=item.slug) }}">{{ _("Spiel öffnen") }}</a>{% else %}
+        <span class="muted small">{% if item.active %}{{ _("Die APWorld ist aktiviert. Das Einlesen läuft automatisch; bei Fehlern das Admin-Protokoll prüfen.") }}{% else %}{{ _("Eine gespeicherte Version aktivieren, um die Spieloptionen automatisch einzulesen.") }}{% endif %}</span>
       {% endif %}
-      <a class="small setup-link" href="{{ url_for('game', slug=item.slug, _anchor='game-guide') if item.installed else url_for('game_setup', slug=item.slug) }}">Anleitung & Voraussetzungen</a>
+      <a class="small setup-link" href="{{ url_for('game', slug=item.slug, _anchor='game-guide') if item.installed else url_for('game_setup', slug=item.slug) }}">{{ _("Anleitung & Voraussetzungen") }}</a>
     </div>
     {% if item.versions %}
-    <details style="margin-top:12px"><summary class="small">Gespeicherte APWorld-Versionen ({{ item.versions|length }})</summary>
+    <details style="margin-top:12px"><summary class="small">{{ _("Gespeicherte APWorld-Versionen (") }}{{ item.versions|length }})</summary>
       {% for version in item.versions %}
       <div class="row" style="margin-top:8px">
         <code>{{ version.version or 'Unbekannt' }}</code>
-        <span class="muted small">{{ version.sha256[:12] }}… · von {{ version.username }}</span>
-        {% if version.active %}<span class="chip ok">Aktiv</span>{% else %}<span class="chip warn">Archiviert</span>{% endif %}
-        <a class="btn small" href="{{ url_for('community.download_apworld', sha256=version.sha256) }}">APWorld herunterladen</a>
+        <span class="muted small">{{ version.sha256[:12] }}{{ _("… · von") }} {{ version.username }}</span>
+        {% if version.active %}<span class="chip ok">{{ _("Aktiv") }}</span>{% else %}<span class="chip warn">{{ _("Archiviert") }}</span>{% endif %}
+        <a class="btn small" href="{{ url_for('community.download_apworld', sha256=version.sha256) }}">{{ _("APWorld herunterladen") }}</a>
         {% if version.yaml_file %}
-          <a class="btn small" href="{{ url_for('community.download_yaml', sha256=version.sha256) }}">YAML herunterladen</a>
+          <a class="btn small" href="{{ url_for('community.download_yaml', sha256=version.sha256) }}">{{ _("YAML herunterladen") }}</a>
         {% endif %}
         {% if not version.active %}
           <form method="post" action="{{ url_for('community.approve', sha256=version.sha256) }}" class="inline">
             <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-            <button class="primary">Aktivieren</button>
+            <button class="primary">{{ _("Aktivieren") }}</button>
           </form>
         {% endif %}
       </div>
@@ -73,6 +73,6 @@
   </article>
   {% endfor %}
 </div>
-<div class="panel empty-state" id="library-empty" {% if rows %}hidden{% endif %}><h3>Keine passenden Spiele gefunden</h3><p>Versuche einen anderen Suchbegriff oder setze die Filter zurück. Du kannst auch ein weiteres Spiel hinzufügen.</p><a class="btn" href="{{ url_for('games') }}" data-filter-reset>Alle Spiele anzeigen</a></div>
+<div class="panel empty-state" id="library-empty" {% if rows %}hidden{% endif %}><h3>{{ _("Keine passenden Spiele gefunden") }}</h3><p>{{ _("Versuche einen anderen Suchbegriff oder setze die Filter zurück. Du kannst auch ein weiteres Spiel hinzufügen.") }}</p><a class="btn" href="{{ url_for('games') }}" data-filter-reset>{{ _("Alle Spiele anzeigen") }}</a></div>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static',filename='check_preview.js') }}" defer></script>{% endblock %}

@@ -7,6 +7,9 @@ Unknown uploads deliberately receive no guessed genres or requirements.
 import json
 from pathlib import Path
 from urllib.parse import urlsplit
+from . import i18n
+
+_EN = json.loads(Path(__file__).with_name('locales').joinpath('games_en.json').read_text(encoding='utf-8'))
 
 SETUP_TYPES = {
     "rom": "Original-ROM / Disc + Emulator oder Port",
@@ -209,6 +212,12 @@ def details(slug, name, metadata=None):
                      requirements=["Eine zur APWorld passende Spielversion und der vom Entwickler angegebene Client oder Mod. Die Anforderungen sind hier noch nicht dokumentiert."],
                      steps=["Die Anleitung des APWorld-Entwicklers prüfen und Spiel, Client sowie Mod in passenden Versionen installieren. Den Host um die genaue Quelle bitten, falls sie beim Upload fehlt."])
     entry = {**entry, "tags": list(entry.get("tags", []))}
+    english = i18n.language() == 'en'
+    if english:
+        translated = _EN.get(slug, _EN['_unknown'])
+        entry = {**entry, **translated}
+        if slug not in _EN:
+            entry['description'] = translated['description'].replace('{name}',name)
     if metadata:
         if metadata.get("description"):
             entry["description"] = metadata["description"]
@@ -216,11 +225,11 @@ def details(slug, name, metadata=None):
             entry["genres"] = json.loads(metadata["genres"]) or entry["genres"]
         if "tags" in metadata:
             entry["tags"] = json.loads(metadata["tags"])
-    return {**entry, "setup_label": SETUP_TYPES[entry["setup_type"]],
-            "host_rom": HOST_ROM_REQUIRED.get(slug),
+    return {**entry, "setup_label": i18n.t(SETUP_TYPES[entry["setup_type"]]),
+            "host_rom": i18n.t(HOST_ROM_REQUIRED.get(slug)),
             "documented": slug in CATALOG, "guide_url": source.get("guide_url", ""),
             "source_url": source.get("source_url", ""), "links": source.get("links", []),
-            "common_steps": [
+            "common_steps": _EN['_common'] if english else [
                 "In der Lobby Spiel und YAML-Einstellungen wählen und bestätigen. Der Host generiert danach den gemeinsamen Seed; dafür können bereits Originaldateien oder weitere Programme auf seinem Rechner nötig sein.",
                 "Nach erfolgreicher Generierung die eigenen Slotdateien aus der Runde herunterladen, soweit die Spielanleitung solche Dateien verlangt. Der Host richtet außerdem einen erreichbaren Multiworld-Server ein.",
                 "Den Spielclient oder Mod mit Serveradresse einschließlich Port, dem exakten Slotnamen und gegebenenfalls dem Raumpasswort verbinden. Diese Daten stehen bei der generierten Runde. Erst mit eingerichteter Spielinstallation und Verbindung kannst du mitspielen.",
