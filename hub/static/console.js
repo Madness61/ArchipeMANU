@@ -64,6 +64,19 @@
       const changedCatalog = (catalogVersion !== data.catalog_version || endpointId!==undefined && endpointId!==data.endpoint_id) && cursor > 0;
       catalogVersion = data.catalog_version;
       endpointId=data.endpoint_id;
+      if(data.server){
+        const address=data.server.host+':'+data.server.port;
+        const serverRow=document.getElementById('console-server-row');
+        if(serverRow)serverRow.hidden=false;
+        const autoPort=document.getElementById('console-auto-port');
+        if(autoPort)autoPort.hidden=!data.server.auto_port;
+        for(const id of ['console-server-address','host-address']){const node=document.getElementById(id);if(node)node.textContent=address;}
+        for(const [id,value] of [['server-host',data.server.host],['server-port',data.server.port]]){const node=document.getElementById(id);if(node)node.textContent=String(value);}
+        if(data.server.auto_port)document.querySelectorAll('.hosting-fields input[name=port]').forEach(input=>{
+          if(input.value===input.defaultValue){input.value=String(data.server.port);input.defaultValue=input.value;}
+        });
+        document.querySelector('#console-connect button.primary')?.removeAttribute('disabled');
+      }
       if (changedCatalog) {
         cursor=0;first=0;ids.clear();
         log.querySelectorAll('.console-line').forEach(line=>line.remove());

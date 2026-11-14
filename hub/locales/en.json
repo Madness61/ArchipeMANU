@@ -1878,5 +1878,10 @@
   "m1881": "YAML for {v0}",
   "m1882": "Round sections",
   "m1883": "Graphic cover for {v0}",
-  "m1884": "Remove {v0}?"
+  "m1884": "Remove {v0}?",
+  "m1885": "For archipelago.gg with a valid room link, the port is updated automatically through the official API. Self-hosted servers keep the entered port.",
+  "m1886": "Set the port manually (no automatic updates)",
+  "m1887": "Port changes are applied automatically after successful API requests. An active text console reconnects using the new port. Update your game client separately.",
+  "m1888": "Archipelago reported a new port. The text console is reconnecting automatically.",
+  "m1889": "Port updates automatically."
 }

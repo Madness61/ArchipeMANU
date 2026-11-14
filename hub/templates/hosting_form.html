@@ -10,6 +10,8 @@
     <label>{{ _("Archipelago-Raum-Link (optional)") }}<input type="url" name="room_url" value="{{ hosting_data.room_url if hosting_data else '' }}" placeholder="{{ _("https://archipelago.gg/room/…") }}"></label>
     <div class="row hosting-fields"><label>{{ _("Serveradresse") }}<input name="host" value="{{ hosting_data.host if hosting_data else '' }}" required placeholder="{{ _("z. B. archipelago.gg") }}"></label><label>{{ _("Port") }}<input type="number" name="port" value="{{ hosting_data.port if hosting_data else '' }}" min="1" max="65535" required placeholder="{{ _("z. B. 38281") }}"></label></div>
     <p class="muted small">{{ _("Serveradresse ohne „http://“ und ohne Port eintragen. Der Port gehört in das eigene Feld. Gemeint ist der Archipelago-Spielserver, nicht die Adresse oder der Port dieser Hub-Webseite.") }}</p>
+    <p class="muted small">{{ _("Bei archipelago.gg mit gültigem Raumlink wird der Port automatisch über die offizielle API aktualisiert. Selbst gehostete Server behalten den eingetragenen Port.") }}</p>
+    <label><input type="checkbox" name="manual_port" value="1" {% if live_connection and not live_connection.auto_host %}checked{% endif %}> {{ _("Port manuell festlegen (keine automatische Aktualisierung)") }}</label>
     <label><input type="checkbox" name="confirmed" value="1" {% if hosting_data and hosting_data.confirmed %}checked{% endif %}> {{ _("Ich habe die Verbindung eingerichtet und geprüft.") }}</label>
     <button class="primary">{{ _("Verbindung speichern") }}</button>
   </form>

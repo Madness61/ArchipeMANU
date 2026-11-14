@@ -14,7 +14,7 @@ import ssl
 import threading
 import time
 
-from . import config, db
+from . import config, db, live_store
 from . import i18n
 
 MAX_EVENTS = 10000
@@ -44,6 +44,10 @@ _lock = threading.RLock()
 _wire_logger = logging.getLogger("hub.ap_console.wire")
 _wire_logger.setLevel(logging.WARNING)  # Never log Connect frames containing a room password.
 _state_logger = logging.getLogger("hub.ap_console.state")
+
+
+class PortChanged(OSError):
+    """An API-confirmed port rotation for the same explicitly connected room."""
 
 
 def migrate():
@@ -260,13 +264,37 @@ class Client:
     def note(self, text, kind="system", origin="hub"):
         record(self.path, self.build_id, self.user_id, kind, {"text": text,"origin":origin}, hosted_id=self.endpoint["id"])
 
+    def target(self, conn):
+        endpoint = conn.execute("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (self.build_id,)).fetchone()
+        if not endpoint or any(endpoint[key] != self.endpoint[key] for key in ("id", "host", "room_url")):
+            return None
+        linked = conn.execute("SELECT * FROM live_rooms WHERE build_id=? AND active=1", (self.build_id,)).fetchone()
+        if linked and linked["auto_host"]:
+            if not live_store.official_address(endpoint["room_url"], endpoint["host"], linked["room_id"]):
+                return None
+        elif endpoint["port"] != self.endpoint["port"]:
+            return None
+        return endpoint
+
+    def sync_port(self):
+        """Only the socket's worker switches ports; commands never cross sockets."""
+        with connection(self.path) as conn:
+            target = self.target(conn)
+        if not target or target["port"] == self.endpoint["port"]:
+            return False
+        self.endpoint["port"] = target["port"]
+        self.error = ""
+        self.failure_streak = self.retry_attempt = 0
+        self.note("Archipelago hat einen neuen Port gemeldet. Die Textkonsole verbindet sich automatisch neu.")
+        return True
+
     def valid(self):
         with connection(self.path) as conn:
             authorized = conn.execute("""SELECT 1 FROM auth_sessions s JOIN users u ON u.id=s.user_id
                 WHERE s.token_hash=? AND s.user_id=? AND s.expires_at>?""",
                                       (self.token_hash, self.user_id, time.time())).fetchone()
             row = conn.execute("SELECT completed_at,snapshot FROM seed_builds WHERE id=?", (self.build_id,)).fetchone()
-            endpoint = conn.execute("SELECT id FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (self.build_id,)).fetchone()
+            endpoint = self.target(conn)
             membership = conn.execute("""SELECT 1 FROM seed_builds b JOIN sessions l ON l.id=b.session_id
                 JOIN users u ON u.id=? WHERE b.id=? AND (u.is_admin=1 OR l.created_by=u.id
                 OR EXISTS (SELECT 1 FROM lobby_members lm WHERE lm.session_id=l.id AND lm.user_id=u.id)
@@ -282,9 +310,12 @@ class Client:
                 self.items_synced = False
                 self.received, self.players, self.slot_data = [], {}, None
                 try:
+                    self.sync_port()
                     self.wire, self.transport = connect_transport(self.endpoint["host"], self.endpoint["port"], self.secure)
                     if self.stop.is_set() or not self.valid():
                         break
+                    if self.sync_port():
+                        raise PortChanged()
                     self.state = "authenticating"
                     self.serve()
                     break
@@ -301,7 +332,7 @@ class Client:
                         self.error = "Die Textverbindung konnte nicht sicher fortgesetzt werden. Bitte erneut verbinden."
                         self.transition("action_required", "internal")
                         break
-                    self.error = connection_error(exc)
+                    self.error = "" if isinstance(exc, PortChanged) else connection_error(exc)
                     self.interrupted_at = self.interrupted_at or time.time()
                     if self.stable_since and time.monotonic() - self.stable_since > 60:
                         self.failure_streak = 0
@@ -320,6 +351,9 @@ class Client:
                 while not self.stop.is_set() and time.time() < (self.next_retry_at or 0):
                     if not self.valid():
                         return
+                    if self.sync_port():
+                        self.next_retry_at = time.time()
+                        break
                     self.stop.wait(min(GUARD_SECONDS, max(0, self.next_retry_at - time.time())))
         finally:
             self.password = None
@@ -368,12 +402,16 @@ class Client:
             if now - last_guard > GUARD_SECONDS:
                 if not self.valid():
                     return
+                if self.sync_port():
+                    raise PortChanged()
                 last_guard = now
             if self.state != "connected" and now - started > 20:
                 raise TimeoutError("handshake timeout")
             while self.state == "connected" and not self.outbox.empty():
                 if not self.valid():
                     return
+                if self.sync_port():
+                    raise PortChanged()
                 self.handle_command(self.outbox.get_nowait())
             if now - last_ping > PING_SECONDS:
                 if not self.wire.ping().wait(5):

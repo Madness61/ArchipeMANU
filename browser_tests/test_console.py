@@ -1,4 +1,5 @@
 """Two real browsers and the real bridge against an inert localhost AP protocol server."""
+import json
 import re
 
 from playwright.sync_api import expect
@@ -85,6 +86,48 @@ def test_console_items_commands_private_hints_and_mobile(actors, artifact_dir):
         expect(alice.locator("#console-state")).to_have_text("Nicht verbunden",timeout=10000)
         assert any(p.get("cmd")=="Say" and p.get("text")=="!hint Progression Key" for p in server.packets)
         assert all(p["cmd"] not in ("LocationChecks","StatusUpdate","LocationScouts") for p in server.packets)
+
+
+def test_official_room_port_rotation_updates_console_and_copy_address_without_reload(actors,live_server,artifact_dir):
+    alice,bob=actors.alice,actors.bob
+    with FakeAP(game=GAME,names=('Alice','Bob'),seed='BROWSER_TEST',password='Test room') as first, FakeAP(game=GAME,names=('Alice','Bob'),seed='BROWSER_TEST',password='Test room') as second:
+        stage=live_server.root/'live-stage.json'
+        def publish(port,offset=0):
+            pending=live_server.root/'live-stage-pending.json'
+            pending.write_text(json.dumps(dict(port=port,offset=offset,local_ports=[first.port,second.port])),encoding='utf-8')
+            pending.replace(stage)
+        publish(first.port)
+        register(alice,'Alice');register(bob,'Bob');upload_world(alice)
+        create_lobby(alice,'Portwechsel');join_lobby(bob,'Portwechsel')
+        select_game(alice);select_game(bob);mark_ready(alice,'Alice');mark_ready(bob,'Bob')
+        alice.reload();alice.get_by_role('button',name='Seed generieren',exact=True).click()
+        build=generated(alice)
+        build.get_by_label('Archipelago-Raum-Link (optional)',exact=True).fill('https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw')
+        build.get_by_label('Serveradresse',exact=True).fill('archipelago.gg')
+        build.get_by_label('Port',exact=True).fill(str(first.port))
+        expect(build.get_by_label('Port manuell festlegen (keine automatische Aktualisierung)',exact=True)).not_to_be_checked()
+        build.get_by_role('button',name='Verbindung speichern',exact=True).click()
+        alice.get_by_label('Verbindungsart',exact=True).select_option('ws')
+        alice.get_by_label('Raumpasswort (optional)',exact=True).fill('Test room')
+        alice.get_by_role('button',name='Mit Archipelago verbinden',exact=True).click()
+        expect(alice.locator('#console-state')).to_have_text('Mit Archipelago verbunden · WS')
+        expect(alice.locator('.console-items')).to_have_count(1)
+        alice.get_by_label('Nachricht oder Befehl',exact=True).fill('Entwurf bleibt beim Portwechsel')
+        publish(second.port,61)
+        expect(alice.locator('#console-log')).to_contain_text('neuen Port',timeout=20000)
+        expect(alice.locator('#console-log')).to_contain_text('Textverbindung wiederhergestellt',timeout=20000)
+        expect(alice.locator('#console-state')).to_have_text('Mit Archipelago verbunden · WS')
+        expect(alice.locator('#console-server-address')).to_have_text(f'archipelago.gg:{second.port}')
+        expect(alice.locator('#console-auto-port')).to_be_visible()
+        expect(alice.locator('#host-address')).to_have_text(f'archipelago.gg:{second.port}')
+        expect(alice.locator('.console-items')).to_have_count(1)
+        expect(alice.get_by_label('Nachricht oder Befehl',exact=True)).to_have_value('Entwurf bleibt beim Portwechsel')
+        assert len([p for p in second.packets if p['cmd']=='Connect'])==1
+        assert not any(p['cmd']=='Say' for p in second.packets)
+        alice.screenshot(path=str(artifact_dir/'automatic-port-desktop.png'),full_page=True)
+        alice.set_viewport_size(dict(width=390,height=844))
+        assert alice.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+        alice.screenshot(path=str(artifact_dir/'automatic-port-mobile.png'),full_page=True)
 
 
 def test_missing_login_shows_recovery_and_returns_to_round(actors,artifact_dir):

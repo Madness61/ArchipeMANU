@@ -133,11 +133,20 @@ def main():
     ap_bridge.ap_ready = lambda: True
     # Read-only WebHost fixtures: external network access is never used.
     from types import SimpleNamespace
-    from hub import live_api, live_store
+    from hub import ap_console, live_api, live_store
     def live_stage():
         path = root / "live-stage.json"
         return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     live_store.time = SimpleNamespace(time=lambda: time.time() + live_stage().get("offset", 0))
+    native_socket = ap_console.open_socket
+    def local_socket(host, port, secure):
+        # Official-host port rotation tests still use only local protocol servers.
+        if host == 'archipelago.gg' and port in live_stage().get('local_ports', []):
+            host = '127.0.0.1'
+        if host != '127.0.0.1':
+            raise ValueError('Browser tests cannot connect to an external AP server.')
+        return native_socket(host, port, secure)
+    ap_console.open_socket = local_socket
     def mock_webhost(endpoint, identifier):
         stage = live_stage()
         if stage.get("fail"):
@@ -149,7 +158,7 @@ def main():
         advanced = bool(stage.get("advance"))
         payloads = {
             "room_status": {"tracker": "EBESExQVFhcYGRobHB0eHw", "players": [["Alice", GAME], ["Bob", GAME]],
-                            "last_port": 38281, "last_activity": "Sun, 08 Nov 2026 13:00:00 GMT", "timeout": 7200},
+                            "last_port": stage.get('port',38281), "last_activity": "Sun, 08 Nov 2026 13:00:00 GMT", "timeout": 7200},
             "static_tracker": {
                 "groups": [], "player_game": [{"team": 0, "player": p, "game": GAME} for p in (1, 2)],
                 "player_locations_total": [{"team": 0, "player": p, "total_locations": 5} for p in (1, 2)]},

@@ -95,10 +95,15 @@ def data(sid, build_id):
     # Read invalidation metadata first: a package arriving during event rendering
     # must trigger a reload next time, rather than permanently caching raw IDs.
     catalog_version = db.query("SELECT COALESCE(MAX(updated_at),0) AS version FROM console_packages WHERE build_id=?", (build_id,), one=True)["version"]
-    endpoint = db.query("SELECT id FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1",(build_id,),one=True)
+    endpoint = db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1",(build_id,),one=True)
+    linked = live_routes.live_store.current(build_id)
+    if linked:
+        live_routes.collector()
     rows = ap_console.events(build_id, g.user["id"], after, kind, before)
     return jsonify(**state(client(build_id)), events=rows, cursor=rows[-1]["id"] if rows else after,
                    catalog_version=catalog_version, endpoint_id=endpoint["id"] if endpoint else None,
+                   server=dict(host=endpoint["host"], port=endpoint["port"], room_url=endpoint["room_url"],
+                               auto_port=bool(linked and linked["auto_host"])) if endpoint else None,
                    limit=100, journal_limit=ap_console.MAX_EVENTS)
 
 

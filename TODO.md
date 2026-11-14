@@ -37,6 +37,7 @@ Technische Stabilisierung und visuelles Redesign sind **zwei getrennte Arbeitspa
 
 ### A3 – WebHost-API und Statusanzeige
 
+- [x] Offizielle Raumports automatisch übernehmen; laufende Textkonsole bei Portwechsel desselben Raums erneut verbinden und Verlauf erhalten. Manuelle Server bleiben konfigurierbar; lokale Spielclients müssen separat aktualisiert werden.
 - [x] `hub/live_api.py` / `hub/live_store.py` auf Timeout, HTTP 429/5xx, unvollständige Antworten, Raum-/Trackerwechsel, Collector-Neustart und mehrere parallele Browser überprüfen.
 - [x] Vorhandene gemeinsame Caches und upstream TTLs (dynamisch ca. 60 s, statisch ca. 300 s) erhalten; kontrollierte Retries/Backoff und `Retry-After` berücksichtigen, soweit vorhanden.
 - [x] Letzten erfolgreichen Fortschrittsstand weiter anzeigen, aber als **veraltet** markieren; WebHost-Fehler dürfen die WebSocket-Konsole nicht als „offline“ markieren.

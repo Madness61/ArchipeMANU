@@ -20,7 +20,8 @@
   </section>
   <aside class="console-sidebar" aria-label="{{ _("Verbindung und Konsolenhilfe") }}">
     <section class="panel console-connection"><h3>{{ _("Mitspielen & mitschreiben") }}</h3>
-    {% if endpoint %}<p class="small muted">{{ _("Server") }} <code>{{ endpoint.host }}:{{ endpoint.port }}</code></p>{% else %}<p class="small muted">{{ _("Der Host muss zuerst Server und Port hinterlegen.") }}</p>{% endif %}
+    <p class="small muted" id="console-server-row" {% if not endpoint %}hidden{% endif %}>{{ _("Server") }} <code id="console-server-address">{% if endpoint %}{{ endpoint.host }}:{{ endpoint.port }}{% endif %}</code></p>{% if not endpoint %}<p class="small muted">{{ _("Der Host muss zuerst Server und Port hinterlegen.") }}</p>{% endif %}
+    <p class="small muted" id="console-auto-port" hidden>{{ _("Port wird automatisch aktualisiert.") }}</p>
     <p class="small" id="console-connected-slot" hidden></p>
     {% if own and not archived %}
     <form id="console-connect" class="stack" method="post" action="{{ url_for('console.connect',sid=room.id,build_id=build.id) }}">

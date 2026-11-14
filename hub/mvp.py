@@ -773,6 +773,7 @@ def parse_room_form(form) -> tuple[str, str, int]:
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/hosting", methods=["POST"])
 def save_hosting(sid, build_id):
+    from . import live_api, live_store
     room = _session(sid)
     if not _manager(room):
         abort(403)
@@ -795,19 +796,22 @@ def save_hosting(sid, build_id):
                          VALUES (?,?,?,?,?,?,?)""",
                          (build_id, link, host, port, int(request.form.get("confirmed") == "1"),
                           g.user["id"], utc_now()))
+            try:
+                live_api.room_id(link)
+            except ValueError:
+                # Removing a usable room link must also stop an old auto-port policy.
+                conn.execute("UPDATE live_rooms SET auto_host=0 WHERE build_id=?", (build_id,))
+            else:
+                live_store.attach(build_id, link, g.user["id"], connection=conn,
+                                  auto_host=live_store.official_address(link, host)
+                                  and request.form.get("manual_port") != "1")
             conn.commit()
         except Exception:
             conn.rollback()
             raise
     flash("Verbindung gespeichert. Alle Teilnehmer finden sie unter „Meine Runden“ direkt in eurer Rundenzentrale.", "info")
-    if link:
-        from . import live_api, live_store
-        try:
-            live_api.room_id(link)
-        except ValueError:
-            pass  # Legacy manual tracker/connect links are never fetched.
-        else:
-            live_store.attach(build_id, link, g.user["id"], auto_host=False)
+    from . import live_routes
+    live_routes.collector()
     return redirect(url_for("mvp.play_page", sid=sid, build_id=build_id))
 
 

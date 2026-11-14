@@ -4,5 +4,6 @@
   <label>{{ _("Archipelago-Raum für Live-Statistiken") }}<input type="url" name="room_url" required placeholder="{{ _("https://archipelago.gg/room/…") }}" value="{{ 'https://archipelago.gg/room/' ~ live_connection.room_id if live_connection else '' }}"></label>
   <button class="primary">{{ _('Raumlink ändern') if live_connection else _('Raum verbinden') }}</button>
   <p class="muted small">{{ _("Der Raumlink genügt. Tracker und Port werden über die offizielle API ermittelt. Als Serveradresse verwenden wir archipelago.gg; abweichende Adressen kannst du unten selbst eintragen. Der tatsächliche Online-Status wird nicht geprüft.") }}</p>
+  <p class="muted small">{{ _("Portänderungen werden bei erfolgreichen API-Abrufen automatisch übernommen. Eine gestartete Textkonsole verbindet sich mit dem neuen Port erneut. Deinen Spielclient musst du separat aktualisieren.") }}</p>
 </form>
 {% endif %}

@@ -34,6 +34,33 @@ Das Raumpasswort bleibt für notwendige Wiederanmeldungen nur während der ausdr
 aktivierten Verbindung im Arbeitsspeicher und wird am Ende verworfen. Nach einem
 Prozessneustart ist eine erneute ausdrückliche Verbindung erforderlich.
 
+## Automatischer Portwechsel bei Archipelago-Räumen
+
+Ein gültiger offizieller Raumlink zusammen mit `archipelago.gg` verwendet beim
+Speichern standardmäßig den API-Port. Die Host-Option „Port manuell festlegen“
+schaltet diese Übernahme ausdrücklich ab. Eigene Serveradressen bleiben manuell.
+Bei bereits früher manuell gespeicherten Verbindungen muss die Automatik einmal
+über den Raumlink oder durch Speichern ohne diese Option aktiviert werden.
+
+Der Collector übernimmt einen gültigen `last_port` direkt nach dem Raumstatus-Abruf,
+auch wenn der Tracker nicht verfügbar ist. Dynamische API-Abrufe behalten ihren
+60-Sekunden-Cache und API-Fehler ihren Backoff. Ungültige oder fehlende Ports löschen
+die letzte gültige Adresse nicht. Ein API-Port bestätigt keine Erreichbarkeit und
+startet keinen schlafenden Archipelago-Raum.
+
+Eine Portänderung desselben Raums aktualisiert die bestehende Verknüpfung und
+setzt die frühere manuelle Verbindungsbestätigung zurück. Dadurch bleiben Verlauf
+und Deduplizierung erhalten. Der ausdrücklich gestartete Text-Worker erkennt die
+Änderung auch ohne Browser-Polling, schließt den bisherigen Socket, verwirft
+ausstehende Befehle und verbindet sich erneut. Seed und Teilnehmer werden neu
+geprüft; das Passwort bleibt ausschließlich im Arbeitsspeicher. Das gilt auch
+während der Wiederholungsversuche nach einer Verbindungsablehnung.
+
+Server-/Port-Anzeige und Kopierziele folgen den neuen Daten ohne Seitenreload.
+Ein anderer Raum, eine manuell neu gespeicherte Verbindung oder Rechteentzug
+beenden weiterhin den alten Worker. Lokale Spielclients müssen Spieler selbst
+auf den neuen Port umstellen.
+
 ## Nachrichten und Lücken
 
 Jeder neue Socket prüft Seed und Teilnehmer neu und synchronisiert die Empfangsliste

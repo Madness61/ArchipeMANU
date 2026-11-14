@@ -1878,5 +1878,10 @@
   "m1881": "YAML für {v0}",
   "m1882": "Rundenbereiche",
   "m1883": "Grafisches Titelbild für {v0}",
-  "m1884": "{v0} entfernen?"
+  "m1884": "{v0} entfernen?",
+  "m1885": "Bei archipelago.gg mit gültigem Raumlink wird der Port automatisch über die offizielle API aktualisiert. Selbst gehostete Server behalten den eingetragenen Port.",
+  "m1886": "Port manuell festlegen (keine automatische Aktualisierung)",
+  "m1887": "Portänderungen werden bei erfolgreichen API-Abrufen automatisch übernommen. Eine gestartete Textkonsole verbindet sich mit dem neuen Port erneut. Deinen Spielclient musst du separat aktualisieren.",
+  "m1888": "Archipelago hat einen neuen Port gemeldet. Die Textkonsole verbindet sich automatisch neu.",
+  "m1889": "Port wird automatisch aktualisiert."
 }

@@ -3,7 +3,9 @@ import time
 import unittest
 from unittest.mock import patch
 import test_ap_console as console_fixtures
-from hub import ap_console, auth, db, live_api
+import test_live_dashboard as live_fixtures
+from browser_tests.fake_ap import FakeAP
+from hub import ap_console, auth, db, live_api, live_store
 
 
 class ReliabilityTests(unittest.TestCase):
@@ -84,6 +86,91 @@ class ReliabilityTests(unittest.TestCase):
             self.wait_for(lambda:not client.thread.is_alive())
             self.assertIsNone(client.password)
             self.assertEqual(client.state,'disconnected')
+
+    def official_room(self):
+        with self.app.app_context():
+            db.execute("UPDATE hosted_rooms SET host='archipelago.gg',room_url=? WHERE build_id=?",
+                       (live_fixtures.ROOM_URL,self.bid))
+        return live_store.attach(self.bid,live_fixtures.ROOM_URL,1,auto_host=True)
+
+    def test_api_port_rotation_reconnects_without_browser_keeps_password_and_journal(self):
+        self.server.password='isolated password'
+        live_id=self.official_room()
+        original=ap_console.connect_transport
+        def local(host,port,secure):
+            self.assertEqual(host,'archipelago.gg')
+            return original('127.0.0.1',port,secure)
+        with FakeAP(password='isolated password') as replacement, patch.object(ap_console,'connect_transport',side_effect=local), patch.object(ap_console,'GUARD_SECONDS',.05), patch.object(ap_console,'RETRY_BASE',.05):
+            self.connect(password='isolated password')
+            client=self.current()
+            self.wait_for(lambda:client.items_synced and len(client.received)==1)
+            self.wait_for(lambda:len(self.state(query='?kind=items')['events'])==1)
+            self.post(self.url+'/command',{'text':'send only once'})
+            self.wait_for(lambda:any(p.get('text')=='send only once' for p in self.server.packets))
+            payload=live_fixtures.responses()
+            payload['room_status']['last_port']=replacement.port
+            with patch.object(live_api,'fetch',side_effect=lambda name,identifier:payload[name]):
+                self.assertTrue(live_store.refresh(live_id))
+            # No browser polling or reconnect request drives this recovery.
+            self.wait_for(lambda:any(p['cmd']=='Connect' for p in replacement.packets) and client.state=='connected' and client.items_synced)
+            self.assertEqual(len(client.received),1)
+            self.assertEqual(len(self.state(query='?kind=items')['events']),1)
+            self.assertTrue(any('neuen Port' in e['text'] for e in self.state()['events']))
+            old=next(p for p in self.server.packets if p['cmd']=='Connect')
+            new=next(p for p in replacement.packets if p['cmd']=='Connect')
+            self.assertEqual((new['uuid'],new['password']),(old['uuid'],old['password']))
+            self.assertFalse(any(p['cmd']=='Say' for p in replacement.packets))
+            self.assertEqual(self.state()['server']['port'],replacement.port)
+            self.post(self.url+'/disconnect',{})
+            self.wait_for(lambda:not client.thread.is_alive())
+            self.assertIsNone(client.password)
+
+    def test_refused_connection_recovers_when_api_discovers_new_port(self):
+        live_id=self.official_room()
+        original=ap_console.connect_transport
+        def local(host,port,secure):
+            self.assertEqual(host,'archipelago.gg')
+            if port==self.server.port:
+                raise ConnectionRefusedError()
+            return original('127.0.0.1',port,secure)
+        with FakeAP() as replacement, patch.object(ap_console,'connect_transport',side_effect=local), patch.object(ap_console,'GUARD_SECONDS',.05), patch.object(ap_console,'RETRY_BASE',10):
+            self.connect()
+            client=self.current()
+            self.assertEqual(client.state,'reconnecting')
+            payload=live_fixtures.responses()
+            payload['room_status']['last_port']=replacement.port
+            with patch.object(live_api,'fetch',side_effect=lambda name,identifier:payload[name]):
+                live_store.refresh(live_id)
+            self.wait_for(lambda:client.state=='connected' and client.items_synced)
+            self.assertEqual(client.endpoint['port'],replacement.port)
+            self.assertEqual(client.error,'')
+            self.assertFalse(self.server.packets)
+
+    def test_different_room_does_not_follow_existing_console(self):
+        self.official_room()
+        original=ap_console.connect_transport
+        with patch.object(ap_console,'connect_transport',side_effect=lambda host,port,secure:original('127.0.0.1',port,secure)), patch.object(ap_console,'GUARD_SECONDS',.05):
+            self.connect()
+            client=self.current()
+            live_store.attach(self.bid,'https://archipelago.gg/room/'+live_fixtures.TRACKER_ID,1,auto_host=True)
+            self.wait_for(lambda:not client.thread.is_alive())
+            self.assertEqual(client.state,'disconnected')
+            self.assertIsNone(client.password)
+            self.assertEqual(len([p for p in self.server.packets if p['cmd']=='Connect']),1)
+
+    def test_new_port_still_rejects_wrong_seed_before_authentication(self):
+        live_id=self.official_room()
+        original=ap_console.connect_transport
+        with FakeAP(seed='OTHER_SEED') as replacement, patch.object(ap_console,'connect_transport',side_effect=lambda host,port,secure:original('127.0.0.1',port,secure)), patch.object(ap_console,'GUARD_SECONDS',.05), patch.object(ap_console,'RETRY_BASE',.05):
+            self.connect()
+            client=self.current()
+            payload=live_fixtures.responses()
+            payload['room_status']['last_port']=replacement.port
+            with patch.object(live_api,'fetch',side_effect=lambda name,identifier:payload[name]):
+                live_store.refresh(live_id)
+            self.wait_for(lambda:client.state=='action_required')
+            self.assertIn('anderen Seed',client.error)
+            self.assertFalse(any(p['cmd']=='Connect' for p in replacement.packets))
 
 
 class RetryHeaderTests(unittest.TestCase):
