@@ -1,5 +1,27 @@
 # Automatische Browser-Tests
 
+## Verifizierter Feinschliff vom 15. November 2026
+
+Der vollständige lokale Lauf besteht aus **243 erfolgreichen Python-Tests** und
+**20 erfolgreichen Playwright-Szenarien**. Zusätzlich zu den Kernabläufen prüfen
+die Tests ausdrücklich aktivierte Host-Aufzeichnung ohne offene Webseiten,
+unabhängige API-/Konsolendiagnose, nachgewiesene Empfangsergänzungen und einen
+tatsächlichen Neustart des isolierten Hub-Prozesses mit derselben SQLite-Datenbank.
+Der Testserver hält dabei Schema und Konten fest, verwendet denselben lokalen
+HTTP-Port und kontaktiert ausschließlich den lokalen Fake-AP-Protokollserver.
+
+DE/EN und Light/Dark werden bei 390/768/1440/2560 px geprüft und als Screenshots
+gespeichert; Systemmodus folgt dem emulierten Betriebssystem. Label-Kontraste,
+Fokus, reduzierte Bewegung, Entwürfe und horizontales Überlaufen sind enthalten.
+Für Theme-Screenshots wird das Ende der kurzen Farbtransition abgewartet.
+Zentrale Konsolen-, Diagnose-, Bibliotheks- und Neustartansichten wurden visuell geprüft.
+
+Artefakte dieses Laufs: `test-results/final-polish-browser-verified/`, Python-Ausgabe:
+`test-results/final-polish-python-complete.txt`. Dies sind ignorierte lokale
+Testartefakte. Reale Spielclients, WLAN-/Hamachi-Ausfälle und Mehrspieler-Langzeit-
+betrieb auf echten Archipelago-Räumen wurden nicht ausgeführt. Ältere Ergebnisse
+weiter unten sind historische Einzelstände.
+
 ## Erweiterung vom 9. November 2026: Archipelago-Konsole
 
 Nach der Transportkorrektur: **181 Python-Tests erfolgreich (58,8 Sekunden)**;

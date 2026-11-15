@@ -9,16 +9,17 @@ ohne Hauptnavigation; Browser-Vollbild ist optional. Seed-Analyse und persönlic
 
 1. Seed im Hub generieren.
 2. Multiworld-ZIP manuell bei Archipelago hochladen und einen Raum erstellen.
-3. Unter „Generierte Runden“ oder „Jetzt spielen / Verbindung“ den vollständigen
+3. Unter „Meine Runden → Rundenzentrale → Mehr → Verbindung verwalten“ den vollständigen
    HTTPS-Link in „Archipelago-Raum für Live-Statistiken“ eintragen.
 4. „Raum verbinden“ wählen. Alle Teilnehmer erreichen anschließend über
-   „Aktive Lobby“ und „Live-Dashboard öffnen“ die gemeinsame Auswertung.
+   „Fortschritt → Erweiterte Statistiken öffnen“ die gemeinsame Auswertung.
 
 Portfelder sind dafür nicht erforderlich. Der Hub ermittelt Trackerkennung und
 letzten gemeldeten Port. Die Raum-API liefert **keinen Server-Hostnamen**:
 Für die offizielle Website wird archipelago.gg verwendet. Abweichende Adressen
-lassen sich weiterhin manuell eintragen. Manuelle Verbindungen überschreibt
-der Collector nicht.
+lassen sich weiterhin manuell eintragen. Eigene Server und ausdrücklich manuell
+festgelegte Ports überschreibt der Collector nicht. Offizielle Räume mit aktivierter
+Automatik folgen Portwechseln; ihre bereits gestarteten Textkonsolen verbinden sich neu.
 
 Bereits gespeicherte gültige Raumlinks werden beim Start übernommen. Die
 Aufzeichnung beginnt mit dem ersten erfolgreichen Abruf. Es werden keine

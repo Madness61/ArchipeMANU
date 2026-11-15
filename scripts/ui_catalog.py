@@ -26,7 +26,7 @@ def human(value):
     return (bool(re.search(r'[A-Za-zÄÖÜäöüß]',value)) and not value.startswith(('http','/','#','.'))
             and not re.fullmatch(r'[\w.-]+\.(html|js|css|json)',value)
             and (bool(re.search(r'[ÄÖÜäöüß]|\b(Dein|Deine|dein|die|Der|der|nicht|noch|Bitte|und|oder|für|werden|wird|Keine|Nur|Alle|Spiel|Spiele|Runde|Speichern|Abbrechen|Offen|Geschlossen|Bereit|Profil|Anmelden|Abmelden|Vorlage|Vorlagen|Suche|Erfolg|Zurücksetzen|Datei|Dateien|Einstellungen|Teilnehmer|Darstellung|Sprache|Dunkel|Hell)\b',value))
-                or bool(re.search(r'\b(unbekannt|erreicht|Kopiert|kopiert|aus|ja|nein|Fortschritt|Antworten|Antwort|nicht|vorhanden|Zuletzt|gegebenenfalls|Verbindung|Werte|Anzahl|erfolgreich)\b',value))
+                or bool(re.search(r'\b(unbekannt|erreicht|Kopiert|kopiert|aus|ja|nein|Fortschritt|Antworten|Antwort|nicht|vorhanden|Zuletzt|gegebenenfalls|Verbindung|Werte|Anzahl|erfolgreich|Fallen|zugeordnete|Empfangsmeldungen|Spieler|Ziel|Warte|Datenstand|Spielen|von|Integriert|aktiv|inkompatibel)\b',value))
                 or (' ' in value and re.search(r'[A-ZÄÖÜ]',value[:5]))))
 
 class TemplateText:

@@ -146,7 +146,7 @@ Live-Ansicht wurden visuell kontrolliert. Die Browser-Prüfung verwendet echte
 Flask-Routen mit isolierten Testdaten und einem Testgenerator; sie ersetzt
 keinen Verbindungs- und Spieltest mit echten Archipelago-Spielclients.
 
-Ergänzung vom 09.11.2026: volle Desktop-Breite bis 3840 px, editierbare
+**Historische Ergänzung vom 09.11.2026; die hier beschriebene Logikansicht ist deaktiviert:** volle Desktop-Breite bis 3840 px, editierbare
 Katalogmetadaten und persönlicher Logik-Tracker. Die Python-Suite umfasst
 186 erfolgreiche Tests; 13 Browser-Szenarien decken zusätzlich Katalog,
 Konsole und Logikansicht ab. Der echte UT-Subprozess wurde separat mit APQuest
@@ -161,8 +161,8 @@ verwendet; die Engine erhält keine Itemplatzierungen oder Hinweise.
 
 ## Themes und soziale Konsole (13.11.2026)
 
-`themes.css` ergänzt das bestehende dunkle Design mit einem vollständigen hellen
-Tokensatz und einer System-Auswahl. Alle Oberflächen, Eingaben, Statusfarben,
+`themes.css` definiert die zentralen Farbpaare mit `light-dark()` und einer
+System-Auswahl über `color-scheme`. Alle Oberflächen, Eingaben, Statusfarben,
 Konsolenzeilen und Diagramme verwenden gemeinsame Variablen. Hell: Hintergrund
 `#F1F4FB`, Panels `#FFFFFF`, Text `#17223B`, Sekundärtext `#4F607D`, Akzent
 `#6554D5`; Zustände verwenden dunklere Grün-/Orange-/Rottöne für lesbare Kontraste.
@@ -179,3 +179,19 @@ Sprache und Theme sind im Profil und in der Navigation erreichbar. Details zur
 Erweiterung der gemeinsamen DE/EN-Ressourcen: [TRANSLATIONS.md](TRANSLATIONS.md).
 Die frühere Logikansicht weiter oben ist historisch; produktive Routen berechnen
 keine Erreichbarkeit und keinen Go-Mode mehr.
+
+## Wartbarkeit und Diagnose (15.11.2026)
+
+Farbwerte stehen ausschließlich in `themes.css`. `style.css` enthält gemeinsame
+Layout-, Typografie- und Abstandstokens; `round.css`, `console.css` und `live.css`
+verwenden semantische Farben direkt. Transparente Akzente werden mit `color-mix()`
+aus diesen Tokens gebildet. Nachträgliche `html[data-theme]`-Komponenten-Overrides
+sowie doppelte Light-/System-Farbpaletten sind entfernt. Layout und dunkle/helle
+Designsprache bleiben erhalten. Die CSS-Funktionen bilden die moderne Browserbasis;
+automatisierte Layout- und Kontrastprüfungen verwenden Chromium.
+
+Die laufende Konsole bleibt die Hauptfläche. Eine kleine Statuszeile zeigt die
+gemeinsame Aufzeichnung und den letzten erfassten Item-Zeitpunkt. Die ausführliche
+Diagnose und die optionale Host-Aufzeichnung liegen in getrennten, anfänglich
+geschlossenen Bereichen. Nachträglich bestätigte Empfänge sind als solche beschriftet.
+Technische Diagnosewerte sind keine Spielverbindungs- oder Erreichbarkeitsbehauptung.

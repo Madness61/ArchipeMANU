@@ -65,6 +65,9 @@ def test_language_theme_draft_filters_and_responsive_views(actors,artifact_dir):
                     a.goto(path)
                     expect(a.locator('html')).to_have_attribute('lang',language)
                     expect(a.locator('html')).to_have_attribute('data-theme',mode)
+                    if name=='library' and language=='en':
+                        expect(a.locator('#library-count')).to_contain_text('of')
+                        expect(a.locator('.game-card .chip.ok').first).to_have_text('Selectable in lobby')
                     for width in (390,768,1440,2560):
                         a.set_viewport_size(dict(width=width,height=1000))
                         a.locator('#main-content').evaluate('node=>{node.focus({preventScroll:true});node.blur()}')

@@ -20,12 +20,27 @@ vorhandene nicht umnummeriert. Neue Einträge anschließend in `en.json` überse
 Tests prüfen Schlüssel, Platzhalter und statische Aufrufe in produktiven Templates
 und Skripten. Historische, nicht ausgelieferte Logik-UI ist ausgenommen.
 
+`python -m scripts.ui_checks` findet produktive JavaScript-Literale und Jinja-Ausdrücke,
+die die gemeinsame Übersetzungsfunktion umgehen. Zusätzliche Tests prüfen statische Backend-Fehler und
+fehlende UI-IDs. Dynamische Rundenzustände, API-/Verbindungsdiagnosen und Vorschau-
+Beschriftungen verwenden dieselben Ressourcen. Standard-HTTP-Fehler werden ebenfalls
+für DE/EN formuliert. Gezielt unveränderte Fachbegriffe und Nutzerinhalte sind keine
+fehlenden Übersetzungen.
+
+Neue Hub-Konsolenmeldungen können Ausgangstext und Werte getrennt speichern. Hilfe
+und Ergebniszahlen werden beim Lesen in der aktuellen Kontosprache formatiert.
+Itemlisten, Slotnamen und gesendeter Chat bleiben dabei unveränderte Daten. Originale
+Servermeldungen erhalten keine Hub-Herkunftsmarkierung und werden nicht übersetzt.
+
 ## Daten bleiben Daten
 
 Spiel-, Slot-, Item- und Location-Namen, YAML-Schlüssel/-Werte, Protokollbefehle
 und originale Archipelago-Meldungen bleiben unverändert. Eigene Beschreibungen,
 Vorlagennamen und Gruppenanleitungen sind Nutzerinhalte. Genre-/Tag-Beschriftungen
 können übersetzt werden; Filterwerte bleiben stabil.
+Nur kuratierte Genre-/Tag-Begriffe werden übersetzt; freie Begriffe wie eigene
+Tags bleiben unverändert. Suche berücksichtigt originale und übersetzte Labels.
+Generierte Vorlagenbeschreibungen werden lokalisiert, eigene Namen und Beschreibungen nicht.
 
 Alle 89 mitgelieferten Spielbeschreibungen, Voraussetzungen und Einrichtungsschritte
 haben englische Fassungen in `hub/locales/games_en.json`. Quellenlinks sowie

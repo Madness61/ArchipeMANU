@@ -1,6 +1,6 @@
 # TODO / Roadmap – ArchipeMANU
 
-Stand: 13. November 2026. Dies ist die **priorisierte Aufgabenliste**. Erledigte Punkte beziehen sich auf den gemeinsamen Integrationsbranch; eine Übernahme nach `main` und reale Spielclient-Tests werden separat bestätigt.
+Stand: 15. November 2026. Dies ist die **priorisierte Aufgabenliste**. Erledigte Punkte beziehen sich auf den gemeinsamen Entwicklungsstand; eine Übernahme nach `main` und reale Spielclient-Tests werden separat bestätigt.
 Technische Stabilisierung und visuelles Redesign sind **zwei getrennte Arbeitspakete**. Die Archipelago-WebHost-Tracker-API und der experimentelle Universal-Logik-Tracker sind **verschiedene Komponenten**.
 
 ## Aktuelle Entwicklungszweige prüfen
@@ -12,6 +12,21 @@ Technische Stabilisierung und visuelles Redesign sind **zwei getrennte Arbeitspa
 - [x] Public-Start als Standard mit `-LocalOnly` als Alternative integriert und dokumentiert.
 - [ ] Gemeinsamen Integrations-PR prüfen und ausdrücklich für die Übernahme nach `main` freigeben.
 - [ ] Die reale Nutzerführung mit mindestens zwei Spielern und einer existierenden Runde im Browser abnehmen. Mock-Tests ersetzen keinen echten Spielclient.
+
+## Finaler Feinschliff – Historie, Diagnose und Wartbarkeit
+
+- [x] Dauerhafte Ereignishistorie ohne automatisches Abschneiden; paginierte Abfragen beibehalten.
+- [x] Belegte eigene `ReceivedItems` ergänzen und von beobachteten Live-Sendungen unterscheiden; keine Fundzeiten oder weltweite Historien erfinden.
+- [x] Optionale, ausdrücklich freigegebene Host-Aufzeichnung nur über den eigenen Slot, ohne Chat und fremde Anmeldungen.
+- [x] Freigabe, UUID, Betriebszustand und Lease persistent halten; Passwort nur im RAM; Neustart und Unterbrechungen transparent behandeln.
+- [x] Deduplizierung, gemeinsame Lückenmarkierungen, Wiederaufnahme, Rechte-, Race- und Raumschutz testen.
+- [x] Browser/Hub, WebHost-API, persönliche Konsole, Recorder und unbekannten Spielclient unabhängig diagnostizieren.
+- [x] Veraltete aktive Tracker-Werbung entfernen und dynamische DE/EN-Texte einschließlich Fehlern bereinigen.
+- [x] Theme-Farben zentralisieren und redundante Farb-Overrides entfernen, ohne erneutes Redesign.
+- [x] Gesamte Python-/Browser-Suite und echte isolierte Prozessneustarts prüfen; 243 Python-Tests und 20 Browser-Szenarien erfolgreich. Screenshots bei 390/768/1440/2560 px erzeugt und zentrale Ansichten visuell geprüft.
+- [ ] Feinschliff-PR zur Prüfung bereitstellen; keine automatische Übernahme nach `main`.
+
+Offen bleibt eine reale Mehrspieler-/WLAN-/VPN-Abnahme mit installierten Archipelago-Spielclients. Die automatisierten Protokoll- und Prozessneustarttests verwenden ausschließlich isolierte Daten und lokale Testserver.
 
 ## Arbeitspaket A – Verbindungsstabilität und Logik-Tracker deaktivieren
 

@@ -1,10 +1,10 @@
 """Authenticated, CSRF-protected API for the Archipelago TextOnly console."""
 import queue
 
-from flask import Blueprint, abort, g, jsonify, render_template, request, session
+from flask import Blueprint, abort, current_app, g, jsonify, render_template, request, session
 from werkzeug.exceptions import HTTPException
 
-from . import ap_console, auth, config, db, live_routes, i18n
+from . import ap_console, auth, config, db, live_routes, live_store, i18n, recording, connection_diagnostics
 
 bp = Blueprint("console", __name__)
 PREFIX = "/sessions/<int:sid>/builds/<int:build_id>/console"
@@ -16,7 +16,7 @@ def api_error(error):
         return auth.login_required_response()
     if request.path.endswith("/console"):
         return error
-    return jsonify(error=str(error.description)), error.code
+    return jsonify(error=i18n.http_error(error)), error.code
 
 
 def access(sid, build_id, mutate=False):
@@ -81,7 +81,7 @@ def page(sid, build_id):
 
 @bp.route(PREFIX + "/data")
 def data(sid, build_id):
-    access(sid, build_id)
+    _, build, _ = access(sid, build_id)
     try:
         after = int(request.args.get("after", "0"))
         before = int(request.args.get("before", "0"))
@@ -96,15 +96,55 @@ def data(sid, build_id):
     # must trigger a reload next time, rather than permanently caching raw IDs.
     catalog_version = db.query("SELECT COALESCE(MAX(updated_at),0) AS version FROM console_packages WHERE build_id=?", (build_id,), one=True)["version"]
     endpoint = db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1",(build_id,),one=True)
-    linked = live_routes.live_store.current(build_id)
+    linked = live_store.current(build_id)
     if linked:
         live_routes.collector()
     rows = ap_console.events(build_id, g.user["id"], after, kind, before)
+    if not current_app.testing:
+        recording.start_supervisor()
     return jsonify(**state(client(build_id)), events=rows, cursor=rows[-1]["id"] if rows else after,
                    catalog_version=catalog_version, endpoint_id=endpoint["id"] if endpoint else None,
                    server=dict(host=endpoint["host"], port=endpoint["port"], room_url=endpoint["room_url"],
-                               auto_port=bool(linked and linked["auto_host"])) if endpoint else None,
-                   limit=100, journal_limit=ap_console.MAX_EVENTS)
+                               auto_port=bool(linked and linked["auto_host"] and not build['completed_at'])) if endpoint else None,
+                   recording=recording.status(build_id,endpoint),webhost=connection_diagnostics.webhost(build),
+                   limit=100, journal_limit=None)
+
+
+@bp.route(PREFIX + '/recording/start', methods=['POST'])
+def recording_start(sid, build_id):
+    room, build, own = access(sid,build_id,mutate=True)
+    if not live_routes.mvp._manager(room):
+        abort(403)
+    if request.form.get('consent')!='1':
+        abort(400,'Bitte die Aufzeichnung über deinen eigenen Slot ausdrücklich bestätigen.')
+    slot = request.form.get('slot','')
+    if slot not in {s['slot'] for s in own}:
+        abort(403,'Die Rundenaufzeichnung benötigt einen eigenen Slot des Hosts in dieser laufenden Runde.')
+    endpoint = db.query('SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1',(build_id,),one=True)
+    if not endpoint:
+        abort(409,'Der Host muss zuerst Serveradresse und Port für diesen Seed speichern.')
+    transport,password = request.form.get('transport','auto'),request.form.get('password','')
+    if transport not in ('auto','ws','wss') or len(password)>1024:
+        abort(400,'Ungültige Verbindungseinstellungen für die Rundenaufzeichnung.')
+    limited=auth.consume_attempt('console-connect',str(g.user['id']),30)
+    if limited:
+        return limited
+    try:
+        recording.enable(build,endpoint,g.user['id'],slot,password,transport)
+    except ValueError as exc:
+        abort(409,str(exc))
+    if not current_app.testing:
+        recording.start_supervisor()
+    return jsonify(recording=recording.status(build_id,endpoint)),202
+
+
+@bp.route(PREFIX + '/recording/stop', methods=['POST'])
+def recording_stop(sid, build_id):
+    room,_,_ = access(sid,build_id)
+    if not live_routes.mvp._manager(room):
+        abort(403)
+    recording.disable(build_id)
+    return jsonify(accepted=True)
 
 
 @bp.route(PREFIX + "/commands")
@@ -150,7 +190,7 @@ def command(sid, build_id):
         abort(400, "Dieser Serverbefehl wird in der Webkonsole nicht unterstützt. Verwende /help oder !help.")
     if verb == "/help":
         ap_console.record(config.DB_PATH, build_id, g.user["id"], "system",
-                          {"text": "\n".join(cmd + " – " + description for cmd, description in ap_console.COMMANDS)})
+                          {'type':'help','origin':'hub'})
     elif verb == "/connect":
         if text != "/connect":
             abort(400, "Die Konsole verwendet die gespeicherte Serveradresse. Verbinde über das Formular oben.")

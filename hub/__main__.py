@@ -14,7 +14,9 @@ def main() -> None:
 
     app = create_app()
     from .live_store import start_collector
+    from .recording import start_supervisor
     start_collector()
+    start_supervisor()
     if args.debug:
         app.run(host=args.host, port=args.port, debug=True)
         return

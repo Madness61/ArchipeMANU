@@ -5,8 +5,8 @@
   const $ = id => document.getElementById(id);
   const fmt = new Intl.NumberFormat(window.HUB_I18N.locale, { maximumFractionDigits: 1 });
   const colors = Array.from({length:8},(_,i)=>'var(--player-color-'+(i+1)+')');
-  const value = n => n == null ? "Nicht verfügbar" : fmt.format(n);
-  const pct = n => n == null ? "Nicht verfügbar" : value(n) + " %";
+  const value = n => n == null ? window.HUB_I18N.t("Nicht verfügbar") : fmt.format(n);
+  const pct = n => n == null ? window.HUB_I18N.t("Nicht verfügbar") : value(n) + " %";
   const date = (s, full = false) => s ? new Date(s).toLocaleString(window.HUB_I18N.locale, full
     ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }
     : { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : window.HUB_I18N.t("Nicht verfügbar");
@@ -217,7 +217,7 @@
     const series = seriesFor(state.metrics.players).find(s => s.key === player.key);
     chart("player-chart", state.history, [series], true);
     const categories = $("live-player-categories"); categories.replaceChildren();
-    Object.entries({ progression: "Progression", useful: window.HUB_I18N.t("Nützlich"), trap: "Fallen", filler: window.HUB_I18N.t("Füllitems") }).forEach(([field, label]) => {
+    Object.entries({ progression: "Progression", useful: window.HUB_I18N.t("Nützlich"), trap: window.HUB_I18N.t("Fallen"), filler: window.HUB_I18N.t("Füllitems") }).forEach(([field, label]) => {
       const box = el("div");
       box.append(el("span", label), el("strong", player.categories ? value(player.categories[field] || 0) : "—"));
       categories.append(box);
@@ -274,7 +274,7 @@
       node.querySelector(".live-player-number").replaceChildren(el("span", value(player.checks)), el("small", " / " + value(player.total) + window.HUB_I18N.t(" Checks")));
       node.querySelector(".live-progress-track>span").style.width = Math.min(100, player.progress || 0) + "%";
       node.querySelector(".player-card-meta").replaceChildren(el("span", pct(player.progress)), el("span", value(player.received) + window.HUB_I18N.t(" Items")),
-        el("span", player.goal ? "✓ Ziel erreicht" : player.goal === false ? "Ziel noch offen" : window.HUB_I18N.t("Zielstatus unbekannt")));
+        el("span", player.goal ? window.HUB_I18N.t("✓ Ziel erreicht") : player.goal === false ? window.HUB_I18N.t("Ziel noch offen") : window.HUB_I18N.t("Zielstatus unbekannt")));
       node.querySelector(".player-activity").textContent = window.HUB_I18N.t("Aktivität: ") + date(player.activity, true);
       const segment = state.history.at(-1)?.segment;
       const points = state.history.filter(point => point.segment === segment).map(point => point.players.find(p => p.key === player.key)?.progress).filter(v => v != null);
@@ -291,7 +291,7 @@
     const missing = data.interactions == null;
     const notice = $("live-interaction-notice");
     notice.hidden = !missing;
-    notice.textContent = state.race ? "Race-Modus: Empfangsdetails und Beziehungen sind ausgeblendet." : window.HUB_I18N.t("Keine verlässlich zugeordneten Empfangsdaten verfügbar.");
+    notice.textContent = state.race ? window.HUB_I18N.t("Race-Modus: Empfangsdetails und Beziehungen sind ausgeblendet.") : window.HUB_I18N.t("Keine verlässlich zugeordneten Empfangsdaten verfügbar.");
     set("live-foreign", value(data.foreign)); set("live-own", value(data.own));
     const unassigned = data.players.every(p => p.unattributed != null) ? data.players.reduce((n, p) => n + p.unattributed, 0) : null;
     set("live-unattributed", value(unassigned));
@@ -317,7 +317,7 @@
     const maximum = Math.max(1, ...edges.values());
     table.querySelectorAll("[data-edge]").forEach(button => {
       const count = edges.get(button.dataset.edge) || 0, [finder, recipient] = button.dataset.edge.split("/");
-      const label = data.players.find(p => p.key === finder).name + " → " + data.players.find(p => p.key === recipient).name + ": " + count + " zugeordnete Empfangsmeldungen";
+      const label = window.HUB_I18N.t('{v0} → {v1}: {v2} zugeordnete Empfangsmeldungen',{v0:data.players.find(p=>p.key===finder).name,v1:data.players.find(p=>p.key===recipient).name,v2:value(count)});
       button.textContent = value(count); button.title = label; button.setAttribute("aria-label", label);
       button.style.setProperty("--heat", count ? .12 + .75 * count / maximum : .025); button.dataset.strong = String(count / maximum > .6);
     });
@@ -348,19 +348,19 @@
     const data = payload.metrics;
     set("live-room-code", payload.room_id);
     $("live-room-link").href = payload.room_url;
-    set("live-status-chip", payload.completed ? "Runde abgeschlossen" : payload.stale ? "Warte auf aktuellen Stand"
-      : data && data.player_count > 0 && data.goals === data.player_count ? "Alle Spielziele gemeldet" : window.HUB_I18N.t("Tracker verbunden"));
+    set("live-status-chip", payload.completed ? window.HUB_I18N.t("Runde abgeschlossen") : payload.stale ? window.HUB_I18N.t("Warte auf aktuellen Stand")
+      : data && data.player_count > 0 && data.goals === data.player_count ? window.HUB_I18N.t("Alle Spielziele gemeldet") : window.HUB_I18N.t("Tracker verbunden"));
     set("live-update", payload.updated_at ? window.HUB_I18N.t("Letzter erfolgreicher Datenstand: ") + date(payload.updated_at, true) : window.HUB_I18N.t("Warte auf den ersten erfolgreichen Abruf …"));
-    set("live-next", payload.completed ? "Aufzeichnung abgeschlossen" : window.HUB_I18N.t("Gemeinsame Aktualisierung alle 60 Sekunden"));
+    set("live-next", payload.completed ? window.HUB_I18N.t("Aufzeichnung abgeschlossen") : window.HUB_I18N.t("Gemeinsame Aktualisierung alle 60 Sekunden"));
     $("live-warning").hidden = !payload.error && !payload.stale;
     $("live-warning").textContent = payload.error
-      ? payload.error + (data ? " Der letzte erfolgreiche Datenstand bleibt sichtbar." : window.HUB_I18N.t(" Es werden noch keine Werte angezeigt."))
-      : payload.stale ? data ? "Der letzte erfolgreiche Stand ist älter als zwei Minuten. Er bleibt sichtbar, während neue Daten abgerufen werden."
-        : "Der erste Tracker-Datenstand wird vorbereitet. Die Anzeige aktualisiert sich automatisch." : "";
+      ? payload.error + (data ? window.HUB_I18N.t(" Der letzte erfolgreiche Datenstand bleibt sichtbar.") : window.HUB_I18N.t(" Es werden noch keine Werte angezeigt."))
+      : payload.stale ? data ? window.HUB_I18N.t("Der letzte erfolgreiche Stand ist älter als zwei Minuten. Er bleibt sichtbar, während neue Daten abgerufen werden.")
+        : window.HUB_I18N.t("Der erste Tracker-Datenstand wird vorbereitet. Die Anzeige aktualisiert sich automatisch.") : "";
     $("live-seed-warning").hidden = payload.seed_matches !== false;
-    set("live-port", payload.room.port == null ? "Nicht verfügbar" : String(payload.room.port));
+    set("live-port", payload.room.port == null ? window.HUB_I18N.t("Nicht verfügbar") : String(payload.room.port));
     set("live-room-activity", date(payload.room.last_activity, true));
-    set("live-server-state", payload.room.port ? "Port gemeldet · Erreichbarkeit ungeprüft" : window.HUB_I18N.t("Noch kein gültiger Port gemeldet"));
+    set("live-server-state", payload.room.port ? window.HUB_I18N.t("Port gemeldet · Erreichbarkeit ungeprüft") : window.HUB_I18N.t("Noch kein gültiger Port gemeldet"));
     set("live-recording", payload.recording_since ? date(payload.recording_since, true) : window.HUB_I18N.t("Noch kein erfolgreicher Abruf"));
     $("live-tracker-link").hidden = !payload.tracker_id;
     if (payload.tracker_id) {
@@ -377,13 +377,13 @@
     set("kpi-players-detail", window.HUB_I18N.t("Individuelle Spielerslots, keine Gruppen"));
     set("kpi-games-detail", window.HUB_I18N.t("Spiele der verknüpften Multiworld"));
     kpi("received", data.received == null ? "—" : value(data.received));
-    set("kpi-received-detail", payload.race ? "Im Race-Modus ausgeblendet" : data.received == null ? "Nicht verfügbar" : window.HUB_I18N.t("Empfangsliste des Servers, kein Spielinventar"));
+    set("kpi-received-detail", payload.race ? window.HUB_I18N.t("Im Race-Modus ausgeblendet") : data.received == null ? window.HUB_I18N.t("Nicht verfügbar") : window.HUB_I18N.t("Empfangsliste des Servers, kein Spielinventar"));
     kpi("goals", data.known_goals ? value(data.goals) + " / " + value(data.known_goals) : "—");
-    set("kpi-goals-detail", data.known_goals === data.player_count ? "Alle Zielstatus verfügbar" : window.HUB_I18N.t("Nur ") + data.known_goals + " von " + data.player_count + window.HUB_I18N.t(" Zielstatus bekannt"));
+    set("kpi-goals-detail", data.known_goals === data.player_count ? window.HUB_I18N.t("Alle Zielstatus verfügbar") : window.HUB_I18N.t("Nur ") + data.known_goals + window.HUB_I18N.t(" von ") + data.player_count + window.HUB_I18N.t(" Zielstatus bekannt"));
     set("live-ring-label", data.progress == null ? "—" : pct(data.progress));
     $("live-ring").style.setProperty("--progress", Math.min(100, data.progress || 0) + "%");
     $("live-total-bar").style.width = Math.min(100, data.progress || 0) + "%";
-    set("live-progress-caption", value(data.checks) + " von " + value(data.total) + window.HUB_I18N.t(" Checks in ") + data.games + window.HUB_I18N.t(" Spielen. ") + data.goals + window.HUB_I18N.t(" gemeldete Spielziele erreicht."));
+    set("live-progress-caption", value(data.checks) + window.HUB_I18N.t(" von ") + value(data.total) + window.HUB_I18N.t(" Checks in ") + data.games + window.HUB_I18N.t(" Spielen. ") + data.goals + window.HUB_I18N.t(" gemeldete Spielziele erreicht."));
     if (data.progress > 100) { $("live-warning").hidden = false; $("live-warning").textContent = window.HUB_I18N.t("Der Tracker meldet mehr Checks als die gespeicherten Gesamtzahlen. Statische Daten werden beim nächsten regulären Abruf geprüft."); }
     players(data); interactions(data);
     const filter = $("live-event-filter").value;
@@ -393,7 +393,7 @@
     rankings("live-check-ranking", rowFor("checks"));
     rankings("live-progress-ranking", rowFor("progress"), pct);
     rankings("live-gain-ranking", data.players.map((p, i) => ({ name: p.name, value: payload.gains[p.key], color: window.HUB_UI.playerColor(p.name) })));
-    set("live-gain-caption", payload.gains_since ? window.HUB_I18N.t("Seit ") + date(payload.gains_since, true) + " · höchstens die aufgezeichnete letzte Stunde." : window.HUB_I18N.t("Noch kein Vergleich verfügbar."));
+    set("live-gain-caption", payload.gains_since ? window.HUB_I18N.t("Seit ") + date(payload.gains_since, true) + window.HUB_I18N.t(" · höchstens die aufgezeichnete letzte Stunde.") : window.HUB_I18N.t("Noch kein Vergleich verfügbar."));
     rankings("live-active-ranking", data.players.map((p, i) => {
       return { name: p.name, value: payload.recent_gains[p.key], color: window.HUB_UI.playerColor(p.name) };
     }));
@@ -405,11 +405,11 @@
     rankings("live-game-ranking", [...games].map(([name, n]) => ({ name, value: n })));
     set("live-average", pct(data.average_progress));
     const progress = data.players.map(p => p.progress).filter(p => p != null);
-    set("live-spread", progress.length === data.players.length ? value(Math.max(...progress) - Math.min(...progress)) + " Prozentpunkte" : window.HUB_I18N.t("Nicht verfügbar"));
+    set("live-spread", progress.length === data.players.length ? value(Math.max(...progress) - Math.min(...progress)) + window.HUB_I18N.t(" Prozentpunkte") : window.HUB_I18N.t("Nicht verfügbar"));
     set("live-goal-share", data.known_goals === data.player_count ? pct(data.goals / data.player_count * 100) : window.HUB_I18N.t("Nicht verfügbar"));
     set("live-history-caption", (payload.recording_since ? window.HUB_I18N.t("Aufzeichnung seit ") + date(payload.recording_since, true) + ". " : "")
-      + (payload.history_sampled ? "Ausgewählte echte Messpunkte für diesen Zeitraum." : window.HUB_I18N.t("Nur tatsächlich beobachtete Datenstände."))
-      + (payload.history.length < 2 ? " Weitere Abrufe ergänzen den Verlauf." : ""));
+      + (payload.history_sampled ? window.HUB_I18N.t("Ausgewählte echte Messpunkte für diesen Zeitraum.") : window.HUB_I18N.t("Nur tatsächlich beobachtete Datenstände."))
+      + (payload.history.length < 2 ? window.HUB_I18N.t(" Weitere Abrufe ergänzen den Verlauf.") : ""));
     const chartStamp = payload.connection_id + "/" + payload.updated_at + "/" + $("live-window").value;
     if (lastChartStamp !== chartStamp) {
       const total = [{ key: "total", label: window.HUB_I18N.t("Multiworld-Fortschritt"), color: colors[0], get: p => p.progress }];
@@ -442,12 +442,12 @@
         headers: { "Accept": "application/json", ...(manual ? { "X-CSRF-Token": root.dataset.csrf } : {}) },
       });
       if(response.status===401){const auth=await response.json().catch(()=>({}));window.HUB_AUTH_REQUIRED?.(auth.login_url);}
-      if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "Bitte erneut anmelden oder die Lobbyberechtigung prüfen." : window.HUB_I18N.t("Der Datenstand konnte nicht geladen werden."));
+      if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? window.HUB_I18N.t("Bitte erneut anmelden oder die Lobbyberechtigung prüfen.") : window.HUB_I18N.t("Der Datenstand konnte nicht geladen werden."));
       const payload = await response.json();
       render(payload);
     } catch (error) {
       $("live-warning").hidden = false;
-      $("live-warning").textContent = (error.name === "AbortError" ? "Der Abruf dauert zu lange." : error.message) + (state?.metrics ? " Der letzte Datenstand bleibt sichtbar." : "");
+      $("live-warning").textContent = (error.name === "AbortError" ? window.HUB_I18N.t("Der Abruf dauert zu lange.") : error.message) + (state?.metrics ? window.HUB_I18N.t(" Der letzte Datenstand bleibt sichtbar.") : "");
       set("live-status-chip", window.HUB_I18N.t("Verbindung unterbrochen"));
     } finally {
       clearTimeout(timeout); inflight = false; $("live-refresh").disabled = false; $("live-refresh").textContent = window.HUB_I18N.t("Jetzt aktualisieren");
@@ -462,7 +462,7 @@
   $("live-present")?.addEventListener("click", async () => {
     const active = document.body.classList.toggle("live-presenting");
     $("live-present").setAttribute("aria-pressed", String(active));
-    $("live-present").textContent = active ? "Präsentation beenden" : window.HUB_I18N.t("Präsentationsmodus");
+    $("live-present").textContent = active ? window.HUB_I18N.t("Präsentation beenden") : window.HUB_I18N.t("Präsentationsmodus");
     if (active) {
       tab("overview");
       try { await document.documentElement.requestFullscreen?.(); } catch { /* CSS presentation also works without fullscreen. */ }

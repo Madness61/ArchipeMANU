@@ -21,7 +21,7 @@
     const active = open && mobile.matches;
     document.body.classList.toggle("menu-open", active);
     menuToggle.setAttribute("aria-expanded", String(active));
-    menuToggle.setAttribute("aria-label", active ? "Menü schließen" : window.HUB_I18N.t("Menü öffnen"));
+    menuToggle.setAttribute("aria-label", active ? window.HUB_I18N.t("Menü schließen") : window.HUB_I18N.t("Menü öffnen"));
     menuToggle.querySelector("use").setAttribute("href", menuToggle.querySelector("use").getAttribute("href").replace(/#[^#]+$/, active ? "#close" : "#menu"));
     scrim.hidden = !active;
     main.inert = active;
@@ -84,7 +84,7 @@
         if (query && !group.hidden) group.open = true;
         if (!query && openStates.has(group)) { group.open = openStates.get(group); openStates.delete(group); }
       });
-      editor.querySelector("[data-option-count]").textContent = count + " von " + options.length + window.HUB_I18N.t(" Optionen");
+      editor.querySelector("[data-option-count]").textContent = count + window.HUB_I18N.t(" von ") + options.length + window.HUB_I18N.t(" Optionen");
       editor.querySelector("[data-options-empty]").hidden = count > 0;
     };
     search.addEventListener("input", filterOptions);
@@ -124,7 +124,7 @@
   const libraryFilters = document.getElementById("library-filters");
   if (libraryFilters) {
     const cards = $$("[data-library-game]").map(card => ({
-      card, search: card.dataset.search, kind: card.dataset.kind,
+      card, search: (card.dataset.search+' '+[...card.querySelectorAll('.genre-tags .chip,.catalog-tags .chip')].map(node=>node.textContent).join(' ')).toLocaleLowerCase(window.HUB_I18N.locale), kind: card.dataset.kind,
       state: card.dataset.state, genres: JSON.parse(card.dataset.genres), tags: JSON.parse(card.dataset.tags), setup: card.dataset.setup,
     }));
     const fields = ["q", "kind", "state", "genre", "tag", "setup"];
@@ -142,7 +142,7 @@
         item.card.hidden = !visible;
         if (visible) count++;
       });
-      document.getElementById("library-count").textContent = `${count} von ${cards.length} Spielen`;
+      document.getElementById("library-count").textContent = window.HUB_I18N.t('{v0} von {v1} Spielen',{v0:count.toLocaleString(window.HUB_I18N.locale),v1:cards.length.toLocaleString(window.HUB_I18N.locale)});
       document.getElementById("library-empty").hidden = count > 0;
       if (updateUrl) {
         const url = new URL(location.href);
@@ -337,8 +337,8 @@
 
   // Session page: template dropdowns depend on the chosen game.
   const templatesFor = (slug) => fetch(window.HUB_TEMPLATES_URL.replace("__SLUG__", encodeURIComponent(slug))).then((r) => r.json());
-  const label = (t) => (t.is_default ? "★ " : "") + (t.ref==='default'?window.HUB_I18N.t(t.name):t.name) + ' · ' + window.HUB_I18N.t(t.ref === 'default' ? 'Spielvorgaben' : t.source)
-    + (t.summary?.length ? window.HUB_I18N.t(` · ${t.summary.length} Änderungen`) : "");
+  const label = (t) => (t.is_default ? "★ " : "") + (t.ref==='default'?window.HUB_I18N.t(t.name):t.name) + ' · ' + window.HUB_I18N.t(t.ref === 'default' ? window.HUB_I18N.t('Spielvorgaben') : t.source)
+    + (t.summary?.length ? window.HUB_I18N.t(' · {v0} Änderungen',{v0:t.summary.length.toLocaleString(window.HUB_I18N.locale)}) : "");
   const templateOption = (t) => {
     const option = new Option(label(t) + (t.compatible === false ? window.HUB_I18N.t(' (inkompatibel)') : ""), t.ref);
     option.disabled = t.compatible === false;
@@ -356,9 +356,9 @@
       const target = document.getElementById("template-explanation");
       if (!target) return;
       const baseButton = document.getElementById("use-base-values");
-      baseButton.textContent = selected && selected.ref !== "default" ? "Vorlage übernehmen" : window.HUB_I18N.t("Standardwerte übernehmen");
+      baseButton.textContent = selected && selected.ref !== "default" ? window.HUB_I18N.t("Vorlage übernehmen") : window.HUB_I18N.t("Standardwerte übernehmen");
       if (!selected) {
-        target.textContent = addGame.value ? "Die Standardauswahl wird beim Übernehmen geprüft." : window.HUB_I18N.t("Wähle ein Spiel, um seine Grundeinstellungen zu sehen.");
+        target.textContent = addGame.value ? window.HUB_I18N.t("Die Standardauswahl wird beim Übernehmen geprüft.") : window.HUB_I18N.t("Wähle ein Spiel, um seine Grundeinstellungen zu sehen.");
         return;
       }
       const title = document.createElement("strong");
@@ -370,7 +370,7 @@
       if (selected.summary?.length) {
         const heading = document.createElement("p");
         heading.className = "small muted";
-        heading.textContent = window.HUB_I18N.t(`${selected.summary.length} Abweichungen vom Spiel-Standard:`);
+        heading.textContent = window.HUB_I18N.t('{v0} Abweichungen vom Spiel-Standard:',{v0:selected.summary.length.toLocaleString(window.HUB_I18N.locale)});
         const summary = document.createElement("ul");
         summary.className = "summary";
         selected.summary.slice(0, 6).forEach(([name, value]) => {

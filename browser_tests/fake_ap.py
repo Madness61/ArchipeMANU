@@ -7,6 +7,8 @@ class FakeAP:
     def __init__(self, game="Test World", names=("Host", "Friend"), seed="CONSOLE_TEST", password=""):
         self.game, self.names, self.seed, self.password = game, names, seed, password
         self.packets, self.clients = [], []
+        self.history = {1:[[501,1001,2,1]],2:[]}
+        self.emit_live = True
         self.lock = threading.RLock()
 
     def __enter__(self):
@@ -29,6 +31,8 @@ class FakeAP:
         wire.send(json.dumps(packets))
 
     def broadcast_item(self):
+        if not self.emit_live:
+            return
         payload = [{"cmd":"PrintJSON","type":"ItemSend","receiving":1,
                     "item":{"item":501,"location":1001,"player":2,"flags":1,"class":"NetworkItem"},
                     "data":[]}]
@@ -69,7 +73,7 @@ class FakeAP:
                         self.send(wire,[{"cmd":"Connected","team":0,"slot":slot,"players":players,
                             "slot_info":{str(i):{"name":n,"game":self.game,"type":1,"class":"NetworkSlot"}
                                          for i,n in enumerate(self.names,1)},"missing_locations":[1001,1002],"checked_locations":[1000]},
-                            {"cmd":"ReceivedItems","index":0,"items":[[501,1001,2,1]]}])
+                            {"cmd":"ReceivedItems","index":0,"items":self.history.get(slot,[])}])
                         with self.lock:
                             self.clients.append(wire)
                         self.broadcast_item()
@@ -84,7 +88,7 @@ class FakeAP:
                         else:
                             self.send(wire,[{"cmd":"PrintJSON","type":"Chat","data":[{"text":f"{name}: {text}"}]}])
                     elif cmd == "Sync":
-                        self.send(wire,[{"cmd":"ReceivedItems","index":0,"items":[[501,1001,2,1]]}])
+                        self.send(wire,[{"cmd":"ReceivedItems","index":0,"items":self.history.get(slot,[])}])
         except Exception:
             pass
         finally:

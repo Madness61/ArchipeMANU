@@ -10,8 +10,8 @@
         const data=await response.json().catch(()=>({error:window.HUB_I18N.t('Die Anfrage konnte nicht verarbeitet werden. Bitte gegebenenfalls neu anmelden.')}));
         if(response.status===401)window.HUB_AUTH_REQUIRED?.(data.login_url);
         if(!response.ok)throw new Error(data.error||window.HUB_I18N.t('Die Check-Vorschau konnte nicht abgerufen werden. Bitte kurz warten.'));
-        result.textContent=data.state==='ready'?data.checks.toLocaleString(window.HUB_I18N.locale)+' Item-Checks mit Spiel-Standard':window.HUB_I18N.t('Standard-Checks noch nicht ermittelt');
-        status.textContent=data.state==='ready'?'Gemessen im Referenz-Probelauf. Keine Bestätigung, dass das Spiel bereits eingerichtet ist.':data.error||'';
+        result.textContent=data.state==='ready'?data.checks.toLocaleString(window.HUB_I18N.locale)+window.HUB_I18N.t(' Item-Checks mit Spiel-Standard'):window.HUB_I18N.t('Standard-Checks noch nicht ermittelt');
+        status.textContent=data.state==='ready'?window.HUB_I18N.t('Gemessen im Referenz-Probelauf. Keine Bestätigung, dass das Spiel bereits eingerichtet ist.'):data.error||'';
         button.hidden=data.state==='ready';button.disabled=data.state==='loading';
         if(data.state==='loading')timer=setTimeout(()=>update(),3000);
       } catch(error){status.textContent=error.message;button.disabled=false;}

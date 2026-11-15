@@ -12,13 +12,15 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, r
                    url_for)
 
 from . import ap_bridge, config, db, yamlgen, mvp, community, auth, live_store, live_routes, ap_console, console_routes, logic_routes
-from . import i18n
+from . import i18n, game_catalog
 
 app = Flask(__name__)
 app.teardown_appcontext(db.close)
 app.jinja_env.globals['_'] = i18n.t
+app.jinja_env.globals['http_error'] = i18n.http_error
 app.jinja_env.filters['localdate'] = i18n.format_date
 app.jinja_env.filters['localnumber'] = i18n.format_number
+app.jinja_env.filters['catalog_label'] = game_catalog.label
 
 from werkzeug.exceptions import HTTPException
 @app.errorhandler(HTTPException)
@@ -26,7 +28,7 @@ def friendly_error(error):
     if not hasattr(g,'user'):
         g.user=None
     if request.path.startswith('/api/') or request.accept_mimetypes.best=='application/json':
-        return jsonify(error=i18n.t(error.description)),error.code
+        return jsonify(error=i18n.http_error(error)),error.code
     return render_template('error.html',error=error),error.code
 
 @app.context_processor
@@ -231,7 +233,7 @@ def can_edit_template(row) -> bool:
 
 
 def template_info(template):
-    return {"ref": template["ref"], "name": template["name"], "source": template["source"],
+    return {"ref": template["ref"], "name": i18n.t(template["name"]) if template['ref']=='default' else template["name"], "source": template["source"],
             "description": template["description"], "summary": template["summary"],
             "is_default": template["is_default"], "compatible": not bool(template["errors"])}
 
@@ -266,10 +268,15 @@ def templates_for(schema: dict) -> list[dict]:
             result.append({"ref":"c:"+row["sha256"],"name":"Upload · "+row["display_name"],"source":"Upload",
                            "description":"Original-YAML bleibt in der Spielebibliothek herunterladbar.","values":{},"unavailable":True})
     for t in result:
+        generated_description = not t['ref'].startswith('t:')
         t["summary"] = yamlgen.summarize(schema, t["values"])
         if not t["description"]:
+            generated_description = True
             t["description"] = (f"{len(t['summary'])} Abweichungen vom Spiel-Standard. Die konkreten Werte stehen unten."
                                 if t["summary"] else "Diese Vorlage entspricht dem Spiel-Standard.")
+        if generated_description:
+            t['description']=i18n.t(t['description'])
+        t['source']=i18n.t(t['source'])
         t["is_default"] = t["ref"] == default_ref
         t["errors"] = yamlgen.validate_values(schema,t["values"])
         t["errors"].update(yamlgen.validate_requirements(schema,t.get("requires",{}),ap_bridge.index().get("ap_version","0.0.0")))
@@ -1177,6 +1184,7 @@ def admin_setup_account(uid):
 
 
 def create_app() -> Flask:
+    from . import recording
     config.ensure_dirs()
     db.init()
     auth.migrate()
@@ -1184,6 +1192,7 @@ def create_app() -> Flask:
     community.migrate()
     live_store.migrate()
     ap_console.migrate()
+    recording.migrate()
     if "mvp" not in app.blueprints:
         app.register_blueprint(mvp.bp)
     if "community" not in app.blueprints:

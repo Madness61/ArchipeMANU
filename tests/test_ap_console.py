@@ -153,15 +153,14 @@ class ConsoleTests(unittest.TestCase):
         with self.app.app_context():
             path = db.get().execute("PRAGMA database_list").fetchone()[2]
             endpoint = db.query("SELECT id FROM hosted_rooms",one=True)["id"]
-        with patch.object(ap_console,"MAX_EVENTS",120):
-            for i in range(130):
-                ap_console.record(path,self.bid,None,"items",{"text":f"event-{i}"},hosted_id=endpoint)
+        for i in range(130):
+            ap_console.record(path,self.bid,None,"items",{"text":f"event-{i}"},hosted_id=endpoint)
         batch = self.state()["events"]
         self.assertEqual(len(batch),100)
         self.assertEqual(batch[-1]["text"],"event-129")
         older = self.state(query=f"?before={batch[0]['id']}")["events"]
-        self.assertEqual(len(older),20)
-        self.assertEqual(older[0]["text"],"event-10")
+        self.assertEqual(len(older),30)
+        self.assertEqual(older[0]["text"],"event-0")
         self.assertEqual(self.state(query=f"?after={batch[-1]['id']}")["events"],[])
         with self.app.app_context():
             db.execute("INSERT INTO hosted_rooms(build_id,host,port,entered_by,created_at) VALUES (?,'127.0.0.1',1234,1,'later')",(self.bid,))

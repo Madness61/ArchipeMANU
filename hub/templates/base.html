@@ -51,7 +51,7 @@
     <div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ icon('check' if category != 'error' else 'shield') }}<span>{{ _(message) }}</span></div>
   {% endfor %}
   {% if room is defined and build is defined and request.endpoint != 'session_view' and request.endpoint != 'mvp.play_page' %}
-  <nav class="round-detail-back" aria-label="{{ _("Zur Rundenzentrale") }}"><a class="btn small" href="{{ url_for('session_view',sid=room.id,build=build.id,_anchor='progress' if request.endpoint in ['live.dashboard','logic.page','console.page'] else 'more') }}">{{ icon('arrow','back-arrow') }} {{ room.name }} {{ _("· Rundenzentrale") }}</a><span class="small muted">{{ _("Seed #") }}{{ build.id }} {{ _("· Detailansicht") }}</span></nav>
+  <nav class="round-detail-back" aria-label="{{ _("Zur Rundenzentrale") }}"><a class="btn small" href="{{ url_for('session_view',sid=room.id,build=build.id,_anchor='play' if request.endpoint == 'console.page' else 'progress' if request.endpoint in ['live.dashboard','logic.page'] else 'more') }}">{{ icon('arrow','back-arrow') }} {{ room.name }} {{ _("· Rundenzentrale") }}</a><span class="small muted">{{ _("Seed #") }}{{ build.id }} {{ _("· Detailansicht") }}</span></nav>
   {% endif %}
   {% block content %}{% endblock %}
   {% if not g.user %}</div></div>{% endif %}

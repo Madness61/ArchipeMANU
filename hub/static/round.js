@@ -7,7 +7,7 @@
   const panels = [...root.querySelectorAll('[data-round-panel]')];
   root.querySelectorAll('[data-player-name]').forEach(card=>card.style.setProperty('--player',window.HUB_UI.playerColor(card.dataset.playerName)));
   const el = (tag, text, cls) => { const n=document.createElement(tag); if(text!=null)n.textContent=text; if(cls)n.className=cls; return n; };
-  const value = v => v == null ? '—' : String(v);
+  const value = v => v == null ? '—' : typeof v==='number'?v.toLocaleString(window.HUB_I18N.locale):String(v);
   const pct = v => v == null ? '—' : v.toLocaleString(window.HUB_I18N.locale,{maximumFractionDigits:1})+' %';
   let view='play', liveBusy=false, personalBusy=false, currentMetrics=null, consoleState=null, generation=0;
   async function api(url, body) {
@@ -37,7 +37,7 @@
     if(setup){event.preventDefault();const box=$(setup.dataset.showSetup);box.hidden=!box.hidden;setup.setAttribute('aria-expanded',String(!box.hidden));if(!box.hidden)box.scrollIntoView({block:'nearest'});}
     if(event.target.closest('[data-round-refresh]')){loadLive();if(view==='progress')loadPersonal();}
     const button=event.target.closest('[data-player-detail]');
-    if(button){const card=button.closest('[data-player-name]'),detail=card.querySelector('.round-player-detail');detail.hidden=!detail.hidden;button.setAttribute('aria-expanded',String(!detail.hidden));button.textContent=detail.hidden?'Statistik ansehen':window.HUB_I18N.t('Statistik schließen');}
+    if(button){const card=button.closest('[data-player-name]'),detail=card.querySelector('.round-player-detail');detail.hidden=!detail.hidden;button.setAttribute('aria-expanded',String(!detail.hidden));button.textContent=detail.hidden?window.HUB_I18N.t('Statistik ansehen'):window.HUB_I18N.t('Statistik schließen');}
   });
   function chart(history) {
     const box=$('round-chart');box.replaceChildren();
@@ -53,7 +53,7 @@
   function renderLive(data) {
     currentMetrics=data.metrics;
     const m=data.metrics;
-    $('round-live-status').textContent=data.error ? data.error+' Der letzte erfolgreiche Datenstand bleibt sichtbar.' : data.updated_at ? (data.stale?'Veralteter Datenstand · ':window.HUB_I18N.t('Zuletzt gemeldet · '))+new Date(data.updated_at).toLocaleString(window.HUB_I18N.locale) : window.HUB_I18N.t('Der erste Datenstand wird noch abgerufen.');
+    $('round-live-status').textContent=data.error ? data.error+' '+window.HUB_I18N.t('Der letzte erfolgreiche Datenstand bleibt sichtbar.') : data.updated_at ? (data.stale?window.HUB_I18N.t('Veralteter Datenstand · '):window.HUB_I18N.t('Zuletzt gemeldet · '))+new Date(data.updated_at).toLocaleString(window.HUB_I18N.locale) : window.HUB_I18N.t('Der erste Datenstand wird noch abgerufen.');
     if(data.seed_matches===false)$('round-live-status').textContent+=window.HUB_I18N.t(' Achtung: Spieler oder Spiele des Raums weichen vom lokalen Seed ab.');
     $('round-checks').textContent=m ? value(m.checks)+' / '+value(m.total) : '—';
     $('round-percent').textContent=pct(m?.progress);
@@ -61,14 +61,14 @@
     $('round-total-bar').style.width=Math.max(0,Math.min(100,m?.progress||0))+'%';
     const ownNames=JSON.parse(root.dataset.ownSlots||'[]');
     const own=(m?.players||[]).filter(p=>ownNames.includes(p.name));
-    $('round-own-checks').textContent=own.length && data.seed_matches!==false && own.every(p=>p.checks!=null) ? own.reduce((sum,p)=>sum+p.checks,0) : '—';
+    $('round-own-checks').textContent=own.length && data.seed_matches!==false && own.every(p=>p.checks!=null) ? value(own.reduce((sum,p)=>sum+p.checks,0)) : '—';
     document.querySelectorAll('[data-player-name]').forEach(card=>{
       card.style.setProperty('--player',window.HUB_UI.playerColor(card.dataset.playerName));
       const p=(m?.players||[]).find(p=>p.name===card.dataset.playerName&&p.game===card.dataset.playerGame);
-      card.querySelector('[data-player-summary]').textContent=p ? value(p.checks)+' / '+value(p.total)+window.HUB_I18N.t(' Checks · ')+pct(p.progress)+(p.goal?' · Ziel erreicht':'') : window.HUB_I18N.t('Noch kein gemeldeter Fortschritt');
+      card.querySelector('[data-player-summary]').textContent=p ? value(p.checks)+' / '+value(p.total)+window.HUB_I18N.t(' Checks · ')+pct(p.progress)+(p.goal?window.HUB_I18N.t(' · Ziel erreicht'):'') : window.HUB_I18N.t('Noch kein gemeldeter Fortschritt');
       card.querySelector('[data-player-bar]').style.width=Math.max(0,Math.min(100,p?.progress||0))+'%';
-      const detail=card.querySelector('.round-player-detail');detail.replaceChildren(el('p',p ? window.HUB_I18N.t('Empfangene Items: ')+value(p.received)+window.HUB_I18N.t(' · Ziel: ')+(p.goal==null?'unbekannt':p.goal?'erreicht':window.HUB_I18N.t('noch nicht gemeldet')) : window.HUB_I18N.t('Für diesen Spieler liegen noch keine passenden Daten vor.'),'small'));
-      if(p?.activity)detail.append(el('p',window.HUB_I18N.t('Letzte vom Tracker gemeldete Aktivität: ')+new Date(p.activity).toLocaleString(window.HUB_I18N.locale)+'. Keine Bestätigung einer aktuellen Verbindung.','small muted'));
+      const detail=card.querySelector('.round-player-detail');detail.replaceChildren(el('p',p ? window.HUB_I18N.t('Empfangene Items: ')+value(p.received)+window.HUB_I18N.t(' · Ziel: ')+(p.goal==null?window.HUB_I18N.t('unbekannt'):p.goal?window.HUB_I18N.t('erreicht'):window.HUB_I18N.t('noch nicht gemeldet')) : window.HUB_I18N.t('Für diesen Spieler liegen noch keine passenden Daten vor.'),'small'));
+      if(p?.activity)detail.append(el('p',window.HUB_I18N.t('Letzte vom Tracker gemeldete Aktivität: ')+new Date(p.activity).toLocaleString(window.HUB_I18N.locale)+'. '+window.HUB_I18N.t('Keine Bestätigung einer aktuellen Verbindung.'),'small muted'));
     });
     chart(data.history);
     $('round-events').replaceChildren(...((data.events||[]).slice(0,8).map(e=>el('li',new Date(e.at).toLocaleTimeString(window.HUB_I18N.locale)+' · '+e.text,'small'))));
@@ -85,7 +85,7 @@
     try{
       const data=await api(root.dataset.console+'/data?kind=all');
       if($('round-item-events'))$('round-item-events').replaceChildren(...data.events.slice(-8).reverse().map(e=>el('li',e.text,'small')));
-      if($('round-personal-status'))$('round-personal-status').textContent=data.error || (data.state==='connected'?'Textkonsole verbunden. Lokaler Spielclient: unbekannt.':window.HUB_I18N.t('Textkonsole: ')+data.state+'. Verbindung und Befehle findest du in der Konsole.');
+      if($('round-personal-status'))$('round-personal-status').textContent=data.error || (data.state==='connected'?window.HUB_I18N.t('Textkonsole verbunden. Lokaler Spielclient: unbekannt.'):window.HUB_I18N.t('Textkonsole: ')+window.HUB_UI.consoleLabel(data.state)+'. '+window.HUB_I18N.t('Verbindung und Befehle findest du in der Konsole.'));
     }catch(error){if($('round-personal-status'))$('round-personal-status').textContent=error.message;}
     finally{personalBusy=false;}
   }

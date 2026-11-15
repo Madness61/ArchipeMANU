@@ -200,6 +200,12 @@ for _slug, _tags in {
     CATALOG[_slug]["tags"] = _tags
 
 _SOURCES = json.loads(Path(__file__).with_name("game_catalog_sources.json").read_text(encoding="utf-8"))
+_CURATED_LABELS={'Noch nicht zugeordnet'}|{value for entry in CATALOG.values() for field in ('genres','tags') for value in entry.get(field,[])}
+
+
+def label(value):
+    """Translate curated genre/tag vocabulary without translating arbitrary user tags."""
+    return i18n.t(value) if value in _CURATED_LABELS else value
 
 
 def details(slug, name, metadata=None):
@@ -270,7 +276,8 @@ def enrich(rows):
 
 def matches(row, q="", kind="all", state="all", genre="all", setup="all", tag="all"):
     info = row["catalog"]
-    haystack = " ".join([row["name"], row["slug"], row["added_by"], info["description"], *info["genres"], *info["tags"]]).lower()
+    terms=[*info['genres'],*info['tags']]
+    haystack = " ".join([row["name"], row["slug"], row["added_by"], info["description"], *terms,*(label(value) for value in terms)]).lower()
     return (q.lower().strip() in haystack
             and (kind == "all" or row["custom"] == (kind == "custom"))
             and (state == "all" or row["support_state"] == state)

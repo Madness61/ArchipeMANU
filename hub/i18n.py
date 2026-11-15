@@ -36,6 +36,16 @@ def preferences():
 def language():
     return preferences()['language']
 
+
+def http_error(error):
+    defaults={400:'Die Anfrage ist ungültig.',403:'Du hast keine Berechtigung für diese Aktion.',
+              404:'Die angeforderte Seite wurde nicht gefunden.',405:'Diese Aktion ist hier nicht verfügbar.',
+              409:'Die Aktion passt nicht zum aktuellen Zustand.',413:'Die hochgeladene Datei ist zu groß.',
+              429:'Zu viele Anfragen. Bitte kurz warten.',500:'Die Anfrage konnte nicht verarbeitet werden.'}
+    if error.description==type(error).description and error.code in defaults:
+        return t(defaults[error.code])
+    return t(error.description)
+
 def t(message, **values):
     if not isinstance(message, str):
         return message

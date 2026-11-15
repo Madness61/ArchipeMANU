@@ -2,7 +2,7 @@
 
 **Privater Multiworld-Hub für Archipelago.** ArchipeMANU bündelt Spielebibliothek, APWorlds, YAML-Konfiguration, Lobbys, Seed-Generierung, persönliche Spieldateien und die gemeinsame Live-Konsole in einer lokalen Webanwendung.
 
-> **Entwicklungsstand (13.11.2026):** `feature/social-console-localization-themes` enthält den vollständigen gemeinsamen Stand aus #11, die Verbindungsstabilisierung aus #12 sowie DE/EN, Themes und persönliche Konsolenfilter. Lokales Checkout und zugehöriger GitHub-Branch werden synchron gehalten. Die Übernahme nach `main` erfolgt separat per Pull Request. Offene manuelle Abnahmen stehen in [TODO.md](TODO.md).
+> **Entwicklungsstand (15.11.2026):** `feature/final-polish-recording-diagnostics` basiert auf dem vollständigen Stand aus #11–13 einschließlich automatischer Portwechsel. Er ergänzt dauerhafte Itemhistorie, ausdrücklich aktivierte Host-Aufzeichnung, unabhängige Verbindungsdiagnose sowie bereinigte Übersetzungen und Theme-Tokens. Die Übernahme nach `main` erfolgt separat per Pull Request. Offene manuelle Abnahmen stehen in [TODO.md](TODO.md).
 
 ## Was der Hub macht
 
@@ -11,9 +11,10 @@
 - **Seed-Generierung:** Der Host erstellt eine Multiworld-ZIP, lädt sie **manuell** zu archipelago.gg hoch und hinterlegt den Raumlink beziehungsweise Host und Port.
 - **Spielstart:** Slotnamen, Anleitungen, Downloads und Verbindungsdaten für die Mitglieder bereitstellen.
 - **Live-Begleitung:** WebHost-API für Checks, Fortschritt und Verlauf; separate Archipelago-Textkonsole für Item-Sendungen, Chat und Befehle. Die Konsole ersetzt den lokalen Spielclient **nicht**.
+- **Optionale Rundenaufzeichnung:** Der Host kann einen ausschließlich lesenden TextOnly-Client über seinen eigenen Slot freigeben. Er arbeitet ohne offene Webseite und nach Abmeldung weiter. Ungeschützte Räume können nach einem Hub-Neustart automatisch fortgesetzt werden; bei geschützten Räumen wird das Passwort erneut benötigt und niemals gespeichert.
 - **Auswertung:** Seed- und Spielerstatistiken; Spoiler erscheinen nur nach ausdrücklicher Freigabe und gemäß Race-Regeln.
 
-**Grenzen:** Die Website installiert oder prüft lokale Spiele, Emulatoren, Mods und ROMs nicht. Eine erfolgreich generierte Multiworld beweist keine Kompatibilität des lokalen Spielclients. Die WebHost-API liefert keinen lückenlosen Echtzeit-Eventlog; die separate Konsole erfasst Nachrichten ab ihrer Verbindung. Der experimentelle Universal-Logik-Tracker ist deaktiviert; seine alten URLs zeigen einen Hinweis.
+**Grenzen:** Die Website installiert oder prüft lokale Spiele, Emulatoren, Mods und ROMs nicht. Eine erfolgreich generierte Multiworld beweist keine Kompatibilität des lokalen Spielclients. Die WebHost-API liefert kein vollständiges Sendungslog. Die Konsole speichert beobachtete Sendungen und ergänzt nachweisbare Empfänge des verbundenen Slots. Nachträgliche Bestätigungen haben keinen bekannten Fundzeitpunkt; fehlende weltweite Ereignisse werden nicht erfunden. Der experimentelle Universal-Logik-Tracker ist deaktiviert; seine alten URLs zeigen einen Hinweis.
 
 ## Schnellstart (Windows)
 
@@ -53,7 +54,9 @@ Zugangsdaten außerhalb von localhost nur über eine geeignete HTTPS-Konfigurati
 6. **Gemeinsam verfolgen:** Die Hub-Konsole für Item-Sendungen/Chat und das Live-Dashboard für Fortschritt nutzen.
 7. **Abschluss:** Spieler bestätigen ihren Abschluss, Auswertungen und Downloads bleiben verfügbar.
 
-Die drei getrennten Verbindungen **Hub-Webseite**, **WebHost-API** und **Archipelago-Textkonsole** können unabhängig voneinander funktionieren oder ausfallen.
+Die ausklappbare Diagnose trennt **Browser → Hub**, **WebHost-API**, **persönliche Textkonsole / Host-Aufzeichnung** und den **lokalen Spielclient**. Letzterer bleibt ohne zuverlässige Prüfung unbekannt. API-Ausfälle ändern nicht den Zustand einer funktionierenden Textkonsole.
+
+Unter **Konsole → Rundenaufzeichnung · Host** kann der Host die dauerhafte Aufzeichnung ausdrücklich aktivieren und beenden. Voraussetzung ist ein eigener Slot im erzeugten Seed. Die Freigabe überlebt einen Hub-Neustart; Passwörter überleben ihn nicht. Eine SQLite-Lease verhindert parallele Aufzeichner und kann die Wiederaufnahme um bis zu etwa 20 Sekunden verzögern. Die persönliche Chatverbindung bleibt separat.
 
 ## Tests
 
@@ -81,6 +84,7 @@ Die **getrennt umgesetzten** Arbeitspakete und ihre offenen manuellen Abnahmen s
 
 - **A – Verbindungsstabilität:** WebSocket-Reconnect und browserunabhängige Textverbindung sind umgesetzt; reale Mehrspieler-Langzeitabnahme bleibt offen.
 - **B – Produkt-UX:** DE/EN, Light/Dark/System, persönliche Itemfilter und eine kompakte Konsole sind umgesetzt; die reale Spielclient-Abnahme bleibt separat.
+- **Finaler Feinschliff:** Kein automatisches Abschneiden der Itemhistorie, belegte Empfangsergänzungen, Host-Aufzeichnung, unabhängige Diagnose, lokalisierte dynamische Statusmeldungen und zentrale Theme-Farben. Details: [CONNECTION_RELIABILITY.md](CONNECTION_RELIABILITY.md).
 
 ## Dokumentation
 

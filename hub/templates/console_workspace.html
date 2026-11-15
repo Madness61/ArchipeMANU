@@ -1,8 +1,9 @@
 <div id="ap-console" class="console-workspace" data-user="{{ g.user.id }}" data-base="{{ url_for('console.page',sid=room.id,build_id=build.id) }}" data-csrf="{{ csrf_token }}">
   <section class="panel console-main">
     <div class="row spread"><div><p class="eyebrow">{{ _("Eure Runde live") }}</p><h2>{{ _("Itemprotokoll & Chat") }}</h2></div><div class="row"><span id="console-state" class="chip" role="status">{{ _("Nicht verbunden") }}</span>{% if own and not archived %}<a class="small" href="#console-connect" id="console-connect-link">{{ _("Slot verbinden") }}</a>{% endif %}</div></div>
-    <p class="small muted">{{ _("Wer findet was für wen? Sendungen erscheinen ab einer Textverbindung. Frühere Sendungen sind kein vollständig nachträglich abrufbares Serverlog.") }}</p>
-    <details class="console-diagnostics"><summary>{{ _("Verbindungsdiagnose") }}</summary><p id="console-diagnostics" class="small muted" role="status">{{ _("Textkonsole, WebHost-API und lokaler Spielclient sind getrennte Verbindungen.") }}</p></details>
+    <p class="small muted">{{ _("Live-Meldungen und bestätigte Empfänge bleiben gespeichert. Nachträglich bestätigte Empfänge sind gekennzeichnet; ihr ursprünglicher Fundzeitpunkt ist unbekannt.") }}</p>
+    <div class="console-recording-status small" role="status"><span class="chip" id="console-recording-state">{{ _("Aufzeichnungsstatus wird geladen …") }}</span><span class="muted" id="console-last-event"></span></div>
+    <details class="console-diagnostics"><summary>{{ _("Verbindungsdiagnose") }}</summary><div id="console-diagnostics" class="small muted">{{ _("Textkonsole, WebHost-API und lokaler Spielclient sind getrennte Verbindungen.") }}</div></details>
     <div class="row console-filters"><label>{{ _("Nachrichtenart") }}<select id="console-kind" aria-label="{{ _("Nachrichtenart") }}"><option value="all">{{ _("Alle") }}</option><option value="for_me">{{ _("Für mich") }}</option><option value="from_me">{{ _("Von mir") }}</option><option value="others">{{ _("Andere Spieler") }}</option><option value="items">{{ _("Item-Sendungen") }}</option><option value="chat">{{ _("Chat") }}</option><option value="system">{{ _("System & Antworten") }}</option><option value="sent">{{ _("Gesendete Befehle") }}</option></select></label><label>{{ _("In geladenen Nachrichten suchen") }}<input type="search" id="console-search" maxlength="100"></label><button id="console-older" type="button" class="small">{{ _("Frühere Nachrichten") }}</button></div>
     <div id="console-log" class="console-log" role="log" aria-label="{{ _("Archipelago-Protokoll") }}" aria-live="polite"><p class="muted" id="console-empty">{{ _("Noch keine Nachrichten aufgezeichnet. Verbinde deinen Slot, um neue Item-Sendungen und Chat zu sehen.") }}</p></div>
     <p id="console-error" class="err" role="alert" hidden></p>
@@ -32,7 +33,22 @@
       <button class="primary" {% if not endpoint %}disabled{% endif %}>{{ _("Mit Archipelago verbinden") }}</button><button id="console-disconnect" type="button">{{ _("Verbindung trennen") }}</button>
     </form>{% endif %}
     <p class="small muted">{{ _("Diese Textverbindung liest Servermeldungen und ermöglicht Chat. Deinen Spielclient verbindest du separat. Ein Raumpasswort bleibt nur im Arbeitsspeicher der Verbindung.") }}</p>
-    {% if console_embedded|default(false) %}<div class="stack"><a href="#prepare-games">{{ _("Mein Spiel, Dateien & Verbindung") }}</a><a href="#progress">{{ _("Fortschritt & nächste Checks") }}</a><a href="#completion">{{ _("Spielabschluss bestätigen") }}</a></div>{% endif %}
+    {% if g.user and (g.user.is_admin or room.created_by==g.user.id) and not archived %}
+    <details class="recording-manager"><summary>{{ _("Rundenaufzeichnung · Host") }}</summary>
+      <p class="small muted">{{ _("Ein eigener TextOnly-Leser erfasst Itemmeldungen auch ohne offene Webseite und nach deiner Abmeldung. Er verwendet ausschließlich deinen eigenen Slot und sendet weder Chat noch Spielaktionen. Passwörter werden nicht gespeichert; bei geschützten Räumen musst du sie nach einem Hub-Neustart erneut eingeben.") }}</p>
+      <p class="small err" id="recording-error" role="status" hidden></p>
+      {% if own %}<form class="stack" id="recording-start" method="post" action="{{ url_for('console.recording_start',sid=room.id,build_id=build.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+        <label>{{ _("Mein Slot für die Aufzeichnung") }}<select name="slot" aria-label="{{ _("Mein Slot für die Aufzeichnung") }}">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label>
+        <label>{{ _("Raumpasswort für die Aufzeichnung (optional)") }}<input name="password" type="password" autocomplete="off" maxlength="1024"></label>
+        <label>{{ _("Verbindungsart für die Aufzeichnung") }}<select name="transport" aria-label="{{ _("Verbindungsart für die Aufzeichnung") }}"><option value="auto">{{ _("Automatisch (empfohlen)") }}</option><option value="wss">WSS</option><option value="ws">WS</option></select></label>
+        <label class="recording-consent"><input type="checkbox" name="consent" value="1" required> {{ _("Ich erlaube die dauerhafte Aufzeichnung über meinen eigenen Slot.") }}</label>
+        <button class="primary" type="submit">{{ _("Aufzeichnung starten / neu verbinden") }}</button>
+      </form>{% else %}<p class="small muted">{{ _("Zum Aufzeichnen benötigt der Host einen eigenen Spielslot in diesem Seed. Fremde Slots werden nicht verbunden.") }}</p>{% endif %}
+      <button type="button" id="recording-stop" disabled>{{ _("Aufzeichnung beenden") }}</button>
+    </details>
+    {% endif %}
+    {% if console_embedded|default(false) %}<div class="stack"><a href="#prepare-games">{{ _("Mein Spiel, Dateien & Verbindung") }}</a><a href="#progress">{{ _("Fortschritt & offene Checks") }}</a><a href="#completion">{{ _("Spielabschluss bestätigen") }}</a></div>{% endif %}
     </section>
     <section class="panel console-help"><h3>{{ _("Direkt im Chat") }}</h3><p class="small muted"><code>/received</code> {{ _("zeigt empfangene Items,") }} <code>/missing</code> {{ _("offene Checks und") }} <code>/hint Itemname</code> {{ _("fragt einen Hinweis an. Der Server entscheidet über Verfügbarkeit, Kosten und Berechtigungen.") }}</p><p class="small muted">{{ _("Item-Sendungen sind gemeinsam sichtbar. Chat und Befehlsantworten werden in deinem persönlichen Konsolenverlauf gespeichert; andere verbundene Spielclients erhalten Chat über Archipelago.") }}</p></section>
   </aside>

@@ -25,7 +25,7 @@
 {% elif manage and not build.completed_at %}<p>{{ _("Hinterlege den Raumlink oder Server und Port, damit alle losspielen können.") }}</p><a class="btn primary" href="#round-host-connection">{{ _("Verbindung einrichten") }}</a><p><a href="{{ url_for('mvp.build_download',sid=s.id,build_id=build.id) }}">{{ _("Multiworld-ZIP zum Hosten herunterladen") }}</a></p>
 {% else %}<p class="muted">{{ _("Der Host hat noch keine Serveradresse hinterlegt. Die Spielanleitung und Dateien kannst du bereits vorbereiten.") }}</p>{% endif %}
 </section>
-{% if not build.completed_at %}<a class="panel tool-link" href="#progress">{{ icon('chart') }}<strong>{{ _("Gemeinsam weiterspielen") }}</strong><span class="small muted">{{ _("Fortschritt, erhaltene Items und deine nächsten Checks") }}</span></a>{% endif %}
+{% if not build.completed_at %}<a class="panel tool-link" href="#progress">{{ icon('chart') }}<strong>{{ _("Gemeinsam weiterspielen") }}</strong><span class="small muted">{{ _("Fortschritt, erhaltene Items und offene Checks") }}</span></a>{% endif %}
 </div>
 </div>
 {% include "completion.html" %}

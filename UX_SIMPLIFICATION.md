@@ -16,21 +16,22 @@ sich nach Aufgaben und dem Zustand der Runde statt nach technischen Modulen.
 ## Eine Oberfläche pro Runde
 
 `/sessions/<sid>` ist der primäre Einstieg. Vier Bereiche wechseln per
-URL-Fragment ohne Dokumentnavigation: **Spielen**, **Fortschritt**,
+URL-Fragment ohne Dokumentnavigation: **Konsole** (bei laufender verknüpfter Runde, sonst **Spielen**), **Fortschritt**,
 **Mitspieler**, **Mehr**. Zurück/Vorwärts, direkte Fragmentlinks, Tastatur und
 mobile Bedienung bleiben möglich. Ohne JavaScript stehen die Inhalte untereinander.
 
 Eine offene oder wieder geöffnete Lobby priorisiert Spielauswahl, Grundwerte,
 Bereitschaft und Generierung. Ein alter Seed verdrängt keine neue Vorbereitung.
-Nach erfolgreicher Generierung zeigt „Spielen“ persönliche Spiele, Slotnamen,
-Patchdownloads, Anleitung und die kompakte Verbindungsadresse. Nach Abschluss
+Nach erfolgreicher Generierung und hinterlegter Verbindung steht die Konsole im
+Mittelpunkt. Persönliche Spiele, Slotnamen, Patchdownloads, Anleitung und die
+Verbindungsadresse liegen direkt darunter in einem aufklappbaren Bereich. Nach Abschluss
 entfallen Vorbereitung und Verbindungsformulare. Eine gespeicherte
 Serveradresse wird nie als Online-Nachweis bezeichnet.
 
 Historische Builds bleiben über `?build=<id>` auswählbar. Die bisherigen
 `/sessions/<sid>/builds/<id>/play`-Links rendern dieselbe Rundenzentrale für genau
-diesen Seed. Alle bisherigen Download-, Analyse-, Live-, Konsolen- und Logikrouten
-bleiben erhalten. Umfangreiche Detailansichten besitzen einen Rückweg mit
+diesen Seed. Download-, Analyse-, Live- und Konsolenrouten bleiben erhalten;
+alte Logik-URLs erklären die Deaktivierung mit HTTP 410. Detailansichten besitzen einen Rückweg mit
 Rundenname und Seed-ID zur passenden zentralen Ansicht.
 
 ## Persönliche Dateien
@@ -42,7 +43,7 @@ reichen nicht aus. ZIP-Inhalte werden begrenzt gelesen und nicht ausgeführt.
 Unbekannte Formate und Dateien mit unklarer Identität bleiben transparent im
 gemeinsamen Downloadbereich.
 
-## Fortschritt und nächste Checks
+## Fortschritt und offene Checks
 
 Der zentrale Fortschrittsbereich verwendet die bisherigen Live-JSON-Endpunkte.
 Gemeinsamer Cache, Abrufgrenzen, historische Snapshots, Reset-Abschnitte,
@@ -50,19 +51,18 @@ Race-Filter und Bedeutung aller Statistiken bleiben erhalten. Das kompakte
 Diagramm verbindet keine Werte über einen Reset hinweg. Erweiterte Vergleiche,
 Interaktionen und Präsentationsmodus bleiben in der Detailansicht.
 
-Spieler können ihren eigenen Slot unmittelbar bei „Deine nächsten Checks“
-verbinden. Slotname und Server sind bereits bekannt; nur ein gegebenenfalls
+Spieler können ihren eigenen Slot unmittelbar in der Konsole verbinden.
+Slotname und Server sind bereits bekannt; nur ein gegebenenfalls
 benötigtes Raumpasswort ist einzugeben. Private Meldungen bleiben privat.
 Die vorhandenen Konsolen-Endpunkte prüfen weiterhin Mitgliedschaft, eigenen
 Slot, CSRF, Ratenbegrenzung und Archivstatus. Das Öffnen der Oberfläche allein
 verbindet keinen Slot und sendet keine Spielaktionen. Eine Webverbindung ist
 keine Bestätigung einer Verbindung des lokalen Spielclients.
 
-Danach nutzt die Oberfläche die vorhandene private Logik-API. Unbekannte,
-fehlerhafte oder veraltete Ergebnisse entfernen frühere Checks und Go-Mode.
-Die kompakte Liste enthält keine Itemplatzierungen. Deren ausdrückliche
-Spoilerfreigabe bleibt ausschließlich in der vollständigen Logikansicht.
-Race-Modus sperrt weiterhin Konsole und persönlichen Tracker.
+`/received`, `/missing` und `/hint` verwenden den gemeldeten Serverstand.
+Offene Checks sind keine berechneten erreichbaren Checks; Go-Mode wird nicht
+berechnet. Race-Modus sperrt weiterhin Konsole und Itemprotokoll. Die separate
+Seed-Analyse behält ihre ausdrückliche Spoilerfreigabe und Race-Regeln.
 
 ## Verwaltung
 
@@ -72,8 +72,9 @@ nur dem bisherigen berechtigten Personenkreis angezeigt. Generierung bleibt
 bei der Vorbereitung prominent und verwendet den bestehenden Preflight.
 Teilnehmeraktionen, Versionen, Vorlagen und Einstellungen bleiben erhalten.
 
-Neue Dateien: `hub/rounds.py`, `round*.html`, `overview.html`, `round.js`,
-`round.css`. Keine neue Datenbankmigration oder Frontend-Abhängigkeit.
+Die Rundenzentrale verwendet `hub/rounds.py`, `round*.html`, `overview.html`,
+`round.js` und `round.css`, ohne neues Frontend-Framework. Die zusätzliche
+Aufzeichnung und ihre additiven Tabellen beschreibt [CONNECTION_RELIABILITY.md](CONNECTION_RELIABILITY.md).
 
 ## Prüfung
 

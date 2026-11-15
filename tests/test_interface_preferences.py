@@ -12,6 +12,33 @@ class InterfaceTests(unittest.TestCase):
     setUp,tearDown,post=fixtures.MVPTests.setUp,fixtures.MVPTests.tearDown,fixtures.MVPTests.post
     def login(self):self.post('/login',{'username':'Host'})
 
+    def test_english_library_and_template_ui_preserve_custom_names_and_descriptions(self):
+        self.login()
+        with self.app.app_context():
+            db.execute("INSERT INTO templates(game,name,description,created_by) VALUES ('test_world','Speichern','Speichern',1)")
+        self.post('/preferences',dict(language='en',theme='light'))
+        page=self.client.get('/games').get_data(as_text=True)
+        self.assertIn('Selectable in lobby',page)
+        self.assertNotIn('>Für Lobby auswählbar<',page)
+        self.assertIn('1 of 1 games',page)
+        detail=self.client.get('/games/test_world').get_data(as_text=True)
+        paragraphs=' '.join(re.findall(r'<p\b[^>]*>(.*?)</p>',detail,re.S))
+        self.assertNotIn('Die Voreinstellungen dieses Spiels',paragraphs)
+        self.assertIn('Speichern',detail)
+        templates=self.client.get('/api/games/test_world/templates').get_json()
+        default=next(t for t in templates if t['ref']=='default')
+        custom=next(t for t in templates if t['ref'].startswith('t:'))
+        self.assertEqual(default['name'],i18n.MESSAGES['Spiel-Standard'])
+        self.assertEqual((custom['name'],custom['description']),('Speichern','Speichern'))
+        with self.app.test_request_context('/'),patch.object(i18n,'language',return_value='en'):
+            self.assertEqual(game_catalog.label('Speichern'),'Speichern')
+            self.assertEqual(game_catalog.label('Rollenspiel'),i18n.t('Rollenspiel'))
+            row=dict(name='Test',slug='test',added_by='Host',custom=True,support_state='loaded',
+                     catalog=dict(description='Test',genres=['Rollenspiel'],tags=['Speichern'],setup_type='mod'))
+            self.assertTrue(game_catalog.matches(row,q=i18n.t('Rollenspiel')))
+            self.assertTrue(game_catalog.matches(row,q='Speichern'))
+            self.assertFalse(game_catalog.matches(row,q='Save'))
+
     def test_preferences_require_csrf_and_do_not_change_yaml_or_readiness(self):
         self.login()
         with self.app.app_context():
@@ -73,6 +100,45 @@ class InterfaceTests(unittest.TestCase):
         self.assertTrue(self.client.get(url+'?kind=for_me').get_json()['events'][0]['for_me'])
 
 class CatalogCoverageTests(unittest.TestCase):
+    def test_productive_javascript_does_not_bypass_translation(self):
+        from scripts.ui_checks import untranslated_js,untranslated_jinja
+        self.assertEqual(list(untranslated_js()),[])
+        self.assertEqual(list(untranslated_jinja()),[])
+
+    def test_productive_backend_ui_errors_have_translation_entries(self):
+        import ast
+        from scripts.ui_catalog import human
+        for path in Path('hub').glob('*.py'):
+            if path.name in ('logic_tracker.py','logic_worker.py','ap_runner.py','i18n.py'):
+                continue
+            for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
+                if not isinstance(node,ast.Call) or not (getattr(node.func,'id','') in ('abort','flash','ValueError','APIError') or getattr(node.func,'attr','')=='note'):
+                    continue
+                for argument in node.args:
+                    if isinstance(argument,ast.Constant) and isinstance(argument.value,str):
+                        value=argument.value
+                    elif isinstance(argument,ast.JoinedStr):
+                        parts=[];index=0
+                        for part in argument.values:
+                            if isinstance(part,ast.Constant):parts.append(part.value)
+                            else:parts.append('{v'+str(index)+'}');index+=1
+                        value=''.join(parts)
+                    else:
+                        continue
+                    value=re.sub(r'\s+',' ',value).strip()
+                    if human(value):self.assertIn(value,i18n.MESSAGES,(str(path),node.lineno,value))
+
+    def test_theme_colors_are_central_and_retired_logic_is_not_advertised(self):
+        for name in ('style.css','round.css','console.css','live.css'):
+            source=(Path('hub/static')/name).read_text(encoding='utf-8')
+            self.assertIsNone(re.search(r'#[0-9a-fA-F]{3,8}\b',source),name)
+        theme=Path('hub/static/themes.css').read_text(encoding='utf-8')
+        self.assertNotIn('html[data-theme] .',theme)
+        for name in ('round_play.html','console_workspace.html','round_progress.html'):
+            source=(Path('hub/templates')/name).read_text(encoding='utf-8')
+            for retired in ('nächste Checks','nächsten Checks','data-logic','Go-Mode'):
+                self.assertNotIn(retired,source,(name,retired))
+
     def test_static_translation_calls_have_catalogue_entries(self):
         import ast
         from jinja2 import Environment,nodes

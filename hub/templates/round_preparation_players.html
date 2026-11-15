@@ -35,7 +35,7 @@
       {% set versions = world_versions|selectattr('module','equalto',e.game)|list %}
       {% if versions %}
       <form method="post" action="{{ url_for('mvp.entry_world_version', eid=e.id) }}">
-        <input type="hidden" name="_csrf" value="{{ csrf_token }}"><label>{{ _("APWorld-Version") }}<select name="sha256" aria-label="{{ _("APWorld-Version") }}">{% for v in versions %}<option value="{{ v.sha256 }}" {% if v.sha256 == e.requested_world_sha %}selected{% endif %}>{{ v.version or 'Unbekannt' }} · {{ v.sha256[:8] }}{{ ' (aktiv)' if v.active else '' }}</option>{% endfor %}</select></label><button class="small">{{ _("Übernehmen") }}</button>
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}"><label>{{ _("APWorld-Version") }}<select name="sha256" aria-label="{{ _("APWorld-Version") }}">{% for v in versions %}<option value="{{ v.sha256 }}" {% if v.sha256 == e.requested_world_sha %}selected{% endif %}>{{ v.version or _('Unbekannt') }} · {{ v.sha256[:8] }}{{ _(' (aktiv)') if v.active else '' }}</option>{% endfor %}</select></label><button class="small">{{ _("Übernehmen") }}</button>
       </form>
       {% if e.requested_world_sha != e.active_world_sha %}<p class="small err">{{ _("Diese Version in der Spielebibliothek aktivieren und Optionen einlesen.") }}</p>{% endif %}
       {% endif %}

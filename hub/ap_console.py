@@ -17,7 +17,8 @@ import time
 from . import config, db, live_store
 from . import i18n
 
-MAX_EVENTS = 10000
+PROCESS_ID = secrets.token_hex(16)
+PROCESS_STARTED = time.time()
 MAX_FRAME = 16 * 1024 * 1024
 IDLE_SECONDS = 30 * 60  # Historical constant; browser inactivity no longer ends a connection.
 RETRY_BASE = 2
@@ -67,11 +68,20 @@ def migrate():
             game TEXT NOT NULL, items TEXT NOT NULL, locations TEXT NOT NULL, updated_at REAL NOT NULL DEFAULT 0,
             PRIMARY KEY(build_id,game)
         );
+        CREATE TABLE IF NOT EXISTS console_streams(
+            id TEXT PRIMARY KEY, build_id INTEGER NOT NULL REFERENCES seed_builds(id) ON DELETE CASCADE,
+            hosted_id INTEGER NOT NULL REFERENCES hosted_rooms(id) ON DELETE CASCADE,
+            state TEXT NOT NULL, heartbeat REAL NOT NULL, connected_at REAL, last_contact REAL
+        );
+        CREATE INDEX IF NOT EXISTS console_stream_scope ON console_streams(build_id,hosted_id,state);
         """)
         if "hosted_id" not in {r["name"] for r in conn.execute("PRAGMA table_info(console_events)")}:
             conn.execute("ALTER TABLE console_events ADD COLUMN hosted_id INTEGER REFERENCES hosted_rooms(id) ON DELETE CASCADE")
         if "updated_at" not in {r["name"] for r in conn.execute("PRAGMA table_info(console_packages)")}:
             conn.execute("ALTER TABLE console_packages ADD COLUMN updated_at REAL NOT NULL DEFAULT 0")
+        conn.execute('''CREATE INDEX IF NOT EXISTS console_delivery_identity ON console_events(
+            build_id,hosted_id,kind,json_extract(payload,'$.sender'),json_extract(payload,'$.recipient'),
+            json_extract(payload,'$.location_id'),json_extract(payload,'$.item_id'))''')
 
 
 @contextmanager
@@ -86,13 +96,13 @@ def connection(path):
         conn.close()
 
 
-def record(path, build_id, user_id, kind, payload, key=None, hosted_id=None):
-    with connection(path) as conn:
-        conn.execute("INSERT OR IGNORE INTO console_events(build_id,user_id,kind,payload,observed_at,event_key,hosted_id) VALUES (?,?,?,?,?,?,?)",
-                     (build_id, user_id, kind, db.dumps(payload), time.time(), key, hosted_id))
-        conn.execute("""DELETE FROM console_events WHERE build_id=? AND id < COALESCE(
-            (SELECT id FROM console_events WHERE build_id=? ORDER BY id DESC LIMIT 1 OFFSET ?),0)""",
-                     (build_id, build_id, MAX_EVENTS - 1))
+def record(path, build_id, user_id, kind, payload, key=None, hosted_id=None, *, transaction=None):
+    if transaction is None:
+        with connection(path) as conn:
+            return record(path,build_id,user_id,kind,payload,key,hosted_id,transaction=conn)
+    # Pagination bounds HTTP responses, not the persistent event history.
+    return transaction.execute("INSERT OR IGNORE INTO console_events(build_id,user_id,kind,payload,observed_at,event_key,hosted_id) VALUES (?,?,?,?,?,?,?)",
+                               (build_id,user_id,kind,db.dumps(payload),time.time(),key,hosted_id)).rowcount
 
 
 def catalog(conn, build_id):
@@ -111,6 +121,7 @@ def render_payload(payload, packages):
         return f"{payload['sender']} → {payload['recipient']}: {item} · {check} ({payload['sender_game']})"
     if "parts" in payload:
         return "".join(named(packages, part["game"], part["kind"], part["id"]) if "kind" in part
+                       else i18n.t('Spieler #{v0}',v0=part['fallback_player']) if 'fallback_player' in part
                        else part["text"] for part in payload["parts"])[:12000]
     return payload.get("text", "")
 
@@ -151,11 +162,25 @@ def events(build_id, user_id, after=0, kind="all", before=0):
         payload = db.loads(row["payload"])
         text=render_payload(payload,packages)
         if payload.get('origin')=='hub':
-            first,separator,rest=text.partition('\n')
-            text=i18n.t(first)+(separator+rest if separator else '')
+            if payload.get('type')=='help':
+                text='\n'.join(command+' – '+i18n.t(description) for command,description in COMMANDS)
+            elif 'values' in payload:
+                values=dict(payload['values'])
+                for name in payload.get('number_values',[]):
+                    values[name]=i18n.format_number(values[name])
+                text=i18n.t(payload['text'],**values)
+                if payload.get('lines'):
+                    text+='\n'+'\n'.join(payload['lines'])
+                if payload.get('truncated'):
+                    text+='\n'+i18n.t('Bitte mit einem Filter eingrenzen.')
+            else:
+                first,separator,rest=text.partition('\n')
+                text=i18n.t(first)+(separator+rest if separator else '')
         entry = dict(id=row["id"], kind=row["kind"], at=row["observed_at"], text=text,
                      visibility="team" if row["user_id"] is None else "personal")
         if payload.get("type") == "item":
+            entry['source'] = payload.get('source', 'live')
+            entry['receipt_index'] = payload.get('receipt_index')
             entry['for_me'],entry['from_me']=payload['recipient'] in own,payload['sender'] in own
             entry["delivery"] = dict(item_id=payload["item_id"], item=named(packages,payload["recipient_game"],"items",payload["item_id"]),
                 sender=dict(name=payload["sender"],game=payload["sender_game"]),
@@ -251,18 +276,23 @@ class Client:
         self.next_retry_at = self.last_contact = self.connected_at = self.interrupted_at = None
         self.reason = ""
         self.uuid = secrets.token_hex(16)
+        self.stream_id = secrets.token_hex(16)
         self.stop = threading.Event()
         self.outbox = queue.Queue(maxsize=30)
         self.wire = None
         self.team, self.slot, self.game = None, None, ""
         self.players, self.received, self.missing, self.checked = {}, [], set(), set()
         self.slot_data = None
+        self.request_slot_data = True
         self.items_synced = False
         self.last_seen = time.monotonic()
         self.thread = threading.Thread(target=self.run, daemon=True, name=f"ap-console-{self.build_id}-{user_id}")
 
-    def note(self, text, kind="system", origin="hub"):
-        record(self.path, self.build_id, self.user_id, kind, {"text": text,"origin":origin}, hosted_id=self.endpoint["id"])
+    def note(self, text, kind="system", origin="hub", values=None):
+        payload = dict(text=text,origin=origin)
+        if values is not None:
+            payload['values']=values
+        record(self.path, self.build_id, self.user_id, kind, payload, hosted_id=self.endpoint["id"])
 
     def target(self, conn):
         endpoint = conn.execute("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (self.build_id,)).fetchone()
@@ -290,18 +320,48 @@ class Client:
 
     def valid(self):
         with connection(self.path) as conn:
-            authorized = conn.execute("""SELECT 1 FROM auth_sessions s JOIN users u ON u.id=s.user_id
-                WHERE s.token_hash=? AND s.user_id=? AND s.expires_at>?""",
-                                      (self.token_hash, self.user_id, time.time())).fetchone()
             row = conn.execute("SELECT completed_at,snapshot FROM seed_builds WHERE id=?", (self.build_id,)).fetchone()
             endpoint = self.target(conn)
-            membership = conn.execute("""SELECT 1 FROM seed_builds b JOIN sessions l ON l.id=b.session_id
+            return bool(self.authorized(conn) and row and not row["completed_at"] and not db.loads(row["snapshot"]).get("race")
+                        and endpoint)
+
+    def authorized(self, conn):
+        authorized = conn.execute("""SELECT 1 FROM auth_sessions s JOIN users u ON u.id=s.user_id
+            WHERE s.token_hash=? AND s.user_id=? AND s.expires_at>?""",
+                                  (self.token_hash, self.user_id, time.time())).fetchone()
+        membership = conn.execute("""SELECT 1 FROM seed_builds b JOIN sessions l ON l.id=b.session_id
                 JOIN users u ON u.id=? WHERE b.id=? AND (u.is_admin=1 OR l.created_by=u.id
                 OR EXISTS (SELECT 1 FROM lobby_members lm WHERE lm.session_id=l.id AND lm.user_id=u.id)
                 OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=l.id AND e.user_id=u.id))""",
                                       (self.user_id, self.build_id)).fetchone()
-            return bool(authorized and row and not row["completed_at"] and not db.loads(row["snapshot"]).get("race")
-                        and membership and endpoint and endpoint["id"] == self.endpoint["id"])
+        return bool(authorized and membership)
+
+    def stream_state(self):
+        """Persist coverage transitions atomically across all explicit readers."""
+        now = time.time()
+        fresh_after = max(PROCESS_STARTED,now-15)
+        with connection(self.path) as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            scope = (self.build_id, self.endpoint['id'])
+            active_sql = "SELECT 1 FROM console_streams WHERE build_id=? AND hosted_id=? AND state='connected' AND heartbeat>?"
+            before = conn.execute(active_sql, (*scope, fresh_after)).fetchone()
+            previous = conn.execute('SELECT 1 FROM console_streams WHERE build_id=? AND hosted_id=? AND connected_at IS NOT NULL', scope).fetchone()
+            conn.execute('''INSERT INTO console_streams(id,build_id,hosted_id,state,heartbeat,connected_at,last_contact)
+                VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,
+                heartbeat=excluded.heartbeat,connected_at=COALESCE(console_streams.connected_at,excluded.connected_at),
+                last_contact=excluded.last_contact''',
+                (self.stream_id,*scope,self.state,now,self.connected_at,self.last_contact))
+            after = conn.execute(active_sql, (*scope, fresh_after)).fetchone()
+            message = None
+            if before and not after:
+                message = 'Itemaufzeichnung unterbrochen. Während der Lücke können Sendungen fehlen.'
+            elif not before and after:
+                message = ('Itemaufzeichnung fortgesetzt. Eine mögliche Lücke ist nicht vollständig rekonstruierbar.' if previous else
+                           'Itemaufzeichnung gestartet. Frühere Sendungen sind möglicherweise unvollständig.')
+            if message:
+                conn.execute('''INSERT INTO console_events(build_id,kind,payload,observed_at,hosted_id)
+                    VALUES (?,'system',?,?,?)''',
+                    (self.build_id,db.dumps(dict(text=message,origin='hub')),now,self.endpoint['id']))
 
     def run(self):
         """One worker owns all sockets, retries and commands for this explicit login."""
@@ -368,6 +428,10 @@ class Client:
 
     def transition(self, state, reason):
         self.state, self.reason = state, reason
+        try:
+            self.stream_state()
+        except sqlite3.Error:
+            pass  # A deleted build/endpoint must still let its worker stop.
         _state_logger.info("build=%s user=%s state=%s reason=%s", self.build_id, self.user_id, state, reason)
         message = {
             "reconnecting": "Textverbindung unterbrochen. Automatische Wiederverbindung; während der Lücke können Itemmeldungen fehlen.",
@@ -404,6 +468,7 @@ class Client:
                     return
                 if self.sync_port():
                     raise PortChanged()
+                self.stream_state()
                 last_guard = now
             if self.state != "connected" and now - started > 20:
                 raise TimeoutError("handshake timeout")
@@ -441,7 +506,7 @@ class Client:
                 raise ValueError("Der Server gehört zu einem anderen Seed. Bitte die gespeicherte Verbindung prüfen.")
             self.wire.send(db.dumps([dict(cmd="Connect", password=self.password or None, game="", name=self.slot_name,
                                          uuid=self.uuid, version={"major":0,"minor":6,"build":8,"class":"Version"},
-                                         items_handling=7, tags=["TextOnly"], slot_data=True)]))
+                                         items_handling=7, tags=["TextOnly"], slot_data=self.request_slot_data)]))
         elif cmd == "ConnectionRefused":
             errors = packet.get("errors", [])
             reason = ("Das Raumpasswort ist falsch oder fehlt." if "InvalidPassword" in errors else
@@ -470,8 +535,9 @@ class Client:
             self.error, self.reason = "", "connected"
             self.connected_at, self.next_retry_at, self.retry_attempt = time.time(), None, 0
             self.stable_since = time.monotonic()
+            self.stream_state()
             if self.interrupted_at:
-                self.note("Textverbindung wiederhergestellt. Empfangsliste und Checks werden synchronisiert; verpasste Itemmeldungen werden nicht rekonstruiert.")
+                self.note("Textverbindung wiederhergestellt. Empfangsliste und Checks werden synchronisiert. Belegte Empfänge werden ergänzt; ein vollständiger Verlauf lässt sich daraus nicht rekonstruieren.")
                 self.interrupted_at = None
             self.wire.send(db.dumps([{"cmd": "GetDataPackage", "games": sorted({v["game"] for v in self.players.values() if v["type"] == 1})}]))
             self.note(f"Als {self.slot_name} mit Archipelago verbunden. Der Spielclient bleibt unabhängig davon verbunden.")
@@ -492,11 +558,15 @@ class Client:
         elif cmd == "ReceivedItems":
             index = integer(packet["index"])
             items = [network_item(item) for item in packet["items"]]
+            if index<0 or len(items)>250000 or (index and len(self.received)+len(items)>250000):
+                raise ValueError("Die Empfangsliste überschreitet das unterstützte Limit.")
             if index == 0:
                 self.received = items
                 self.items_synced = True
+                self.confirm_receipts(items, 0)
             elif index == len(self.received):
                 self.received.extend(items)
+                self.confirm_receipts(items, index)
             else:
                 self.items_synced = False
                 self.wire.send('[{"cmd":"Sync"}]')
@@ -509,12 +579,7 @@ class Client:
         elif cmd == "PrintJSON":
             if packet.get("type") == "ItemSend":
                 item = network_item(packet["item"])
-                sender, recipient = self.players.get(item["player"]), self.players.get(integer(packet["receiving"]))
-                if sender and recipient:
-                    payload = dict(type="item", item_id=item["item"], location_id=item["location"],
-                                   sender=sender["name"], sender_game=sender["game"], recipient=recipient["name"], recipient_game=recipient["game"])
-                    key = hashlib.sha256(db.dumps((self.endpoint["id"], self.team, item, packet["receiving"])).encode()).hexdigest() if item["location"] >= 0 else None
-                    record(self.path, self.build_id, None, "items", payload, key, self.endpoint["id"])
+                self.delivery(item, integer(packet['receiving']), 'live')
             else:
                 parts = []
                 remaining = 12000
@@ -524,7 +589,8 @@ class Client:
                     text, kind = str(part.get("text", ""))[:min(2000,remaining)], part.get("type")
                     remaining -= len(text)
                     if kind == "player_id":
-                        parts.append({"text": self.players.get(integer(text), {}).get("name", f"Spieler #{text}")})
+                        player = self.players.get(integer(text))
+                        parts.append({'text':player['name']} if player else {'fallback_player':integer(text)})
                     elif kind in ("item_id", "location_id"):
                         player = self.players.get(integer(part.get("player", self.slot)), {})
                         parts.append({"game": player.get("game", ""), "kind": "items" if kind == "item_id" else "locations", "id": integer(text)})
@@ -536,6 +602,37 @@ class Client:
                        hosted_id=self.endpoint["id"])
         elif cmd in ("Print", "InvalidPacket"):
             self.note(str(packet.get("text", "Servermeldung"))[:12000], origin='server')
+
+    def delivery(self, item, receiving, source, receipt_index=None, transaction=None):
+        sender, recipient = self.players.get(item['player']), self.players.get(receiving)
+        # Negative locations represent synthetic/start items without a check identity.
+        if item['location'] < 0 or not sender or not recipient:
+            return
+        payload = dict(type='item',item_id=item['item'],location_id=item['location'],
+                       sender=sender['name'],sender_game=sender['game'],recipient=recipient['name'],
+                       recipient_game=recipient['game'],source=source,receipt_index=receipt_index)
+        identity = hashlib.sha256(db.dumps((self.endpoint['id'],self.team,item['player'],item['location'],receiving,item['item'])).encode()).hexdigest()
+        def insert(conn):
+            # Older journals used flags in their hashes. Flags classify an item;
+            # they aren't another delivery. Keep those rows and recognize them.
+            existing=conn.execute('''SELECT 1 FROM console_events WHERE build_id=? AND hosted_id=? AND kind='items'
+                AND json_extract(payload,'$.sender')=? AND json_extract(payload,'$.recipient')=?
+                AND json_extract(payload,'$.location_id')=? AND json_extract(payload,'$.item_id')=?''',
+                (self.build_id,self.endpoint['id'],payload['sender'],payload['recipient'],item['location'],item['item'])).fetchone()
+            if not existing:
+                record(self.path,self.build_id,None,'items',payload,identity,self.endpoint['id'],transaction=conn)
+        if transaction is not None:
+            insert(transaction)
+        else:
+            with connection(self.path) as conn:
+                conn.execute('BEGIN IMMEDIATE')
+                insert(conn)
+
+    def confirm_receipts(self, items, index):
+        with connection(self.path) as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            for offset,item in enumerate(items):
+                self.delivery(item,self.slot,'received_items',index+offset,transaction=conn)
 
     def handle_command(self, text):
         command, _, argument = text.partition(" ")
@@ -550,13 +647,15 @@ class Client:
             else:
                 lines = sorted(packages.get(self.game, {}).get("items" if command == "/items" else "locations", {}).values())
             lines = [line for line in lines if argument.casefold() in line.casefold()]
-            self.note(f"{command}: {len(lines)} Treffer (Serverstand; keine Prüfung des lokalen Spielstands).\n" + "\n".join(lines[:200])
-                      + ("\nBitte mit einem Filter eingrenzen." if len(lines) > 200 else ""))
+            record(self.path,self.build_id,self.user_id,'system',dict(origin='hub',
+                   text='{v0}: {v1} Treffer (Serverstand; keine Prüfung des lokalen Spielstands).',
+                   values=dict(v0=command,v1=len(lines)),number_values=['v1'],lines=lines[:200],truncated=len(lines)>200),
+                   hosted_id=self.endpoint['id'])
         else:
             if command in ("/hint", "/hint_location", "/status", "/players"):
                 text = "!" + command[1:] + (" " + argument if argument else "")
             self.wire.send(db.dumps([{"cmd": "Say", "text": text}]))
-            self.note("An Archipelago gesendet: " + text, "sent")
+            self.note('An Archipelago gesendet: {v0}', 'sent', values=dict(v0=text))
 
     def close(self):
         self.stop.set()
@@ -580,20 +679,24 @@ def current(build_id, user_id, token_hash):
 
 def start(build, user_id, token_hash, endpoint, slot, password="", secure=None):
     client = Client(config.DB_PATH.resolve(), build, user_id, token_hash, dict(endpoint), slot, password, secure)
+    return launch(client, key(build['id'],user_id))
+
+
+def launch(client, identity):
     with _lock:
-        old = _clients.get(key(build["id"], user_id))
+        old = _clients.get(identity)
         if old:
             old.close()
             old.thread.join(2)
             if old.thread.is_alive():
                 raise ValueError("Die vorherige Textverbindung wird noch beendet. Bitte kurz warten.")
-        _clients[key(build["id"], user_id)] = client
+        _clients[identity] = client
         # Bound closed objects and concurrent worker creation to this server process.
-        for identity, item in list(_clients.items()):
+        for existing_identity, item in list(_clients.items()):
             if item is not client and not item.thread.is_alive():
-                _clients.pop(identity, None)
+                _clients.pop(existing_identity, None)
         if sum(c.thread.is_alive() for c in _clients.values()) >= 32:
-            _clients.pop(key(build["id"], user_id), None)
+            _clients.pop(identity, None)
             raise ValueError("Zu viele Textverbindungen. Bitte zuerst eine Verbindung trennen.")
         client.thread.start()
     return client

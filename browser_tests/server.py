@@ -31,6 +31,7 @@ def checked_root(path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--root",required=True)
+    parser.add_argument("--port",type=int,default=0)
     args = parser.parse_args()
     root = checked_root(args.root)
     # Set every runtime path BEFORE importing the application or config module.
@@ -47,8 +48,9 @@ def main():
         if not path.resolve().is_relative_to(root):
             raise RuntimeError("Test isolation violation")
     config.ensure_dirs()
-    config.AP_SOURCE.mkdir(parents=True)
-    (config.SCHEMAS/"index.json").write_text(json.dumps({"games":{},"failed":{},"ap_version":"0.6.8"}),encoding="utf-8")
+    config.AP_SOURCE.mkdir(parents=True,exist_ok=True)
+    if not (config.SCHEMAS/'index.json').exists():
+        (config.SCHEMAS/"index.json").write_text(json.dumps({"games":{},"failed":{},"ap_version":"0.6.8"}),encoding="utf-8")
     allowed = {hashlib.sha256(world_bytes(v)).hexdigest():v for v in ("1.0.0","1.1.0")}
 
     def mock_extract(args,timeout):
@@ -150,7 +152,7 @@ def main():
     def mock_webhost(endpoint, identifier):
         stage = live_stage()
         if stage.get("fail"):
-            raise live_api.APIError("Archipelago ist vorübergehend nicht erreichbar.")
+            raise live_api.APIError("Die Archipelago-API ist vorübergehend nicht erreichbar.")
         if identifier not in ("AAECAwQFBgcICQoLDA0ODw", "EBESExQVFhcYGRobHB0eHw"):
             raise live_api.APIError("Unbekannter Testraum.", "not_found")
         with (root / "live-api-calls.jsonl").open("a", encoding="utf-8") as log:
@@ -174,14 +176,18 @@ def main():
                 "activity_timers": [], "connection_timers": [],
                 "hints": [{"spoiler": "SECRET FUTURE LOCATION"}]},
         }
+        if stage.get('unknown_goal'):
+            payloads['tracker']['player_status']=payloads['tracker']['player_status'][1:]
         return live_api.sanitize(endpoint, payloads[endpoint])
     live_api.fetch = mock_webhost
     app = create_app()
     with app.app_context():
-        db.execute("INSERT INTO users(username,slot_name,is_admin,password_hash) VALUES ('TestAdmin','TestAdmin',1,?)",
+        db.execute("INSERT OR IGNORE INTO users(username,slot_name,is_admin,password_hash) VALUES ('TestAdmin','TestAdmin',1,?)",
                    (generate_password_hash(PASSWORD,method="scrypt"),))
+    from hub import recording
+    recording.start_supervisor()
     logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s",force=True)
-    server = make_server("127.0.0.1",0,app,threaded=True)
+    server = make_server("127.0.0.1",args.port,app,threaded=True)
     (root/"ready.json").write_text(json.dumps({"url":f"http://127.0.0.1:{server.server_port}"}),encoding="utf-8")
     logging.info("Isolated browser test server started; all state is disposable")
     try:

@@ -7,6 +7,7 @@ import sys
 import tempfile
 import time
 from types import SimpleNamespace
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -65,7 +66,27 @@ def live_server(artifact_dir):
                     path = root/"generation_calls.jsonl"
                     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()] if path.exists() else []
 
-                yield SimpleNamespace(url=url,root=root,calls=calls)
+                def restart():
+                    nonlocal process
+                    # Only this fixture's child is stopped; the production Hub is never targeted.
+                    if sys.platform=='win32':
+                        subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],check=True,
+                                       stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10)
+                    else:
+                        process.terminate()
+                    process.wait(timeout=10)
+                    ready.unlink()
+                    process=subprocess.Popen([sys.executable,'-u','-m','browser_tests.server','--root',str(root),
+                                              '--port',str(urlsplit(url).port)],cwd=PROJECT,env=env,stdout=log,stderr=subprocess.STDOUT,
+                                             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform=='win32' else 0)
+                    deadline=time.monotonic()+20
+                    while not ready.exists():
+                        if process.poll() is not None or time.monotonic()>deadline:
+                            raise RuntimeError('Isolated Hub did not restart; see server.log')
+                        time.sleep(.05)
+                    assert json.loads(ready.read_text(encoding='utf-8'))['url']==url
+
+                yield SimpleNamespace(url=url,root=root,calls=calls,restart=restart)
             finally:
                 if process.poll() is None:
                     if sys.platform == "win32":
