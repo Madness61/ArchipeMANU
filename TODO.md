@@ -24,7 +24,7 @@ Technische Stabilisierung und visuelles Redesign sind **zwei getrennte Arbeitspa
 - [x] Veraltete aktive Tracker-Werbung entfernen und dynamische DE/EN-Texte einschließlich Fehlern bereinigen.
 - [x] Theme-Farben zentralisieren und redundante Farb-Overrides entfernen, ohne erneutes Redesign.
 - [x] Gesamte Python-/Browser-Suite und echte isolierte Prozessneustarts prüfen; 243 Python-Tests und 20 Browser-Szenarien erfolgreich. Screenshots bei 390/768/1440/2560 px erzeugt und zentrale Ansichten visuell geprüft.
-- [ ] Feinschliff-PR zur Prüfung bereitstellen; keine automatische Übernahme nach `main`.
+- [x] [Feinschliff-PR #14](https://github.com/Madness61/ArchipeMANU/pull/14) zur Prüfung bereitstellen; keine automatische Übernahme nach `main`.
 
 Offen bleibt eine reale Mehrspieler-/WLAN-/VPN-Abnahme mit installierten Archipelago-Spielclients. Die automatisierten Protokoll- und Prozessneustarttests verwenden ausschließlich isolierte Daten und lokale Testserver.
 

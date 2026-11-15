@@ -4,6 +4,8 @@
 
 > **Entwicklungsstand (15.11.2026):** `feature/final-polish-recording-diagnostics` basiert auf dem vollständigen Stand aus #11–13 einschließlich automatischer Portwechsel. Er ergänzt dauerhafte Itemhistorie, ausdrücklich aktivierte Host-Aufzeichnung, unabhängige Verbindungsdiagnose sowie bereinigte Übersetzungen und Theme-Tokens. Die Übernahme nach `main` erfolgt separat per Pull Request. Offene manuelle Abnahmen stehen in [TODO.md](TODO.md).
 
+Der verifizierte Feinschliff steht in [PR #14](https://github.com/Madness61/ArchipeMANU/pull/14): 243 erfolgreiche Python-Tests und 20 erfolgreiche Browser-Szenarien mit isolierten Daten und lokalen Protokollservern.
+
 ## Was der Hub macht
 
 - **Gemeinsame Spielebibliothek:** APWorlds verwalten, Versionen archivieren, Metadaten, Einrichtungsanleitungen und Gruppenvorlagen pflegen.
