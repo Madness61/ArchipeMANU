@@ -1,5 +1,36 @@
 # Automatische Browser-Tests
 
+## Progression-Hilfe und globale Itemsuche (16.11.2026)
+
+Die Suite umfasst zusätzlich den Ablauf `test_progression.py`: zwei getrennte
+Konten, Itemsuche unmittelbar aus der Rundenzentrale, persönliche Spoilerfreigabe,
+Suche über mehrere Empfänger, eigene Items, historische Seeds ohne Logikdaten,
+unveränderter Konsolenentwurf und serverseitige Sperre nach Widerruf.
+Ergebnisansichten werden in DE/EN, Light/Dark/System und bei 390/1440 px geprüft;
+Screenshots liegen im jeweiligen Test-Logordner. Native Item-/Spielnamen bleiben
+unverändert. Die Suchanfragen bedienen die echte API mit dem isolierten
+Mock-Generator; dynamische Ergebniskarten werden ausdrücklich mit einer UI-Fixture
+gerendert. Sie ersetzen keinen echten Engine-Test.
+
+Die separate Suite `python -m unittest discover -s integration_tests -v` erzeugt
+echte isolierte Seeds für ChecksFinder, Meritous und Custom-Pseudoregalia und
+rekonstruiert sie mit Original-YAML, Seed, Modellhash und Regelproben. Für
+ChecksFinder wird außerdem der vollständige angemeldete API-/Hintergrundprozess
+inklusive Cachewechsel nach einem Empfang getestet. Eine fehlende APWorld-Datei
+wird vor Auswertung abgelehnt. Benötigt den installierten lokalen AP-Checkout;
+die Suite kopiert ihn in ein temporäres Verzeichnis und verwendet weder
+Produktivdaten noch echte Online-Räume. Die regulären GitHub-Actions-Jobs erfassen
+die neuen Python- und Playwright-Tests automatisch; die echte AP-Suite bleibt
+eine gesonderte Integrationsprüfung.
+
+Aktuelle Architektur, gemessene Check-Zuwächse und Grenzen:
+[PROGRESSION_ENGINE.md](PROGRESSION_ENGINE.md).
+
+Abschließendes Ergebnis: **258 Python-Tests (116,1 Sekunden)**,
+**21 Browser-Szenarien (295,3 Sekunden)** und **3 echte AP-Integrationen
+(60,0 Sekunden)** erfolgreich. Desktop- und Smartphone-Screenshots der neuen
+Hilfe wurden zusätzlich visuell geprüft. Keine reale Spielclient-Abnahme.
+
 ## Verifizierter Feinschliff vom 15. November 2026
 
 Der vollständige lokale Lauf besteht aus **243 erfolgreichen Python-Tests** und

@@ -1185,6 +1185,7 @@ def admin_setup_account(uid):
 
 def create_app() -> Flask:
     from . import recording
+    from . import progression, progression_routes
     config.ensure_dirs()
     db.init()
     auth.migrate()
@@ -1193,6 +1194,7 @@ def create_app() -> Flask:
     live_store.migrate()
     ap_console.migrate()
     recording.migrate()
+    progression.migrate()
     if "mvp" not in app.blueprints:
         app.register_blueprint(mvp.bp)
     if "community" not in app.blueprints:
@@ -1205,6 +1207,8 @@ def create_app() -> Flask:
         app.register_blueprint(console_routes.bp)
     if "logic" not in app.blueprints:
         app.register_blueprint(logic_routes.bp)
+    if "progression" not in app.blueprints:
+        app.register_blueprint(progression_routes.bp)
     app.secret_key = config.secret_key()
     auth.configure(app)
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024

@@ -428,6 +428,7 @@ class Client:
 
     def transition(self, state, reason):
         self.state, self.reason = state, reason
+        self.observe_progression()
         try:
             self.stream_state()
         except sqlite3.Error:
@@ -482,6 +483,7 @@ class Client:
                 if not self.wire.ping().wait(5):
                     raise TimeoutError("ping timeout")
                 self.last_contact = time.time()
+                self.observe_progression()
                 last_ping = now
             try:
                 frame = self.wire.recv(timeout=0.5)
@@ -572,10 +574,12 @@ class Client:
                 self.wire.send('[{"cmd":"Sync"}]')
             if len(self.received) > 250000:
                 raise ValueError("Die Empfangsliste überschreitet das unterstützte Limit.")
+            self.observe_progression()
         elif cmd == "RoomUpdate":
             checks = set(map(integer, packet.get("checked_locations", [])))
             self.checked.update(checks)
             self.missing.difference_update(checks)
+            self.observe_progression()
         elif cmd == "PrintJSON":
             if packet.get("type") == "ItemSend":
                 item = network_item(packet["item"])
@@ -602,6 +606,13 @@ class Client:
                        hosted_id=self.endpoint["id"])
         elif cmd in ("Print", "InvalidPacket"):
             self.note(str(packet.get("text", "Servermeldung"))[:12000], origin='server')
+
+    def observe_progression(self):
+        try:
+            from .progression import observe
+            observe(self)
+        except Exception:
+            _state_logger.warning('Optional inventory snapshot could not be saved.')
 
     def delivery(self, item, receiving, source, receipt_index=None, transaction=None):
         sender, recipient = self.players.get(item['player']), self.players.get(receiving)

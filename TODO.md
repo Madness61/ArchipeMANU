@@ -1,6 +1,6 @@
 # TODO / Roadmap – ArchipeMANU
 
-Stand: 15. November 2026. Dies ist die **priorisierte Aufgabenliste**. Erledigte Punkte beziehen sich auf den gemeinsamen Entwicklungsstand; eine Übernahme nach `main` und reale Spielclient-Tests werden separat bestätigt.
+Stand: 16. November 2026. Dies ist die **priorisierte Aufgabenliste**. Erledigte Punkte beziehen sich auf den gemeinsamen Entwicklungsstand; eine Übernahme nach `main` und reale Spielclient-Tests werden separat bestätigt.
 Technische Stabilisierung und visuelles Redesign sind **zwei getrennte Arbeitspakete**. Die Archipelago-WebHost-Tracker-API und der experimentelle Universal-Logik-Tracker sind **verschiedene Komponenten**.
 
 ## Aktuelle Entwicklungszweige prüfen
@@ -12,6 +12,22 @@ Technische Stabilisierung und visuelles Redesign sind **zwei getrennte Arbeitspa
 - [x] Public-Start als Standard mit `-LocalOnly` als Alternative integriert und dokumentiert.
 - [ ] Gemeinsamen Integrations-PR prüfen und ausdrücklich für die Übernahme nach `main` freigeben.
 - [ ] Die reale Nutzerführung mit mindestens zwei Spielern und einer existierenden Runde im Browser abnehmen. Mock-Tests ersetzen keinen echten Spielclient.
+
+## Universelle Progression-Hilfe und globaler Item-Finder
+
+- [x] Auf vollständigem Stand von #14 in eigenem Feature-Branch aufbauen; alten UT deaktiviert lassen.
+- [x] Globale Suche direkt bei der Konsole, kombinierbare Filter, getrennte Check-/Empfangsnachweise und persönliche Spoilerfreigabe.
+- [x] Ursprünglichen Seed, YAML-Hashes, aufgelöste Optionen, APWorld-Provenienz, Platzierungen, statische Spheres und Regelproben sichern.
+- [x] Separaten begrenzten Worker für echte Rekonstruktion, Inventar, Einzelitems, Zweierkombinationen und Exemplar-Zielprüfung implementieren.
+- [x] Bei Abweichungen/fehlenden Daten sicher auf Suche und statische Informationen zurückfallen.
+- [x] DE/EN und Light/Dark/System in der bestehenden Rundenzentrale verwenden.
+- [x] Echte isolierte Generierung/Rekonstruktion mit ChecksFinder, Meritous und Custom-Pseudoregalia prüfen.
+- [ ] Item-Link-Gruppen zuverlässig dynamisch auflösen; derzeit ausdrücklich nicht unterstützt.
+- [ ] Weitere APWorlds und gemischte echte Mehrspieler-Seeds prüfen; vorhandene Remote-Item-Tests ersetzen dies nicht.
+- [ ] Zielgerichtete Kandidatenauswahl, Tiefe drei und erschöpfende minimale Zielkombinationen ergänzen.
+- [ ] Reale Spielclient-Abnahme durchführen. Die Hilfe bewertet AP-Logik, keine lokalen Storyzustände.
+
+Details, konkrete gemessene Check-Zuwächse und Grenzen: [PROGRESSION_ENGINE.md](PROGRESSION_ENGINE.md).
 
 ## Finaler Feinschliff – Historie, Diagnose und Wartbarkeit
 
@@ -133,7 +149,7 @@ Offen bleibt eine reale Mehrspieler-/WLAN-/VPN-Abnahme mit installierten Archipe
 
 ## Nicht Teil des aktuellen Umfangs
 
-- Kein neuer Universal-Tracker oder versprochene exakte Erreichbarkeitsberechnung.
+- Kein Wiederaktivieren des alten Universal-Trackers. Die neue generische Seed-Rekonstruktion ist ein separater Auftrag mit ausdrücklicher Validierung und Rückfallstufen; sie verspricht keine universelle lokale Spielzustandserkennung.
 - Keine automatische lokale Mod-/ROM-Installation.
 - Keine unbestätigten Online- oder Zustellungsnachweise und keine erfundenen Eventzeiten.
 - Keine direkte Umgestaltung der komplexen Seed-Generierung im Rahmen des UI-Redesigns.

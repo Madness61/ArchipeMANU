@@ -53,6 +53,7 @@
 {% include "round_manage.html" %}
 </section>
 <p class="small muted" id="session-refresh-status" role="status" aria-live="polite"></p>
+{% if play and build.status == 'succeeded' and not race and (is_member or manage) %}{% with room=s %}{% include "progression_panel.html" %}{% endwith %}{% if not console_primary %}<div class="row"><button type="button" data-progression-open="finder">{{ _("Item suchen") }}</button><button type="button" data-progression-open="next">{{ _("Was bringt mich weiter?") }}</button></div>{% endif %}{% endif %}
 </div>
 {% endblock %}
 {% block scripts %}
@@ -60,4 +61,5 @@
 <script>window.HUB_TEMPLATES_URL = {{ url_for('api_templates', slug='__SLUG__')|tojson }};window.HUB_SELECTION_TEMPLATES = {{ selection_template_info|tojson }};</script>
 {% if selection %}<script>window.HUB_NAMES_URL = {{ url_for('api_names',slug=selection.schema.slug)|tojson }};</script>{% endif %}
 <script src="{{ url_for('static',filename='round.js') }}" defer></script>
+{% if play and not race %}<script src="{{ url_for('static',filename='progression.js') }}" defer></script>{% endif %}
 {% endblock %}

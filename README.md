@@ -2,6 +2,15 @@
 
 **Privater Multiworld-Hub für Archipelago.** ArchipeMANU bündelt Spielebibliothek, APWorlds, YAML-Konfiguration, Lobbys, Seed-Generierung, persönliche Spieldateien und die gemeinsame Live-Konsole in einer lokalen Webanwendung.
 
+**Neue Erweiterung (16.11.2026):** Direkt bei der laufenden Konsole führen
+**Item suchen** und **Was bringt mich weiter?** zum globalen Item-Finder und zur
+universellen Progression-Hilfe. Fundort-Spoiler werden persönlich freigegeben;
+neue Seeds speichern eine überprüfbare Grundlage zur Rekonstruktion der echten
+APWorld-Regeln. Erreichbare Checks, hilfreiche Items, begrenzte Zweierkombinationen
+und Zielprüfungen werden nur bei passender Welt und bestätigtem Inventar berechnet.
+Alte Seeds behalten ihre Itemsuche; fehlende Logikdaten werden nicht erfunden.
+Architektur, Grenzen und echte Tests mit drei Spielmodulen: [PROGRESSION_ENGINE.md](PROGRESSION_ENGINE.md).
+
 > **Entwicklungsstand (15.11.2026):** `feature/final-polish-recording-diagnostics` basiert auf dem vollständigen Stand aus #11–13 einschließlich automatischer Portwechsel. Er ergänzt dauerhafte Itemhistorie, ausdrücklich aktivierte Host-Aufzeichnung, unabhängige Verbindungsdiagnose sowie bereinigte Übersetzungen und Theme-Tokens. Die Übernahme nach `main` erfolgt separat per Pull Request. Offene manuelle Abnahmen stehen in [TODO.md](TODO.md).
 
 Der verifizierte Feinschliff steht in [PR #14](https://github.com/Madness61/ArchipeMANU/pull/14): 243 erfolgreiche Python-Tests und 20 erfolgreiche Browser-Szenarien mit isolierten Daten und lokalen Protokollservern.
@@ -105,6 +114,7 @@ Die **getrennt umgesetzten** Arbeitspakete und ihre offenen manuellen Abnahmen s
 | Sprache, Themes und Erweiterung | [TRANSLATIONS.md](TRANSLATIONS.md) |
 | Layout und Design-Tokens | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
 | Browser-Tests und Testisolation | [BROWSER_TESTS.md](BROWSER_TESTS.md) |
+| Globaler Item-Finder und universelle Progression-Hilfe | [PROGRESSION_ENGINE.md](PROGRESSION_ENGINE.md) |
 | Frühere Umsetzungsstände | [UI_PLAN.md](UI_PLAN.md), [PROJEKTANALYSE.md](PROJEKTANALYSE.md), [historisches README](docs/archive/README_legacy_2026-11-11.md) |
 
 Ältere Analysen und UI-Pläne sind **historische Dokumente**. Bei Widersprüchen gelten der aktuelle Quellcode, die jeweils neueste Feature-Dokumentation und die verifizierten Testresultate.

@@ -83,8 +83,11 @@ class RunnerStatisticsTests(unittest.TestCase):
             "BaseClasses":SimpleNamespace(ItemClassification=Classification),
         }
         with tempfile.TemporaryDirectory() as folder, patch.dict(sys.modules, modules), patch.object(sys, "argv", []), \
-                patch.object(ap_runner,"validate_player_files"):
-            ap_runner.generate("players", folder, 1, False)
+                patch.object(ap_runner,"validate_player_files"), \
+                patch('progression_model.save_seed',side_effect=RuntimeError('Optional analysis failed')) as optional:
+            with self.assertLogs(level='ERROR'):
+                ap_runner.generate("players", folder, 1, False)
+            optional.assert_called_once()
             summary = json.loads((Path(folder) / "item_distribution.json").read_text())
             details = json.loads((Path(folder) / "item_placements.json").read_text())
             self.assertTrue(stats.valid_distribution(summary))
@@ -96,4 +99,5 @@ class RunnerStatisticsTests(unittest.TestCase):
             race = Path(folder) / "race"
             race.mkdir()
             ap_runner.generate("players", str(race), 1, True)
+            optional.assert_called_once()
             self.assertEqual(list(race.iterdir()), [])

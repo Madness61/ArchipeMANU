@@ -1,0 +1,33 @@
+<link rel="stylesheet" href="{{ url_for('static',filename='progression.css') }}">
+<dialog id="progression-panel" class="progression-panel" aria-labelledby="progression-title" data-base="{{ url_for('progression.page',sid=room.id,build_id=build.id) }}" data-csrf="{{ csrf_token }}" {% if progression_standalone %}data-standalone="1"{% endif %}>
+  <div class="row spread"><div><p class="eyebrow">{{ _("Hilfe für eure Runde") }}</p><h2 id="progression-title">{{ _("Item-Finder & Progression") }}</h2><span class="chip" id="progression-support"></span></div><button type="button" id="progression-close">{{ _("Schließen") }}</button></div>
+  <p class="small muted">{{ _("Fundorte enthalten Spoiler für den gesamten Seed. Check-Status und Itemempfang werden getrennt angezeigt, jeweils mit dem zuletzt bekannten Stand.") }}</p>
+  <p class="small muted">{{ _("Die Suche zeigt verifizierte adressierte Platzierungen echter Spielerslots. Events, Startinventar und Gruppenslots sind darin nicht enthalten.") }}</p>
+  <p id="progression-error" class="err" role="alert" hidden></p>
+  <div id="progression-consent"><button class="primary" id="progression-reveal" type="button">{{ _("Fundort-Spoiler bewusst freigeben") }}</button></div>
+  <div id="progression-content" hidden>
+    <nav class="row" aria-label="{{ _("Progression-Bereiche") }}"><button type="button" data-progression-tab="finder">{{ _("Item-Finder") }}</button><button type="button" data-progression-tab="next">{{ _("Meine nächsten Möglichkeiten") }}</button><button type="button" data-progression-tab="goal">{{ _("Spielziel") }}</button><button type="button" id="progression-hide" class="small">{{ _("Spoiler wieder sperren") }}</button></nav>
+    <section data-progression-section="finder">
+      <form id="progression-search" class="row">
+        <label>{{ _("Im gesamten Seed suchen") }}<input name="q" type="search" maxlength="100" placeholder="{{ _('Item, Spieler, Spiel oder Fundort') }}"></label>
+        <label>{{ _("Empfänger") }}<select name="owner" aria-label="{{ _('Empfänger') }}"><option value="all">{{ _("Alle Spieler") }}</option><option value="mine">{{ _("Meine Items") }}</option></select></label>
+        <label>{{ _("Itemklasse") }}<select name="category" aria-label="{{ _('Itemklasse') }}">{% for value,label in [('all',_('Alle Items')),('progression',_('Progression')),('useful',_('Useful')),('filler',_('Filler')),('trap',_('Trap'))] %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+        <label>{{ _("Fundort-Check") }}<select name="status" aria-label="{{ _('Fundort-Check') }}"><option value="all">{{ _("Alle Zustände") }}</option><option value="checked">{{ _("Bereits eingesammelt") }}</option><option value="unchecked">{{ _("Noch nicht eingesammelt") }}</option><option value="unknown">{{ _("Unbekannter Status") }}</option></select></label>
+        <button class="primary">{{ _("Suchen") }}</button>
+      </form>
+      <p id="progression-count" class="small muted" role="status"></p><div id="progression-results" class="progression-results"></div>
+      <div class="row"><button type="button" id="progression-previous">{{ _("Zurück") }}</button><span id="progression-page" class="small"></span><button type="button" id="progression-next">{{ _("Weiter") }}</button></div>
+    </section>
+    <section data-progression-section="next" hidden>
+      <h3>{{ _("Was bringt mich weiter?") }}</h3>
+      {% if own %}<form id="progression-analyze" class="row"><label>{{ _("Dein Slot") }}<select name="slot">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label><label>{{ _("Optional: bestimmter Check oder Bereich") }}<select id="progression-target"><option value="">{{ _("Allgemeine Hilfe") }}</option></select></label><button class="primary">{{ _("Möglichkeiten berechnen") }}</button></form>
+      {% else %}<p>{{ _("Für eine persönliche Analyse brauchst du einen eigenen Spielslot.") }}</p>{% endif %}
+      <p id="progression-analysis-state" role="status"></p><p id="progression-observed" class="small muted"></p>
+      <p class="small muted">{{ _("Die Hilfe wertet die Spielregeln mit deinem gemeldeten Inventar aus. Sie liest keine lokalen Spielstände oder Story-Ereignisse. Erreichbar bedeutet in der APWorld-Logik möglich.") }}</p>
+      <div id="progression-helpful"></div>
+      <details><summary>{{ _("Aktuell erreichbare Checks") }}</summary><ul id="progression-reachable"></ul></details>
+      <details><summary>{{ _("Theoretische Seed-Reihenfolge") }}</summary><p class="small muted">{{ _("Diese Reihenfolge wurde bei der Generierung berechnet. Sie beschreibt nicht deinen aktuellen Spielstand.") }}</p><div id="progression-spheres"></div></details>
+    </section>
+    <section data-progression-section="goal" hidden><h3>{{ _("Für das Spielziel wichtig") }}</h3><p id="progression-goal-status">{{ _('Noch nicht zuverlässig bestimmbar') }}</p><p class="small muted">{{ _("Notwendig wird nur ein konkretes Itemexemplar genannt, wenn das Ziel mit den vollständigen erreichbaren Itemketten erreichbar ist, ohne dieses Exemplar aber nicht. Ersetzbare Einzelkopien können gemeinsam trotzdem nötig sein.") }}</p><div id="progression-goals"></div></section>
+  </div>
+</dialog>
