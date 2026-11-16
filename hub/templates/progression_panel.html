@@ -1,3 +1,4 @@
+{% if progression_enabled|default(false) %}
 <link rel="stylesheet" href="{{ url_for('static',filename='progression.css') }}">
 <dialog id="progression-panel" class="progression-panel" aria-labelledby="progression-title" data-base="{{ url_for('progression.page',sid=room.id,build_id=build.id) }}" data-csrf="{{ csrf_token }}" {% if progression_standalone %}data-standalone="1"{% endif %}>
   <div class="row spread"><div><p class="eyebrow">{{ _("Hilfe für eure Runde") }}</p><h2 id="progression-title">{{ _("Item-Finder & Progression") }}</h2><span class="chip" id="progression-support"></span></div><button type="button" id="progression-close">{{ _("Schließen") }}</button></div>
@@ -31,3 +32,4 @@
     <section data-progression-section="goal" hidden><h3>{{ _("Für das Spielziel wichtig") }}</h3><p id="progression-goal-status">{{ _('Noch nicht zuverlässig bestimmbar') }}</p><p class="small muted">{{ _("Notwendig wird nur ein konkretes Itemexemplar genannt, wenn das Ziel mit den vollständigen erreichbaren Itemketten erreichbar ist, ohne dieses Exemplar aber nicht. Ersetzbare Einzelkopien können gemeinsam trotzdem nötig sein.") }}</p><div id="progression-goals"></div></section>
   </div>
 </dialog>
+{% endif %}

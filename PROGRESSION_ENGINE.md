@@ -194,6 +194,12 @@ erfunden und keine gespeicherten Seeds ersetzt.
 
 ## Sicherheit, Isolation und Betrieb
 
+- Nach dem Wechsel auf diesen Branch den **Hub-Prozess** neu starten, damit
+  Routen und additive Tabellen geladen werden. Ein laufender älterer Python-
+  Prozess kennt neue Routen auch dann noch nicht, wenn er neue Vorlagen liest.
+  Die Hilfe wird deshalb nur bei gesetztem Backend-Verfügbarkeitsmerkmal
+  eingeblendet; ältere Prozesse behalten ihre Rundenzentrale und Konsole.
+  Der externe Archipelago-Spielserver benötigt dafür keinen Neustart.
 - Bestehende Lobby-/Adminrechte und persönliche Slotrechte gelten serverseitig.
 - Race blockiert sämtliche neuen Ansichten und APIs, auch direkte URLs.
 - Platzierungen und Analysen erfordern vorher einen angemeldeten, CSRF-geschützten

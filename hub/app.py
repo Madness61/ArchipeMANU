@@ -1209,6 +1209,7 @@ def create_app() -> Flask:
         app.register_blueprint(logic_routes.bp)
     if "progression" not in app.blueprints:
         app.register_blueprint(progression_routes.bp)
+    app.jinja_env.globals['progression_enabled'] = True
     app.secret_key = config.secret_key()
     auth.configure(app)
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024

@@ -53,7 +53,7 @@
 {% include "round_manage.html" %}
 </section>
 <p class="small muted" id="session-refresh-status" role="status" aria-live="polite"></p>
-{% if play and build.status == 'succeeded' and not race and (is_member or manage) %}{% with room=s %}{% include "progression_panel.html" %}{% endwith %}{% if not console_primary %}<div class="row"><button type="button" data-progression-open="finder">{{ _("Item suchen") }}</button><button type="button" data-progression-open="next">{{ _("Was bringt mich weiter?") }}</button></div>{% endif %}{% endif %}
+{% if progression_enabled|default(false) and play and build.status == 'succeeded' and not race and (is_member or manage) %}{% with room=s %}{% include "progression_panel.html" %}{% endwith %}{% if not console_primary %}<div class="row"><button type="button" data-progression-open="finder">{{ _("Item suchen") }}</button><button type="button" data-progression-open="next">{{ _("Was bringt mich weiter?") }}</button></div>{% endif %}{% endif %}
 </div>
 {% endblock %}
 {% block scripts %}
