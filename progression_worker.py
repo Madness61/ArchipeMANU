@@ -71,7 +71,9 @@ def evaluate(request):
         raise Unsupported('reconstruction_mismatch')
     if not manifest.get('static',{}).get('rule_probes') or rule_probes(mw)!=manifest['static']['rule_probes']:
         raise Unsupported('reconstruction_mismatch')
-    result = analyze(mw, request['live'], request.get('target'))
+    sphere_order={(loc['player'],loc['id']):n for n,sphere in enumerate(manifest.get('static',{}).get('spheres',[]))
+                  for loc in sphere['locations'] if not sphere['unreachable'] and type(loc['id']) is int}
+    result = analyze(mw, request['live'], request.get('target'), sphere_order=sphere_order)
     result.update(verified_model=manifest['model_hash'], ap_version=__version__)
     return result
 

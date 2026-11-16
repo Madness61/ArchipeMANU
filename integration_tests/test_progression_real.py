@@ -86,6 +86,8 @@ class RealProgressionTests(unittest.TestCase):
         self.report.append(dict(game=game,static=manifest['static']['state'],checks=len(checks),reachable=len(result['reachable']),
                                 best_single=max(gains,default=0),best_pair=max((len(r['new_checks']) for r in result['combinations']),default=0),
                                 single_complete=result['singles_complete'],pairs_complete=result['combinations_complete'],
+                                pairs_tested=result['combinations_tested'],pairs_total=result['combinations_total'],
+                                best_pair_extra=max((len(r['synergy']['checks']) for r in result['combinations']),default=0),
                                 necessary=sum(r['verdict']=='necessary' for r in result['necessity']),verified=result['verified_model']))
         if slug=='checksFinder':
             self.verify_hub_api(root,players,output,manifest,live)
@@ -167,3 +169,17 @@ class RealProgressionTests(unittest.TestCase):
         if not self.custom.is_file():
             self.skipTest('Pseudoregalia custom APWorld not installed')
         self.run_game('Pseudoregalia','pseudoregalia')
+
+    def test_04_dark_souls_basin_redundancy_with_real_access_options(self):
+        if not (self.source/'worlds'/'dark_souls_3').is_dir():
+            self.skipTest('Dark Souls III APWorld not installed')
+        env={k:v for k,v in os.environ.items() if not k.startswith(('HUB_','AP_'))}
+        env.update(PYTHONUTF8='1',PYTHONIOENCODING='utf-8')
+        process=subprocess.run([str(AP_PYTHON),str(PROJECT/'integration_tests'/'ds3_recommendations_probe.py')],
+            input=json.dumps(dict(root=str(self.root/'ds3-probe'))).encode(),cwd=self.source,env=env,
+            capture_output=True,timeout=180)
+        (self.artifacts/'ds3-probe.log').write_bytes(process.stderr)
+        self.assertEqual(process.returncode,0,process.stderr[-3000:])
+        data=json.loads(process.stdout)
+        (self.artifacts/'ds3-recommendations.json').write_text(json.dumps(data,indent=2),encoding='utf-8')
+        self.assertEqual(len(data),2)

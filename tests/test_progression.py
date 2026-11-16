@@ -129,6 +129,22 @@ class FinderTests(unittest.TestCase):
             result=progression.run_worker(dict(yamls={},manifest={}))
         self.assertEqual(result,dict(state='unsupported',reason='timeout'))
 
+    def test_old_algorithm_cache_is_not_reused_for_current_recommendations(self):
+        from progression_model import digest
+        data=dict(manifest={'seed':1},yamls={},live={'received':[]},observed_at=time.time())
+        old={k:v for k,v in data.items() if k!='observed_at'};old['target']=None
+        with self.app.app_context():
+            db.execute('''INSERT INTO progression_jobs(build_id,user_id,slot_name,signature,state,result,created_at,finished_at)
+                          VALUES (?,1,'Host',?,'ready',?,?,?)''',
+                       (self.bid,digest(old),db.dumps(dict(state='ready',old_algorithm=True)),time.time(),time.time()))
+        self.grant()
+        with patch.object(progression,'prepare',side_effect=lambda *args:(dict(data),None)), \
+             patch.object(progression,'manifest',return_value=None),patch.object(progression._pool,'submit') as start:
+            response=self.client.get(self.url+'/analysis').json
+            self.assertEqual(response['state'],'idle')
+            self.assertNotIn('old_algorithm',response)
+            start.assert_not_called()
+
     def test_verified_webhost_cache_supplies_checks_and_receipts_without_polling(self):
         now=time.time()
         with self.app.app_context():

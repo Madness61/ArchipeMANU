@@ -100,7 +100,10 @@ def test_dark_platform_navigation_options_and_responsive_pages(actors, live_serv
     editor.get_by_text("Angepasste Werte", exact=False).click()
     expect(editor.locator("[data-option-changes]")).to_contain_text("Difficulty")
     capture(alice, artifact_dir, "lobby-options")
-    editor.get_by_role("button", name="Auswahl übernehmen", exact=True).click()
+    # Wait for the actual form redirect before opening the mobile menu. Otherwise
+    # the next click can open the old document's menu just before it is replaced.
+    with alice.expect_navigation(wait_until='domcontentloaded'):
+        editor.get_by_role("button", name="Auswahl übernehmen", exact=True).click()
     nav(alice, "Dashboard").click()
     expect(alice.locator("#featured-action")).to_have_text("Bereit melden")
     alice.locator("#featured-action").click()

@@ -1,8 +1,9 @@
 # Universelle Progression-Hilfe und globaler Item-Finder
 
-Stand: 16. November 2026. Feature-Branch `feature/universal-progression-finder`,
-auf dem vollständigen Entwicklungsstand von PR #14 (`ae4de9e`). PR #14 ist zu
-Beginn dieser Arbeit offen; `main` steht weiterhin auf `28d9c80`.
+Stand: 16. November 2026. Die Verbesserung der Empfehlungen liegt auf
+`feature/progression-recommendations`, auf dem vollständigen Stand von PR #15
+einschließlich Upgrade-Reparatur (`3a40e1b`). PR #15 ist weiterhin offen;
+`main` steht bei Beginn dieser Erweiterung auf `28d9c80`.
 
 ## Benutzung und tatsächlich implementierter Umfang
 
@@ -149,10 +150,112 @@ Progression-Klassifikation allein ist kein Beweis für einen unmittelbaren Nutze
 
 Es werden bis zu 40 Itemarten einzeln und bis zu 80 Paare aus höchstens zwölf
 Arten getestet, einschließlich zweier gleicher Items bei genügend verbleibenden
-Kopien. Diese Auswahl ist deterministisch; nicht untersuchte Kandidaten oder
+Kopien. Die Auswahl verwendet die unten beschriebene deterministische Strategie;
+nicht untersuchte Kandidaten oder
 Paare werden ausdrücklich als unvollständig gekennzeichnet. Es gibt keine
 Behauptung einer exakten Türvoraussetzung: belegbar ist eine Erreichbarkeit unter
 der getesteten Inventarerweiterung. Tiefe drei und erschöpfende Suchen fehlen.
+
+### Gesamteffekt und zusätzlicher Kombinationseffekt
+
+Die Engine empfiehlt ein Paar **nicht**, nur weil es gegenüber dem aktuellen
+Inventar Fortschritt ermöglicht. Sie vergleicht dessen echte Check- und
+Regionsmengen zusätzlich mit den beiden zuvor vollständig ausgewerteten
+Einzelergebnissen:
+
+- `C0`: aktuell erreichbare offene Checks;
+- `CA`, `CB`: mit einem zusätzlichen Exemplar von A beziehungsweise B erreichbar;
+- `CAB`: mit beiden Exemplaren erreichbar;
+- Gesamteffekt des Paars: `CAB - C0`;
+- ausschließlicher Kombinationseffekt: **`CAB - (CA ∪ CB)`**.
+
+Für Regionen gilt dieselbe Mengenoperation. Es werden IDs beziehungsweise
+Regionsnamen verglichen, keine bloßen Anzahlen. Ein Paar mit gleich vielen,
+aber anderen Checks bleibt deshalb ein anderes Ergebnis. Gleiche Kopien eines
+progressiven Items werden als A + A geprüft: Der Einzeleffekt kommt dann von
+einer, der Paareffekt von zwei weiteren verfügbaren Kopien.
+
+Ein Paar wird nur behalten, wenn es exklusive Checks oder Regionen erschließt,
+erstmals die Completion Condition erfüllt oder das ausgewählte Ziel erstmals
+erreichbar macht, während das **keines** seiner Einzelitems schafft. Ein bereits
+erreichbares Ziel ist kein neuer Nutzen. Fehlende Einzelversuche gelten als
+unbekannt und niemals als Nullwirkung.
+
+Beispiele: A +15, B +0, Paar +15 wird unterdrückt. A +10, B +5, Paar +15 wird
+bei unabhängigen Effekten ebenfalls unterdrückt. Öffnet das Paar fünf Checks
+außerhalb der vereinten Einzeleffekte, werden Gesamteffekt und diese fünf
+exklusiven Checks getrennt ausgewiesen. Die Prüfung ist nach
+`progression_recommendations.py` ausgelagert, verwendet aber ausschließlich die
+von AP-Regeln tatsächlich berechneten Ergebnisse.
+
+### Auswahl und Reihenfolge der Kandidaten
+
+Alphabetische Reihenfolge ist kein Wichtigkeitskriterium mehr. Vor den
+Einzelversuchen werden fehlende Itemarten nach der frühesten gespeicherten
+theoretischen Seed-Sphere ihrer Platzierungen eingeplant. Gleichstände und
+fehlende Sphereinformationen werden über einen stabilen SHA-256 aus Seed,
+Spielslot und Itemname geordnet. Die ersten höchstens 40 Arten werden simuliert.
+Spheres sind ein Planungshinweis, kein aktueller Zustand anderer Spieler.
+
+Danach gelten für die maximal zwölf Paar-Kandidaten folgende Kriterien:
+
+1. Tatsächlich gemessene Wirkung für ausgewähltes Ziel und Spielabschluss.
+2. Falls budgetierbar: zusätzliche Auswahlprobe in einem optimistisch mit den
+   **bereits einzeln geprüften** verbleibenden Items vervollständigten Inventar.
+   Verhindert die Entfernung einer gesamten Itemart dort das ausgewählte Ziel
+   beziehungsweise ohne Zielwahl den Abschluss, erhält sie Auswahlpriorität.
+   Diese Probe ist ausdrücklich **kein** endgültiger Notwendigkeitsnachweis.
+3. Reservierte Auswahlplätze: bis zu sechs kritische Arten, bis zu zwei Arten
+   mit mehreren verbleibenden Kopien, bis zu vier ohne einzelne Check-/Regions-
+   Wirkung, danach nach Einzelwirkung priorisierte Arten bis zum Gesamtlimit.
+   Bereits gewählte Arten werden nicht doppelt belegt.
+4. Gültige Paare werden nach Beteiligung priorisierter Arten, Zweitkopien,
+   Paaren einzeln wirkungsloser Arten und gemessener Einzelwirkung eingeplant.
+
+Die zusätzliche Zielprobe darf höchstens 20 Prozent des zu diesem Zeitpunkt
+verbleibenden Zeitbudgets belegen. Teure einzelne AP-Regeln bleiben durch das
+harte Prozesslimit abgesichert. Die Reihenfolge ist deterministisch; bei
+Zeitablauf bleibt nur der vollständig ausgewertete Präfix des Suchlaufs erhalten.
+Kein Auswahlverfahren garantiert, unter diesen Grenzen jede Kombination zu finden.
+
+`combinations_tested` zählt tatsächlich simulierte gültige Paare, auch verworfene
+redundante Ergebnisse. Der Nenner `combinations_total` umfasst alle möglichen
+Paare der noch fehlenden Itemarten: `n*(n-1)/2` plus die Arten mit mindestens zwei
+verbleibenden Exemplaren. Ungültige A+A-Paare bei nur einer vorhandenen Kopie
+werden nicht mitgezählt. Zusätzliche Metadaten nennen die Poolgröße und die
+tatsächlich einzeln geprüften Arten. Die Website zeigt z. B. „69 von 81 möglichen
+Itemkombinationen untersucht“; fehlende Empfehlungen beweisen keine Unmöglichkeit.
+
+### Darstellung und Cache
+
+Hilfreiche Einzelitems erscheinen immer vor echten Kombinationen. Innerhalb
+jeder Kategorie haben neu erreichbare ausgewählte Ziele und Abschlüsse Vorrang,
+danach Check- und Regionsgewinn; Paare werden zuerst nach ihrem exklusiven
+Zusatznutzen bewertet. Die Anzeige nennt keinen bloßen Fortschrittsweg zwingend
+notwendig; dafür bleibt die gesonderte Exemplar-Zielprüfung zuständig.
+
+Identische tatsächliche Ergebnismengen werden als Alternativen gruppiert.
+Unterschiedliche Check-IDs mit gleicher Anzahl werden nicht zusammengelegt.
+Pro Kategorie sind zunächst höchstens sechs Ergebnisgruppen geöffnet sichtbar;
+weitere Gruppen und gleichwertige Rezepte sind aufklappbar. Einzeln wirkungslose
+Arten erscheinen nur in einer zusätzlichen aufklappbaren Liste. Bei Paaren
+zeigen getrennte Drilldowns exklusive Checks/Regionen und den Gesamteffekt.
+
+Die Ergebnisversion **2** fließt in den Job-Cache-Schlüssel ein. Alte erfolgreiche
+Berechnungen werden nicht als neue Empfehlungen wiederverwendet; sie bleiben
+gespeichert. GET berechnet weiterhin nichts automatisch. Die Browseranzeige
+vergleicht auch ältere, bereits laufende API-Antworten defensiv mengenbasiert,
+damit beim Update keine redundanten alten Paare wieder sichtbar werden.
+
+Die JSON-Antwort enthält weiterhin `new_checks` und `new_regions` als
+Gesamteffekt gegenüber dem aktuellen Inventar. Behaltene Paare tragen zusätzlich
+`synergy: {checks, regions, goal, target}` mit dem ausschließlichen Paareffekt.
+`goal_gain` und `target_gain` berücksichtigen den Ausgangszustand. `helpful`
+markiert hilfreiche Einzelergebnisse; wirkungslose Einzelversuche bleiben für
+Nachvollziehbarkeit erhalten. `effect_key` gruppiert identische tatsächliche
+Ergebnismengen. `singles_tested`, `candidates_total`, `combinations_tested`,
+`combinations_total` und `combinations_selected` beschreiben die Suchabdeckung;
+die Anzahl sichtbarer Empfehlungen ist keine Anzahl ausgeführter Simulationen.
 
 Die Logik beschreibt die APWorld mit den gewählten Fähigkeiten/Tricks. Sie liest
 keine lokalen Spielstände und beweist nicht, dass ein Spieler eine Storyaktion
@@ -258,7 +361,7 @@ ChecksFinder wird zusätzlich durch die vollständige angemeldete Flask-API und
 den Hintergrundprozess geprüft, einschließlich Cachewechsel nach Empfang.
 Keine produktiven Konten, Datenordner oder Online-Räume werden verwendet.
 
-Abschließender lokaler Gesamtlauf: **258 Python-Tests erfolgreich (116,1 s)**,
+Gesamtlauf des Grundstands vor der Empfehlungskorrektur: **258 Python-Tests erfolgreich (116,1 s)**,
 **21 Playwright-Szenarien erfolgreich (295,3 s)** und **3 echte AP-Integrationen
 erfolgreich (60,0 s)**. Screenshots der neuen Hilfe in DE/EN, Light/Dark/System
 und bei 390/1440 px wurden erzeugt; Desktop und Smartphone wurden visuell geprüft.
@@ -276,12 +379,52 @@ Kennzahlen der Spiele. Nicht getestet sind echte Spielclients, lokale Story-
 Synchronisierung und beliebige fremde APWorlds/Versionen. Item-Link-Gruppen und
 nicht reproduzierbare Seeds sind bewusst Rückfallfälle statt behaupteter Erfolge.
 
+### Zusätzliche Abnahme der Empfehlungen
+
+Die überarbeitete Engine ist mit denselben drei tatsächlichen Spielmodulen
+geprüft. Für ChecksFinder wurden 6 von 6 gültigen Paaren untersucht, für Meritous
+36 von 36 und für Pseudoregalia 69 von 81. Der jeweils größte **exklusive**
+Check-Zusatznutzen eines behaltenen Paars beträgt 1, 26 beziehungsweise 6 Checks.
+Diese Werte beschreiben wiederum nur die konkreten Test-Seeds und Inventare.
+
+Ein vierter Integrationstest lädt das installierte **Dark Souls III**-Modul,
+generiert mit Seed 20261116 ohne Ausgabe und prüft seine echten Regeln mit
+`late_basin_of_vows=off` und `after_small_doll`, jeweils ohne DLCs. Das explizite
+Regel-Testinventar enthält die übrigen generierten Items und hält Basin of Vows,
+Black Eye Orb, Blacksmith Hammer sowie beide genannten Braille Divine Tomes
+zurück. Es ist **kein** behaupteter Live-Inventarzustand.
+
+In diesem isolierten Szenario eröffnet Basin of Vows allein 213 Checks und vier
+Regionen. Alle vier untersuchten Zusätze liefern keinen exklusiven Paar-Nutzen
+und werden unterdrückt. Keine dieser Zahlen ist im Test fest codiert. Eine
+weitere Probe ohne Small Doll zeigt den Optionsunterschied: Mit Basin ist
+Lothric Castle bei `off` erreichbar, bei `after_small_doll` nicht. Die Engine
+erfindet dafür keine eigenen DS3-Regeln. Die aus der laufenden Runde berichteten
+73 Checks sind inventar-/optionsabhängig und werden nicht verallgemeinert.
+
+Die regulären Regressionen enthalten redundante, unabhängige und teilweise
+synergetische Effekte, Null+Null-Paare, gleiche Anzahlen bei verschiedenen IDs,
+reine Regions-/Zielgewinne, Mehrfachkopien, Zielpriorität, deterministische
+Kandidatenauswahl, Zeitablauf während der Paarsuche und Cacheversionswechsel.
+Ein im Browser-Gesamtlauf offengelegter bestehender Mobil-Test wartet nun auf
+die tatsächliche Formularweiterleitung, bevor er das neue Menü öffnet.
+
+Abschließende Abnahme dieser Korrektur: **271 Python-Tests erfolgreich (131,7 s)**,
+**21 Playwright-Szenarien erfolgreich (308,1 s)** und **4 echte AP-Integrationen
+erfolgreich (79,7 s)**. Der erste Browser-Gesamtlauf hatte den oben beschriebenen
+Mobil-Test-Rennfall (20 bestanden, einer fehlgeschlagen); nach der gezielten
+Synchronisierung besteht die komplette Suite. Ein zusätzlicher gezielter
+Progression-Lauf mit Detail-Screenshots bestand ebenfalls. Desktop/Mobil sowie
+DE/EN und alle Themes wurden visuell kontrolliert. Keine Tests mit produktiven
+Spielclients oder Online-Räumen.
+
 ## Sinnvolle nächste Erweiterungen
 
 - Explizit verifizierte Item-Link-Auflösung inklusive Gruppeninventaren.
 - Mehrspieler-Integration mit mehreren tatsächlich generierten Spielmodulen in
   derselben Multiworld, zusätzlich zur vorhandenen Remote-Item-Regelfixture.
-- Budgetgesteuerte, zielgerichtete Auswahl der Paar-Kandidaten und Tiefe drei.
+- Breitere zielgerichtete Auswahl jenseits des Zwölfer-Pools und Tiefe drei;
+  aktuelle Priorisierung bleibt absichtlich begrenzt und transparent.
 - Exakte Zielkombinationen unter Entfernung mehrerer konkreter Exemplare.
 - Archivierte, isolierte Laufzeitumgebungen pro Seed statt notwendiger identischer
   aktiver AP-Installation; keine stillschweigende Versionsannäherung.

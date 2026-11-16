@@ -2041,5 +2041,22 @@
   "progression_84884ef7cf80": "Partial support",
   "progression_3772176a75b5": "Basic support",
   "progression_9b4e693723ae": "Verified logic help",
-  "progression_3f2c365368dd": "Search shows verified addressed placements for individual player slots. Events, starting inventory and group slots are not included."
+  "progression_3f2c365368dd": "Search shows verified addressed placements for individual player slots. Events, starting inventory and group slots are not included.",
+  "recommendation_89275a08dcbf": "Total effect",
+  "recommendation_4eb4c13cce75": "Only through this combination",
+  "recommendation_af48b03588c4": "Only together do these items make the game goal reachable",
+  "recommendation_633b4a42f66f": "Only together do these items make the selected target reachable",
+  "recommendation_b91afb685305": "Show combination-only checks and areas",
+  "recommendation_2971bbf69f5c": "Show total effect",
+  "recommendation_d62912ea5ebc": "Alternatives with the same effect",
+  "recommendation_ba189294283b": "More recommendations",
+  "recommendation_8c9321c8d023": "possible item combinations examined",
+  "recommendation_82fdd0e1e171": "item types examined individually",
+  "recommendation_d92d54a09ac8": "Helpful individual items",
+  "recommendation_db443be38d0a": "No immediate benefit was found among the individual items examined.",
+  "recommendation_f1f7f6d7e01c": "Genuine item combinations",
+  "recommendation_c9a0acc1bcbe": "No additional combination effect was found among the pairs examined.",
+  "recommendation_4af29a685d35": "Other examined items without an immediate individual effect",
+  "recommendation_718b83a0626b": "This pair reaches the game goal; neither of its individual items is sufficient.",
+  "recommendation_95977ab43daa": "This pair reaches the selected target; neither of its individual items is sufficient."
 }

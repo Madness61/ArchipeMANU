@@ -86,15 +86,76 @@
   $('progression-next').addEventListener('click',()=>{page++;find();});
   function recommendation(row){
     const box=node('article',null,'progression-item progression-recommendation');
+    const combined=row.items.reduce((sum,item)=>sum+item.count,0)>1;
     box.append(node('h4',row.items.map(i=>i.name+(i.count>1?' × '+i.count:'')).join(' + ')),
-      node('p','+'+row.new_checks.length+' '+t('zusätzliche Checks')+' · +'+row.new_regions.length+' '+t('neue Bereiche')));
-    if(row.goal_reachable)box.append(node('p',t('Spielziel mit diesem Inventar erreichbar'),'ok'));
-    if(row.target_reached)box.append(node('p',t('Der gewählte Bereich wird erreichbar'),'ok'));
+      node('p',(combined?t('Gesamteffekt')+': ':'')+'+'+row.new_checks.length+' '+t('zusätzliche Checks')+' · +'+row.new_regions.length+' '+t('neue Bereiche')));
+    if(combined){
+      box.append(node('p',t('Nur durch diese Kombination')+': +'+row.synergy.checks.length+' '+t('zusätzliche Checks')+' · +'+row.synergy.regions.length+' '+t('neue Bereiche'),'progression-synergy'));
+      if(row.synergy.goal)box.append(node('p',t('Dieses Paar erreicht das Spielziel; keines seiner Einzelitems reicht dafür.'),'ok'));
+      if(row.synergy.target)box.append(node('p',t('Dieses Paar erreicht das gewählte Ziel; keines seiner Einzelitems reicht dafür.'),'ok'));
+    }
+    if(row.goal_gain)box.append(node('p',t('Spielziel mit diesem Inventar erreichbar'),'ok'));
+    if(row.target_gain)box.append(node('p',t('Der gewählte Bereich wird erreichbar'),'ok'));
     const found=node('details');found.append(node('summary',t('Konkrete Fundorte ansehen')));
     row.items.forEach(item=>(item.placements||[]).forEach(p=>found.append(placement(p))));box.append(found);
-    const checks=node('details');checks.append(node('summary',t('Neue Checks und Bereiche ansehen')));
-    const list=node('ul');row.new_checks.forEach(id=>list.append(node('li',analysisTargets.find(l=>l.id===id)?.name||String(id))));row.new_regions.forEach(name=>list.append(node('li',name)));checks.append(list);box.append(checks);
+    function locations(checks,regions,label){
+      const detail=node('details');detail.append(node('summary',label));const list=node('ul');
+      checks.forEach(id=>list.append(node('li',analysisTargets.find(l=>l.id===id)?.name||String(id))));regions.forEach(name=>list.append(node('li',name)));
+      detail.append(list);box.append(detail);
+    }
+    if(combined)locations(row.synergy.checks,row.synergy.regions,t('Zusätzliche Checks und Bereiche ansehen'));
+    locations(row.new_checks,row.new_regions,combined?t('Gesamten Effekt ansehen'):t('Neue Checks und Bereiche ansehen'));
     return box;
+  }
+  function normalize(data){
+    // Old in-flight/cached API responses also need set-based suppression. An
+    // absent single trial is unknown, never equivalent to a zero-item effect.
+    const target=$('progression-target')?.value||'';
+    const targetKnown=data.target_reachable ?? (target.startsWith('location:')?data.reachable.some(l=>l.id===Number(target.slice(9))):target.startsWith('region:')?(data.regions||[]).includes(target.slice(7)):false);
+    const annotate=row=>{
+      row.goal_gain=Boolean(row.goal_reachable&&!data.goal_reachable);
+      row.target_gain=Boolean(row.target_reached&&!targetKnown);
+      row.helpful=Boolean(row.new_checks.length||row.new_regions.length||row.goal_gain||row.target_gain);
+    };
+    data.singles.forEach(annotate);
+    const singles=new Map(data.singles.map(row=>[row.items[0].name,row])),seen=new Set();
+    data.combinations=data.combinations.filter(row=>{
+      annotate(row);
+      const identity=JSON.stringify(row.items.map(i=>[i.name,i.count]).sort());
+      if(seen.has(identity))return false;seen.add(identity);
+      const parts=row.items.map(i=>singles.get(i.name));if(parts.some(p=>!p))return false;
+      const checks=new Set(parts.flatMap(p=>p.new_checks)),regions=new Set(parts.flatMap(p=>p.new_regions));
+      row.synergy={checks:row.new_checks.filter(id=>!checks.has(id)),regions:row.new_regions.filter(name=>!regions.has(name)),
+        goal:row.goal_gain&&!parts.some(p=>p.goal_gain),target:row.target_gain&&!parts.some(p=>p.target_gain)};
+      return Boolean(row.synergy.checks.length||row.synergy.regions.length||row.synergy.goal||row.synergy.target);
+    });
+    const rank=row=>[-Number(row.target_gain),-Number(row.goal_gain),-(row.synergy?.checks.length??row.new_checks.length),-(row.synergy?.regions.length??row.new_regions.length),-row.new_checks.length,-row.new_regions.length];
+    const compare=(a,b)=>{const x=rank(a),y=rank(b);for(let i=0;i<x.length;i++)if(x[i]!==y[i])return x[i]-y[i];return 0;};
+    data.singles.sort(compare);data.combinations.sort(compare);
+    return data;
+  }
+  function recommendationSection(rows,label,emptyText,kind){
+    const section=node('section',null,'progression-recommendations');section.dataset.recommendationKind=kind;section.append(node('h4',label));
+    if(!rows.length){section.append(node('p',emptyText,'muted small'));return section;}
+    const groups=new Map();
+    rows.forEach(row=>{
+      const key=JSON.stringify([row.new_checks.slice().sort((a,b)=>a-b),row.new_regions.slice().sort(),row.goal_gain,row.target_gain,
+        row.synergy?[row.synergy.checks.slice().sort((a,b)=>a-b),row.synergy.regions.slice().sort(),row.synergy.goal,row.synergy.target]:null]);
+      if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);
+    });
+    let overflow=null,index=0;
+    groups.forEach(recipes=>{
+      const box=node('div',null,'progression-effect-group');box.append(recommendation(recipes[0]));
+      if(recipes.length>1){
+        const alternatives=node('details',null,'progression-alternatives');alternatives.append(node('summary',t('Alternativen mit derselben Wirkung')+' ('+(recipes.length-1)+')'));
+        recipes.slice(1).forEach(row=>alternatives.append(recommendation(row)));box.append(alternatives);
+      }
+      if(index++<6)section.append(box);
+      else{
+        if(!overflow){overflow=node('details',null,'progression-more');overflow.append(node('summary',t('Weitere Empfehlungen')+' ('+(groups.size-6)+')'));section.append(overflow);}
+        overflow.append(box);
+      }
+    });return section;
   }
   let analysisTargets=[];
   function renderAnalysis(data){
@@ -106,6 +167,7 @@
     $('progression-helpful').replaceChildren();$('progression-reachable').replaceChildren();$('progression-goals').replaceChildren();
     $('progression-goal-status').textContent=t('Noch nicht zuverlässig bestimmbar');
     if(data.state!=='ready')return;
+    data=normalize(data);
     $('progression-support').textContent=data.singles_complete&&data.combinations_complete&&data.necessity_complete?t('Verifizierte Logikhilfe'):t('Teilweise Unterstützung');
     analysisTargets=data.targets;
     const selected=$('progression-target')?.value;
@@ -117,8 +179,12 @@
     }
     $('progression-helpful').append(node('p',data.reachable.length+' '+t('aktuell erreichbare, offene Checks')));
     if(!data.singles_complete||!data.combinations_complete||!data.necessity_complete)$('progression-helpful').append(node('p',t('Begrenzte Analyse: Nicht alle Items, Paare oder Zielprüfungen wurden untersucht. Fehlende Ergebnisse beweisen keine Unmöglichkeit.'),'warn small'));
-    data.singles.forEach(row=>$('progression-helpful').append(recommendation(row)));
-    if(data.combinations.length){$('progression-helpful').append(node('h4',t('Kombinationen aus zwei Items')));data.combinations.filter(r=>r.new_checks.length||r.new_regions.length||r.target_reached||r.goal_reachable&&!data.goal_reachable).forEach(row=>$('progression-helpful').append(recommendation(row)));}
+    if(Number.isInteger(data.combinations_tested)&&Number.isInteger(data.combinations_total))$('progression-helpful').append(node('p',data.combinations_tested+' '+t('von')+' '+data.combinations_total+' '+t('möglichen Itemkombinationen untersucht'),'small progression-coverage'));
+    if(Number.isInteger(data.singles_tested))$('progression-helpful').append(node('p',data.singles_tested+' '+t('von')+' '+data.candidates_total+' '+t('Itemarten einzeln untersucht'),'small muted'));
+    $('progression-helpful').append(recommendationSection(data.singles.filter(row=>row.helpful),t('Einzelne hilfreiche Items'),t('Unter den geprüften Einzelitems wurde kein unmittelbarer Zusatznutzen gefunden.'),'singles'));
+    $('progression-helpful').append(recommendationSection(data.combinations,t('Echte Itemkombinationen'),t('Unter den geprüften Paaren wurde kein zusätzlicher Kombinationseffekt gefunden.'),'combinations'));
+    const zero=data.singles.filter(row=>!row.helpful);
+    if(zero.length){const detail=node('details');detail.append(node('summary',t('Weitere untersuchte Items ohne unmittelbaren Einzeleffekt')+' ('+zero.length+')'));const list=node('ul');zero.forEach(row=>list.append(node('li',row.items[0].name)));detail.append(list);$('progression-helpful').append(detail);}
     data.reachable.forEach(loc=>$('progression-reachable').append(node('li',loc.name+' · '+loc.region)));
     $('progression-goal-status').textContent=data.goal_reachable?t('Spielziel mit deinem gemeldeten Inventar erreichbar'):t('Spielziel mit deinem gemeldeten Inventar noch nicht erreichbar');
     const verdict={necessary:t('Nachweislich notwendiges Exemplar'),replaceable_copy:t('Dieses Einzel-exemplar ist ersetzbar'),unknown:t('Noch nicht zuverlässig bestimmbar')};

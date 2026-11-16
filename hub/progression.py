@@ -10,6 +10,7 @@ import threading
 import time
 
 from progression_model import digest
+from progression_recommendations import ANALYSIS_VERSION
 from . import ap_bridge, config, db, live_metrics, live_store, mvp
 
 _pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix='progression')
@@ -264,6 +265,7 @@ def job(build, slot, user_id, start=False, target=None):
     if reason:
         return dict(state='unsupported',reason=reason)
     data['target'] = target
+    data['analysis_version'] = ANALYSIS_VERSION
     at = data.pop('observed_at')
     # Cache changes only with relevant inventory/checks/target/seed state.
     signature = digest(data)

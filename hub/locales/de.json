@@ -2041,5 +2041,22 @@
   "progression_84884ef7cf80": "Teilweise Unterstützung",
   "progression_3772176a75b5": "Basisunterstützung",
   "progression_9b4e693723ae": "Verifizierte Logikhilfe",
-  "progression_3f2c365368dd": "Die Suche zeigt verifizierte adressierte Platzierungen echter Spielerslots. Events, Startinventar und Gruppenslots sind darin nicht enthalten."
+  "progression_3f2c365368dd": "Die Suche zeigt verifizierte adressierte Platzierungen echter Spielerslots. Events, Startinventar und Gruppenslots sind darin nicht enthalten.",
+  "recommendation_89275a08dcbf": "Gesamteffekt",
+  "recommendation_4eb4c13cce75": "Nur durch diese Kombination",
+  "recommendation_af48b03588c4": "Nur gemeinsam wird das Spielziel erreichbar",
+  "recommendation_633b4a42f66f": "Nur gemeinsam wird das gewählte Ziel erreichbar",
+  "recommendation_b91afb685305": "Zusätzliche Checks und Bereiche ansehen",
+  "recommendation_2971bbf69f5c": "Gesamten Effekt ansehen",
+  "recommendation_d62912ea5ebc": "Alternativen mit derselben Wirkung",
+  "recommendation_ba189294283b": "Weitere Empfehlungen",
+  "recommendation_8c9321c8d023": "möglichen Itemkombinationen untersucht",
+  "recommendation_82fdd0e1e171": "Itemarten einzeln untersucht",
+  "recommendation_d92d54a09ac8": "Einzelne hilfreiche Items",
+  "recommendation_db443be38d0a": "Unter den geprüften Einzelitems wurde kein unmittelbarer Zusatznutzen gefunden.",
+  "recommendation_f1f7f6d7e01c": "Echte Itemkombinationen",
+  "recommendation_c9a0acc1bcbe": "Unter den geprüften Paaren wurde kein zusätzlicher Kombinationseffekt gefunden.",
+  "recommendation_4af29a685d35": "Weitere untersuchte Items ohne unmittelbaren Einzeleffekt",
+  "recommendation_718b83a0626b": "Dieses Paar erreicht das Spielziel; keines seiner Einzelitems reicht dafür.",
+  "recommendation_95977ab43daa": "Dieses Paar erreicht das gewählte Ziel; keines seiner Einzelitems reicht dafür."
 }

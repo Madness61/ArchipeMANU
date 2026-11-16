@@ -15,6 +15,10 @@ Technische Stabilisierung und visuelles Redesign sind **zwei getrennte Arbeitspa
 
 ## Universelle Progression-Hilfe und globaler Item-Finder
 
+- [x] Paar-Gesamteffekt von exklusiver Synergie unterscheiden; redundante und nur unabhängige Effekte unterdrücken.
+- [x] Nichtalphabetische Kandidatenauswahl mit Ziel-, Einzelwirkungs-, Nullwirkungs- und Mehrfachkopien-Priorität sowie exakter Suchabdeckung implementieren.
+- [x] Hilfreiche Einzelitems zuerst, echte Paare mit getrenntem Gesamteffekt und Zusatznutzen, gleichwertige Alternativen gruppiert und lange Listen aufklappbar anzeigen.
+- [x] DS3-Basin-Regression mit echten Regeln und zwei Zugangsoptionen ohne fest codierte Checkzahl absichern; Zugangsänderung ohne Small Doll zusätzlich nachweisen.
 - [x] Auf vollständigem Stand von #14 in eigenem Feature-Branch aufbauen; alten UT deaktiviert lassen.
 - [x] Globale Suche direkt bei der Konsole, kombinierbare Filter, getrennte Check-/Empfangsnachweise und persönliche Spoilerfreigabe.
 - [x] Ursprünglichen Seed, YAML-Hashes, aufgelöste Optionen, APWorld-Provenienz, Platzierungen, statische Spheres und Regelproben sichern.
@@ -24,7 +28,7 @@ Technische Stabilisierung und visuelles Redesign sind **zwei getrennte Arbeitspa
 - [x] Echte isolierte Generierung/Rekonstruktion mit ChecksFinder, Meritous und Custom-Pseudoregalia prüfen.
 - [ ] Item-Link-Gruppen zuverlässig dynamisch auflösen; derzeit ausdrücklich nicht unterstützt.
 - [ ] Weitere APWorlds und gemischte echte Mehrspieler-Seeds prüfen; vorhandene Remote-Item-Tests ersetzen dies nicht.
-- [ ] Zielgerichtete Kandidatenauswahl, Tiefe drei und erschöpfende minimale Zielkombinationen ergänzen.
+- [ ] Zielgerichtete Auswahl über den begrenzten Kandidatenpool hinaus, Tiefe drei und erschöpfende minimale Zielkombinationen ergänzen.
 - [ ] Reale Spielclient-Abnahme durchführen. Die Hilfe bewertet AP-Logik, keine lokalen Storyzustände.
 
 Details, konkrete gemessene Check-Zuwächse und Grenzen: [PROGRESSION_ENGINE.md](PROGRESSION_ENGINE.md).

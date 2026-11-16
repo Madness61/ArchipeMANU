@@ -139,10 +139,11 @@ class Unsupported(ValueError):
     pass
 
 
-def analyze(mw, live, target=None, seconds=12, max_candidates=40, max_pairs=80):
+def analyze(mw, live, target=None, seconds=12, max_candidates=40, max_pairs=80, sphere_order=None):
     """Counterfactual inventory checks with the registered APWorld rules only."""
     from BaseClasses import CollectionState
     from itertools import combinations_with_replacement
+    from progression_recommendations import refine
     pid = live['slot']
     if mw.groups:
         raise Unsupported('item_links')
@@ -182,11 +183,20 @@ def analyze(mw, live, target=None, seconds=12, max_candidates=40, max_pairs=80):
         regions = {r.name for r in mw.get_regions(pid) if r.can_reach(current)}
         return checks, regions, bool(mw.has_beaten_game(current, pid))
     baseline, base_regions, goal = reach(state)
+    baseline_target = ((target['id'] in baseline or target['id'] in checked) if target and target['kind']=='location'
+                       else target['name'] in base_regions if target and target['kind']=='region' else False)
     candidates = {}
-    for loc in sorted(locations.values(), key=lambda l: (l.item.name if l.item else '', l.player, l.address)):
+    for loc in sorted(locations.values(), key=lambda l: (l.player, l.address)):
         if loc.item and type(loc.item.code) is int and loc.item.player == pid and loc.item.advancement and (loc.player, loc.address) not in confirmed:
             candidates.setdefault(loc.item.name, []).append(loc)
-    names = list(candidates)[:max_candidates]
+    sphere_order = sphere_order or {}
+    def stable(name):
+        return hashlib.sha256(f'{getattr(mw,"seed",0)}:{pid}:{name}'.encode()).hexdigest()
+    def source_rank(name):
+        # Logical seed spheres are a transparent scheduling hint, not an estimate
+        # of the other players' current inventories or a necessity claim.
+        return (min((sphere_order.get((l.player,l.address),10**9) for l in candidates[name]),default=10**9),stable(name))
+    names = sorted(candidates,key=source_rank)[:max_candidates]
     complete = len(names) == len(candidates)
     def simulation(selection):
         counts = Counter(selection)
@@ -209,16 +219,62 @@ def analyze(mw, live, target=None, seconds=12, max_candidates=40, max_pairs=80):
             complete = False
             break
         singles.append(simulation([name]))
-    pair_names = [r['items'][0]['name'] for r in singles][:12]
-    pair_attempts, possible = 0, len(pair_names)*(len(pair_names)+1)//2
-    for a, b in combinations_with_replacement(pair_names, 2):
+    by_name = {r['items'][0]['name']:r for r in singles}
+    # If a target is known, test removal of an item TYPE from an optimistic full
+    # remaining inventory. This is only a scheduling hint, never a goal verdict.
+    focus = set()
+    focus_deadline = min(deadline,time.monotonic()+max(0,(deadline-time.monotonic())*.2))
+    target_location = next((loc for loc in own if target and target.get('kind')=='location' and loc.address==target['id']),None)
+    target_region = next((r for r in mw.get_regions(pid) if target and target.get('kind')=='region' and r.name==target['name']),None)
+    def focus_reached(current):
+        current.sweep_for_advancements(events)
+        return (target_location.can_reach(current) if target_location else target_region.can_reach(current)
+                if target_region else bool(mw.has_beaten_game(current,pid)))
+    def optimistic(exclude=None):
+        current=state.copy()
+        for name in by_name:
+            if name!=exclude:
+                for loc in candidates[name]:
+                    current.collect(loc.item,True)
+        return current
+    if by_name and not baseline_target and (target or not goal) and time.monotonic()<focus_deadline:
+        if focus_reached(optimistic()):
+            for name in sorted(by_name,key=source_rank):
+                if time.monotonic()>=focus_deadline:
+                    break
+                if not focus_reached(optimistic(name)):
+                    focus.add(name)
+    def candidate_rank(name):
+        row=by_name[name]
+        return (-int(bool(row['target_reached']) and not baseline_target),
+                -int(row['goal_reachable'] and not goal),-int(name in focus),
+                -len(row['new_checks']),-len(row['new_regions']),source_rank(name))
+    ordered=sorted(by_name,key=candidate_rank)
+    critical=[n for n in ordered if n in focus or by_name[n]['target_reached'] and not baseline_target
+              or by_name[n]['goal_reachable'] and not goal]
+    zero=[n for n in ordered if not by_name[n]['new_checks'] and not by_name[n]['new_regions']]
+    multiple=[n for n in ordered if len(candidates[n])>=2]
+    pair_names=[]
+    for bucket,quota in ((critical,6),(multiple,2),(zero,4),(ordered,6),(ordered,12)):
+        added=0
+        for name in bucket:
+            if len(pair_names)>=12 or added>=quota:
+                break
+            if name not in pair_names:
+                pair_names.append(name);added+=1
+    scheduled=[(a,b) for a,b in combinations_with_replacement(pair_names,2) if a!=b or len(candidates[a])>=2]
+    scheduled.sort(key=lambda pair:(-sum(n in focus for n in pair),-int(pair[0]==pair[1]),
+                   -int(all(n in zero for n in pair)),candidate_rank(pair[0]),candidate_rank(pair[1])))
+    pair_attempts=0
+    possible=len(candidates)*(len(candidates)-1)//2+sum(len(locs)>=2 for locs in candidates.values())
+    for a, b in scheduled:
         if time.monotonic() > deadline or pair_attempts >= max_pairs:
             break
         pair_attempts += 1
         value = simulation([a, b])
         if value:
             pairs.append(value)
-    combinations_complete = len(pair_names) == len(candidates) and pair_attempts == possible
+    combinations_complete = pair_attempts == possible
     # Necessary means one exact placed copy was removed and the real reachable
     # item chain could no longer satisfy this slot's completion condition.
     necessity = []
@@ -236,11 +292,12 @@ def analyze(mw, live, target=None, seconds=12, max_candidates=40, max_pairs=80):
                 verdict=('necessary' if not mw.has_beaten_game(without, pid) else 'replaceable_copy') if baseline_goal else 'unknown'))
         if time.monotonic() > deadline or len(necessity) >= 20:
             break
-    key = lambda row: (-int(bool(row['target_reached'])), -int(row['goal_reachable'] and not goal), -len(row['new_checks']), -len(row['new_regions']))
-    return dict(state='ready', reachable=[dict(id=loc.address, name=loc.name, region=loc.parent_region.name)
+    return refine(dict(state='ready', reachable=[dict(id=loc.address, name=loc.name, region=loc.parent_region.name)
                 for loc in own if loc.address in baseline],
-                regions=sorted(base_regions), goal_reachable=goal, singles=sorted(singles, key=key),
-                combinations=sorted(pairs, key=key), candidates_total=len(candidates),
+                regions=sorted(base_regions), goal_reachable=goal, target_reachable=baseline_target,singles=singles,
+                combinations=pairs, candidates_total=len(candidates),singles_tested=len(singles),
+                combinations_tested=pair_attempts,combinations_total=possible,
+                combinations_selected=len(scheduled),combination_candidates=pair_names,
                 singles_complete=complete, combinations_complete=combinations_complete,
                 necessity=necessity, necessity_complete=len(necessity) == sum(len(v) for v in candidates.values()),
-                targets=[dict(id=loc.address, name=loc.name, region=loc.parent_region.name) for loc in own if loc.address not in checked])
+                targets=[dict(id=loc.address, name=loc.name, region=loc.parent_region.name) for loc in own if loc.address not in checked]))

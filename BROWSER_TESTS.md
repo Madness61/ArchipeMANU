@@ -2,6 +2,26 @@
 
 ## Progression-Hilfe und globale Itemsuche (16.11.2026)
 
+Der Empfehlungs-Test prüft inzwischen auch die clientseitige Kompatibilität mit
+älteren API-Ergebnissen: ein dominantes Einzelitem mit wirkungslosem Zusatz wird
+unterdrückt, echte partielle Synergie und reine Zielsynergie bleiben erhalten.
+Gleiche Ergebnismengen werden als Alternativen gruppiert; gleich große Mengen
+unterschiedlicher Checks bleiben getrennt. Gesamteffekt, exklusiver Zusatznutzen,
+Suchabdeckung und aufklappbare lange Listen werden in DE/EN und allen Themes
+geprüft. Dies sind ausdrücklich UI-Fixtures; echte Regeln werden separat geprüft.
+Die reale Integration umfasst zusätzlich das DS3-Basin-Szenario mit Seed 20261116,
+`late_basin_of_vows=off/after_small_doll` und deaktivierten DLCs. Das
+Regel-Testinventar ist kontrolliert gesetzt und wird nicht als echter Live-
+Inventarzustand ausgegeben. Die konkrete Checkanzahl wird nicht fest codiert.
+
+Abnahme der Empfehlungskorrektur: **271 Python-Tests (131,7 Sekunden)**,
+**21 Browser-Szenarien (308,1 Sekunden)** und **4 echte AP-Integrationen
+(79,7 Sekunden)** erfolgreich. Ein zusätzlicher gezielter Progression-Lauf
+erzeugte Detail-Screenshots des Paar-Zusatznutzens in DE/EN und allen Themes;
+Desktop und Mobil wurden visuell geprüft. Im ersten Browser-Gesamtlauf wurde
+ein bestehender Mobil-Test-Rennfall nach einer Formularweiterleitung erkannt;
+nach gezielter Synchronisierung besteht der gesamte Lauf.
+
 Die Suite umfasst zusätzlich den Ablauf `test_progression.py`: zwei getrennte
 Konten, Itemsuche unmittelbar aus der Rundenzentrale, persönliche Spoilerfreigabe,
 Suche über mehrere Empfänger, eigene Items, historische Seeds ohne Logikdaten,
@@ -26,7 +46,7 @@ eine gesonderte Integrationsprüfung.
 Aktuelle Architektur, gemessene Check-Zuwächse und Grenzen:
 [PROGRESSION_ENGINE.md](PROGRESSION_ENGINE.md).
 
-Abschließendes Ergebnis: **258 Python-Tests (116,1 Sekunden)**,
+Ergebnis des Grundstands vor der Empfehlungskorrektur: **258 Python-Tests (116,1 Sekunden)**,
 **21 Browser-Szenarien (295,3 Sekunden)** und **3 echte AP-Integrationen
 (60,0 Sekunden)** erfolgreich. Desktop- und Smartphone-Screenshots der neuen
 Hilfe wurden zusätzlich visuell geprüft. Keine reale Spielclient-Abnahme.
