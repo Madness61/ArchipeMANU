@@ -1,5 +1,6 @@
 """Refactoring must preserve public routes, entry points and documentation paths."""
 import ast
+import fnmatch
 import importlib
 import json
 import os
@@ -106,6 +107,16 @@ assert not config.DATA.exists()
         source = (ROOT/'test-browser.ps1').read_text(encoding='utf-8')
         self.assertIn('docs/DEVELOPMENT.md', source)
         self.assertTrue((ROOT/'docs/DEVELOPMENT.md').is_file())
+
+    def test_windows_ci_partitions_cover_every_test_module_exactly_once(self):
+        import yaml
+        workflow=yaml.safe_load((ROOT/'.github/workflows/tests.yml').read_text(encoding='utf-8'))
+        matrix=workflow['jobs']['unit-tests']['strategy']['matrix']['include']
+        windows=[row['pattern'] for row in matrix if row['os']=='windows-latest']
+        self.assertEqual([row['pattern'] for row in matrix if row['os']=='ubuntu-latest'],['test*.py'])
+        self.assertGreater(len(windows),1)
+        for module in (ROOT/'tests').glob('test*.py'):
+            self.assertEqual(sum(fnmatch.fnmatchcase(module.name,pattern) for pattern in windows),1,module.name)
 
     def test_production_worker_never_imports_the_combination_extension(self):
         for path in [ROOT/'progression_worker.py', ROOT/'progression_model.py',

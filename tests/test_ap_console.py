@@ -68,6 +68,7 @@ class ConsoleTests(unittest.TestCase):
         delivery = items[0]["delivery"]
         self.assertEqual(delivery["sender"],{"name":"Friend","game":"Test World"})
         self.assertEqual(delivery["recipient"]["name"],"Host")
+
         self.assertEqual(delivery["item"],"Progression Key")
         self.assertEqual(delivery["location"]["name"],"Old Fortress - Chest")
         friend_items=self.friend.get(self.url+"/data?kind=items").get_json()["events"]
@@ -76,6 +77,22 @@ class ConsoleTests(unittest.TestCase):
         hello = next(p for p in self.server.packets if p["cmd"]=="Connect")
         self.assertEqual((hello["game"],hello["tags"],hello["items_handling"],hello["slot_data"]),("",["TextOnly"],7,True))
         self.assertFalse(any(p["cmd"] in ("LocationChecks","StatusUpdate","LocationScouts") for p in self.server.packets))
+
+    def test_received_inventory_before_catalogue_keeps_event_and_later_resolves_names(self):
+        self.server.package_gate.clear()
+        self.assertEqual(self.connect()['state'],'connected')
+        self.wait_for(self.server.package_requested.is_set)
+        initial=self.wait_for(lambda:self.state(query='?kind=items')['events'])
+        self.assertEqual(len(initial),1)
+        self.assertEqual(initial[0]['delivery']['item'],'Item #501')
+        identity=initial[0]['id']
+        self.server.package_gate.set()
+        self.wait_for(lambda:any(e.get('delivery',{}).get('item')=='Progression Key'
+                                 for e in self.state(query='?kind=items')['events']))
+        resolved=self.state(query='?kind=items')['events']
+        self.assertEqual(len(resolved),1)
+        self.assertEqual(resolved[0]['id'],identity)
+        self.assertEqual(resolved[0]['delivery']['location']['name'],'Old Fortress - Chest')
 
     def test_default_automatic_transport_and_ws_fallback_before_authentication(self):
         original = ap_console.open_socket

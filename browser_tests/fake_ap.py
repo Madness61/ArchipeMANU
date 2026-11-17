@@ -10,6 +10,9 @@ class FakeAP:
         self.history = {1:[[501,1001,2,1]],2:[]}
         self.emit_live = True
         self.lock = threading.RLock()
+        self.package_requested = threading.Event()
+        self.package_gate = threading.Event()
+        self.package_gate.set()
 
     def __enter__(self):
         from websockets.sync.server import serve
@@ -20,6 +23,7 @@ class FakeAP:
         return self
 
     def __exit__(self, *args):
+        self.package_gate.set()
         with self.lock:
             clients = list(self.clients)
         for wire in clients:
@@ -78,6 +82,8 @@ class FakeAP:
                             self.clients.append(wire)
                         self.broadcast_item()
                     elif cmd == "GetDataPackage":
+                        self.package_requested.set()
+                        self.package_gate.wait(20)
                         self.send(wire,[{"cmd":"DataPackage","data":{"games":{self.game:{
                             "item_name_to_id":{"Progression Key":501,"Potion":502},
                             "location_name_to_id":{"Town":1000,"Old Fortress - Chest":1001,"Deep Cave - Boss":1002}}}}}])
