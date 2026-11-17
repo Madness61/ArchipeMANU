@@ -13,6 +13,7 @@ from flask import abort, flash, g, redirect, url_for
 from hub import ap_bridge, config, db, stats, yamlgen
 from hub.routes.registry import rounds as bp
 from hub.services.selection import slot_fingerprint
+from hub.services import guides as guide_store
 
 _LOCK = threading.RLock()
 
@@ -104,6 +105,7 @@ def migrate() -> None:
             conn.execute("ALTER TABLE seed_builds ADD COLUMN stats_json TEXT NOT NULL DEFAULT ''")
         if "completed_at" not in build_cols:
             conn.execute("ALTER TABLE seed_builds ADD COLUMN completed_at TEXT")
+        guide_store.migrate(conn)
         conn.execute("""UPDATE seed_builds SET status='failed',
             log='Generierung durch Neustart des Servers unterbrochen.',
             finished_at=? WHERE status IN ('running','queued')""", (utc_now(),))
@@ -461,8 +463,7 @@ def play_context(sid, build_id):
     own = [slot for slot in snapshot["slots"] if slot["player_id"] == g.user["id"]]
     guides = {}
     for slot in snapshot["slots"]:
-        guide = db.query("SELECT * FROM game_guides WHERE slug=?", (slot["game"],), one=True)
-        guides[slot["game"]] = dict(guide) if guide else None
+        guides[slot["game"]] = guide_store.get(slot["game"])
     assets = artifact_files(build_id, build["zip_name"]) if build["status"] == "succeeded" else []
     distribution = _build_distribution(build, snapshot)
     metadata = {row["module"]: dict(row) for row in db.query("SELECT * FROM game_metadata")}

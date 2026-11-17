@@ -27,9 +27,10 @@
   </ul>
   <details class="technical-options"><summary>{{ _("Von der Lobby bis zur verbundenen Partie") }}</summary><ol>{% for step in game_info.common_steps %}<li>{{ step }}</li>{% endfor %}</ol></details>
   {% if game_info.source_url %}<p class="small muted">{{ _("Die Kurzfassung orientiert sich an der verlinkten") }} <a href="{{ game_info.source_url }}" target="_blank" rel="noopener noreferrer">{{ _("Projekt-Dokumentation") }}</a>{{ _(". Prüfe dort die zu deiner APWorld passenden Spiel-, Mod- und Clientversionen.") }}</p>{% endif %}
-  {% if guide and guide.steps %}
+  {% if guide %}
   <div class="technical-options">
     <h3>{{ _("Zusätzliche Anleitung eurer Gruppe") }}</h3>
+    {% include "guide_author.html" %}
     {% if guide.game_version %}<p class="small">{{ _("Spielversion:") }} {{ guide.game_version }}</p>{% endif %}
     <pre class="log">{{ guide.steps }}</pre>
     <div class="row">{% if guide.mod_url %}<a class="btn" href="{{ guide.mod_url }}" target="_blank" rel="noopener noreferrer">{{ _("Mod-/Client-Download der Gruppe") }}</a>{% endif %}{% if guide.source_url %}<a href="{{ guide.source_url }}" target="_blank" rel="noopener noreferrer">{{ _("Weitere Informationen der Gruppe") }}</a>{% endif %}</div>

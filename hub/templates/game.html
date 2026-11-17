@@ -14,9 +14,7 @@
   </div>
   <div class="row">
     {% if item and item.can_edit_metadata %}<a class="btn" href="{{ url_for('community.metadata_edit', slug=schema.slug) }}">{{ _("Spiel bearbeiten") }}</a>{% endif %}
-    {% if g.user.is_admin %}
       <a class="btn" href="{{ url_for('mvp.guide_edit', slug=schema.slug) }}">{{ _("Installationsanleitung pflegen") }}</a>
-    {% endif %}
     <a class="btn" href="{{ url_for('template_new', slug=schema.slug) }}">{{ _("+ Neue Vorlage") }}</a>
   </div>
 </div>
