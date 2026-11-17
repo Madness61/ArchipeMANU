@@ -389,7 +389,7 @@ def test_catalog_live_filters_and_game_setup(actors, live_server, artifact_dir):
     expect(page.locator(".game-card:visible")).to_have_count(len(CATALOG))
     search.fill("Super Mario World")
     expect(page.locator(".game-card:visible")).to_have_count(1)
-    page.locator(".game-card:visible").get_by_role("link", name="Anleitung & Voraussetzungen").click()
+    page.locator(".game-card:visible").get_by_role("link", name="Spiel öffnen", exact=True).click()
     expect(page.locator("#game-guide")).to_contain_text("Super Mario World (USA).sfc")
     expect(page.locator("#game-guide")).to_contain_text("Generator-Rechner")
     expect(page.get_by_label("Voraussetzung für den Host", exact=True)).to_contain_text("vor der Generierung")

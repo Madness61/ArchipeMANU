@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="edit" viewBox="0 0 24 24"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Zm-3 3 5 5M4 15l5 5"/></symbol>
   <symbol id="worlds" viewBox="0 0 24 24"><path d="M9 8 6 5m12 14-3-3M8 15l-3 3M19 6l-3 3"/><circle cx="12" cy="12" r="5"/><circle cx="4" cy="4" r="2"/><circle cx="20" cy="4" r="2"/><circle cx="4" cy="20" r="2"/><circle cx="20" cy="20" r="2"/></symbol>
   <symbol id="dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="11" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="18" width="7" height="3" rx="1"/></symbol>
   <symbol id="library" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="11" y="4" width="4" height="16" rx="1"/><path d="m18 5 3 14M4 9h3m5 6h2"/></symbol>

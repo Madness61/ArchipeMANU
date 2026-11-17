@@ -231,7 +231,8 @@ def details(slug, name, metadata=None):
             entry["genres"] = json.loads(metadata["genres"]) or entry["genres"]
         if "tags" in metadata:
             entry["tags"] = json.loads(metadata["tags"])
-    return {**entry, "setup_label": i18n.t(SETUP_TYPES[entry["setup_type"]]),
+    return {**entry, "unassigned_genres": entry["genres"] == ["Noch nicht zugeordnet"],
+            "setup_label": i18n.t(SETUP_TYPES[entry["setup_type"]]),
             "host_rom": i18n.t(HOST_ROM_REQUIRED.get(slug)),
             "documented": slug in CATALOG, "guide_url": source.get("guide_url", ""),
             "source_url": source.get("source_url", ""), "links": source.get("links", []),

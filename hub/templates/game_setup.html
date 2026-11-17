@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{{ item.name }} {{ _("· Einrichtung") }}{% endblock %}
+{% block title %}{{ item.name }} · {{ app_name }}{% endblock %}
 {% block content %}
 <p><a href="{{ url_for('games') }}">{{ _("← Spielebibliothek") }}</a></p>
-<h1>{{ item.name }}</h1>
-<a class="btn" href="{{ url_for('mvp.guide_edit', slug=item.slug) }}">{{ _("Installationsanleitung pflegen") }}</a>
-{% if item.can_edit_metadata %}<a class="btn" href="{{ url_for('community.metadata_edit', slug=item.slug) }}">{{ _("Spiel bearbeiten") }}</a>{% endif %}
+{% include "game_overview.html" %}
 <p class="muted">{{ _(support_label) }} {{ _("· Du kannst die Voraussetzungen bereits prüfen, bevor die Spieloptionen verfügbar sind.") }}</p>
-{% include "game_setup_panel.html" %}
+<section class="panel"><h2>{{ _('Checks & Einstellungen') }}</h2><p>{{ _('Checks und Vorlagen sind verfügbar, sobald die APWorld erfolgreich eingelesen wurde.') }}</p></section>
+{% with show_overview=false, edit_guide_slug=item.slug %}{% include "game_setup_panel.html" %}{% endwith %}
 {% endblock %}

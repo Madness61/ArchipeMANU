@@ -140,6 +140,18 @@ def save_metadata(slug, values):
         (slug, values["description"], db.dumps(values["genres"]), db.dumps(values["tags"]), g.user["id"]))
 
 
+def save_metadata_field(slug, field, values, catalog):
+    """Update one validated catalog field without overwriting another editor's work."""
+    if field not in ("description", "genres", "tags"):
+        raise ValueError("Unbekanntes Katalogfeld.")
+    initial = dict(description="", genres=[], tags=catalog["tags"])
+    initial[field] = values[field]
+    db.execute(f"""INSERT INTO game_metadata(module,description,genres,tags,author) VALUES (?,?,?,?,?)
+        ON CONFLICT(module) DO UPDATE SET {field}=excluded.{field},
+        author=excluded.author,updated_at=CURRENT_TIMESTAMP""",
+        (slug, initial["description"], db.dumps(initial["genres"]), db.dumps(initial["tags"]), g.user["id"]))
+
+
 @bp.route("/games/<slug>/metadata/edit", methods=["GET", "POST"])
 def metadata_edit(slug):
     if not g.user:
@@ -149,22 +161,28 @@ def metadata_edit(slug):
         abort(404)
     if not item["can_edit_metadata"]:
         abort(403)
+    section = request.form.get("_section", "") if request.method == "POST" else ""
+    if section and section not in ("description", "genres", "tags"):
+        abort(400)
     values = dict(description=item["catalog"]["description"],
                   genres=", ".join(item["catalog"]["genres"] if item["catalog"]["genres"] != ["Noch nicht zugeordnet"] else []),
                   tags=", ".join(item["catalog"]["tags"]))
     if request.method == "POST":
-        values = request.form
+        values = {**values, **request.form}
         if request.form.get("_action") == "reset":
             db.execute("DELETE FROM game_metadata WHERE module=?", (slug,))
             flash("Eigene Katalogangaben zurückgesetzt.", "info")
         else:
             try:
-                save_metadata(slug, parse_metadata(request.form))
+                if section:
+                    save_metadata_field(slug, section, parse_metadata({section: request.form.get(section, "")}), item["catalog"])
+                else:
+                    save_metadata(slug, parse_metadata(request.form))
             except ValueError as exc:
                 flash(str(exc), "error")
-                return render_template("game_metadata.html", item=item, values=values), 400
+                return render_template("game_metadata.html", item=item, values=values, section=section), 400
             flash("Beschreibung, Genres und Tags gespeichert.", "info")
-        return redirect(url_for("game" if item["installed"] else "game_setup", slug=slug))
+        return redirect(url_for("game", slug=slug, _anchor="game-" + section if section else "game-overview"))
     return render_template("game_metadata.html", item=item, values=values)
 
 

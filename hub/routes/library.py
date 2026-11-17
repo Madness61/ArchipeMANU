@@ -43,21 +43,22 @@ def games():
 @app.route("/games/<slug>/setup")
 @login_required
 def game_setup(slug):
-    from hub import game_catalog
-    item = next((row for row in game_catalog.enrich(community.all_games()) if row["slug"] == slug), None)
-    if item is None:
-        abort(404)
-    return render_template("game_setup.html", item=item, game_info=item["catalog"],
-                           support_label=game_catalog.SUPPORT_STATES[item["support_state"]],
-                           guide=guides.get(slug))
+    # Keep old guide bookmarks working with the same overview as "Spiel öffnen".
+    return game(slug)
 
 
 @app.route("/games/<slug>")
 @login_required
 def game(slug):
     from hub import game_catalog
-    schema = get_schema(slug)
+    schema = ap_bridge.schema(slug)
     item = next((row for row in game_catalog.enrich(community.all_games()) if row["slug"] == slug), None)
+    if schema is None:
+        if item is None:
+            abort(404)
+        return render_template("game_setup.html", item=item, game_info=item["catalog"],
+                               support_label=game_catalog.SUPPORT_STATES[item["support_state"]],
+                               guide=guides.get(slug))
     return render_template("game.html", schema=schema, item=item, templates=templates_for(schema), sessions=open_sessions(),
                            game_info=item["catalog"] if item else game_catalog.details(slug, schema["game"]),
                            guide=guides.get(slug),

@@ -42,11 +42,10 @@
       {{ _('Von ') ~ item.added_by if item.added_by else _('In Archipelago enthalten') }}
     </p>
     <div class="row library-actions">
-      {% if item.can_edit_metadata %}<a class="btn small" href="{{ url_for('community.metadata_edit', slug=item.slug) }}">{{ _("Spiel bearbeiten") }}</a>{% endif %}
-      {% if item.installed %}<a class="btn primary" href="{{ url_for('game', slug=item.slug) }}">{{ _("Spiel öffnen") }}</a>{% else %}
+      <a class="btn primary" href="{{ url_for('game', slug=item.slug) }}">{{ _("Spiel öffnen") }}</a>
+      {% if not item.installed %}
         <span class="muted small">{% if item.active %}{{ _("Die APWorld ist aktiviert. Das Einlesen läuft automatisch; bei Fehlern das Admin-Protokoll prüfen.") }}{% else %}{{ _("Eine gespeicherte Version aktivieren, um die Spieloptionen automatisch einzulesen.") }}{% endif %}</span>
       {% endif %}
-      <a class="small setup-link" href="{{ url_for('game', slug=item.slug, _anchor='game-guide') if item.installed else url_for('game_setup', slug=item.slug) }}">{{ _("Anleitung & Voraussetzungen") }}</a>
     </div>
     {% if item.versions %}
     <details style="margin-top:12px"><summary class="small">{{ _("Gespeicherte APWorld-Versionen (") }}{{ item.versions|length }})</summary>

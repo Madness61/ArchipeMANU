@@ -1,0 +1,34 @@
+{% from "ui.html" import icon, game_art with context %}
+{% set game_slug = schema.slug if schema is defined else item.slug %}
+{% set game_title = schema.game if schema is defined else item.name %}
+<section class="panel game-detail-hero" id="game-overview" aria-label="{{ _('Spielübersicht') }}">
+  {{ game_art(game_title, game_slug) }}
+  <div class="game-overview-body">
+    <h1>{{ game_title }}</h1>
+    <p class="muted small">
+      {% if schema is defined %}
+      {{ _('APWorld') if schema.custom else _('In Archipelago eingebaut') }} · {{ _('Version') }} {{ schema.version }} · {{ schema.options|length }} {{ _('Optionen') }}
+      {% else %}{{ _('APWorld') }} · {{ _('Version') }} {{ item.version or _('unbekannt') }}{% endif %}
+    </p>
+    {% if item %}<p><span class="chip {{ 'ok' if item.installed else 'warn' }}">{{ _('Für Lobby auswählbar') if item.installed else _(support_label) }}</span></p>{% endif %}
+    <div class="editable-field" id="game-description">
+      <h2>{{ _('Beschreibung') }}</h2><p class="game-description">{{ game_info.description }}</p>
+      {% with field='description', field_label=_('Kurzbeschreibung'), edit_label=_('Beschreibung bearbeiten') %}{% include 'catalog_inline_edit.html' %}{% endwith %}
+    </div>
+    <div class="editable-field" id="game-genres">
+      <h2>{{ _('Genres') }}</h2><div class="row genre-tags">{% for genre in game_info.genres %}<span class="chip">{{ genre|catalog_label }}</span>{% endfor %}</div>
+      {% with field='genres', field_label=_('Genres'), edit_label=_('Genres bearbeiten') %}{% include 'catalog_inline_edit.html' %}{% endwith %}
+    </div>
+    <div class="editable-field" id="game-tags">
+      <h2>{{ _('Tags') }}</h2><div class="row catalog-tags">{% for tag in game_info.tags %}<span class="chip">{{ tag|catalog_label }}</span>{% else %}<span class="small muted">{{ _('Keine Tags hinterlegt.') }}</span>{% endfor %}</div>
+      {% with field='tags', field_label=_('Tags'), edit_label=_('Tags bearbeiten') %}{% include 'catalog_inline_edit.html' %}{% endwith %}
+    </div>
+    <p class="small"><strong>{{ _('Zum Spielen:') }}</strong> {{ _(game_info.setup_label) }}</p>
+    {% if item and item.can_edit_metadata and item.metadata %}
+    <details class="technical-options"><summary>{{ _('Eigene Angaben zurücksetzen') }}</summary><form method="post" action="{{ url_for('community.metadata_edit',slug=game_slug) }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="_action" value="reset">
+      <p class="small muted">{{ _('Du kannst jederzeit zu den mitgelieferten Katalogangaben zurückkehren.') }}</p><button>{{ _('Eigene Angaben zurücksetzen') }}</button>
+    </form></details>
+    {% endif %}
+  </div>
+</section>

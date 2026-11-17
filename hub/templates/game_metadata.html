@@ -1,12 +1,16 @@
 {% extends "base.html" %}
-{% block title %}{{ _("Spiel bearbeiten ·") }} {{ item.name }}{% endblock %}
+{% block title %}{{ _("Spielangaben bearbeiten ·") }} {{ item.name }}{% endblock %}
 {% block content %}
-<p><a href="{{ url_for('game', slug=item.slug) if item.installed else url_for('game_setup', slug=item.slug) }}">{{ _("← Zum Spiel") }}</a></p>
+<p><a href="{{ url_for('game', slug=item.slug, _anchor='game-overview') }}">{{ _("← Zum Spiel") }}</a></p>
 <div class="page-head"><div><p class="eyebrow">{{ _("Euer Spielekatalog") }}</p><h1>{{ item.name }} {{ _("bearbeiten") }}</h1><p class="muted">{{ _("Eigene Katalogangaben bleiben beim Wechsel der APWorld-Version erhalten.") }}</p></div></div>
 <form method="post" class="panel stack catalog-editor">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-  {% include "catalog_fields.html" %}
-  <div class="row"><button class="primary">{{ _("Spielangaben speichern") }}</button><a class="btn" href="{{ url_for('games') }}">{{ _("Abbrechen") }}</a></div>
+  {% if section %}
+  <input type="hidden" name="_section" value="{{ section }}">
+  <label for="metadata-value">{{ _('Kurzbeschreibung') if section == 'description' else _('Genres') if section == 'genres' else _('Tags') }}</label>
+  {% if section == 'description' %}<textarea id="metadata-value" name="description" rows="4" maxlength="1500">{{ values.description }}</textarea>{% else %}<input id="metadata-value" name="{{ section }}" value="{{ values[section] }}">{% endif %}
+  {% else %}{% include "catalog_fields.html" %}{% endif %}
+  <div class="row"><button class="primary">{{ _("Spielangaben speichern") }}</button><a class="btn" href="{{ url_for('game', slug=item.slug, _anchor='game-' ~ section if section else 'game-overview') }}">{{ _("Abbrechen") }}</a></div>
 </form>
 {% if item.metadata %}<form method="post" class="technical-options">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="_action" value="reset">

@@ -402,7 +402,6 @@ def guide_edit(slug):
     from hub.services import guides
     user = mvp._user()
     schema = ap_bridge.schema(slug)
-    installed = bool(schema)
     if not schema:
         item = next((item for item in community.all_games() if item['slug']==slug),None)
         if item is None:
@@ -427,6 +426,6 @@ def guide_edit(slug):
         guides.save(slug,dict(verified_version=field('verified_version',100),game_version=field('game_version',100),
                              mod_url=mod,source_url=url,steps=field('steps',8000),trouble=field('trouble',4000)),user,mvp.utc_now())
         flash('Guide gespeichert.', 'info')
-        return redirect(url_for('game' if installed else 'game_setup', slug=slug))
+        return redirect(url_for('game', slug=slug, _anchor='game-guide'))
     return render_template('guide_edit.html', schema=schema, guide=old,
-                           back_url=url_for('game' if installed else 'game_setup',slug=slug))
+                           back_url=url_for('game',slug=slug,_anchor='game-guide'))

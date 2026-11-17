@@ -48,7 +48,7 @@ class GameMetadataTests(unittest.TestCase):
         # Pending/inactive worlds also expose the edit action without needing a schema.
         with patch.object(ap_bridge, "index", return_value={**fixtures.INDEX, "games": {}}):
             page = self.friend.get("/games/test_world/setup").get_data(as_text=True)
-            self.assertIn("Spiel bearbeiten", page)
+            self.assertIn('aria-label="Beschreibung bearbeiten"', page)
             self.assertIn("Gemeinsamer Abend", page)
 
     def test_edit_permissions_csrf_and_reset(self):
@@ -91,6 +91,80 @@ class GameMetadataTests(unittest.TestCase):
             "description": "Unser Text", "genres": '["Custom"]', "tags": '[]'})
         self.assertEqual(edited["genres"], ["Custom"])
         self.assertEqual(game_catalog.details("tmc", "The Minish Cap"), original)
+
+    def test_open_overview_for_loaded_and_unloaded_games_preserves_old_bookmarks(self):
+        self.login(self.host, "Host")
+        self.upload(self.host, description="Unsere Beschreibung", genres="Puzzle", tags="2D")
+        library = self.host.get("/games").get_data(as_text=True)
+        self.assertNotIn('>Spiel bearbeiten</a>', library)
+        self.assertNotIn('>Anleitung &amp; Voraussetzungen</a>', library)
+        self.assertIn('href="/games/test_world">Spiel öffnen', library)
+        for schema in (fixtures.SCHEMA, None):
+            with self.subTest(loaded=bool(schema)), patch.object(ap_bridge, "schema", return_value=schema):
+                for path in ("/games/test_world", "/games/test_world/setup"):
+                    response = self.host.get(path)
+                    self.assertEqual(response.status_code, 200)
+                    page = response.get_data(as_text=True)
+                    self.assertLess(page.index('id="game-description"'), page.index('id="game-guide"'))
+                    self.assertEqual(page.count('class="game-description">Unsere Beschreibung'), 1)
+                    self.assertIn('aria-label="Genres bearbeiten"', page)
+                    self.assertIn('aria-label="Installationsanleitung bearbeiten"', page)
+                    if schema is None:
+                        self.assertIn("Checks und Vorlagen sind verfügbar", page)
+        self.assertEqual(self.host.get("/games/not_known").status_code, 404)
+
+    def test_single_field_updates_preserve_other_fields_and_reject_posted_neighbors(self):
+        self.login(self.host, "Host")
+        self.upload(self.host, description="Original", genres="Puzzle", tags="2D")
+        url = "/games/test_world/metadata/edit"
+        for field, value in (("description", "Neuer Text"), ("genres", "Action"), ("tags", "Erkundung, 3D")):
+            response = self.post(self.host, url, {"_section": field, field: value,
+                                                 "author": "999", "ignored": "bad"})
+            self.assertEqual(response.location, f"/games/test_world#game-{field}")
+        # A stale description form must not overwrite the newer tags, even if sent.
+        self.post(self.host, url, {"_section": "description", "description": "Letzter Text", "tags": "Stale"})
+        with self.app.app_context():
+            row = db.query("SELECT * FROM game_metadata", one=True)
+            self.assertEqual(row["description"], "Letzter Text")
+            self.assertEqual(db.loads(row["genres"]), ["Action"])
+            self.assertEqual(db.loads(row["tags"]), ["Erkundung", "3D"])
+            self.assertEqual(row["author"], 1)
+
+    def test_partial_edit_initializes_curated_tags_without_clearing_them(self):
+        self.login(self.host, "Host")
+        with patch.object(ap_bridge, "index", return_value={**fixtures.INDEX, "games": {
+                "borderlands2": {"game": "Borderlands 2", "version": "1"}}}):
+            self.post(self.host, "/games/borderlands2/metadata/edit", {
+                "_section": "description", "description": "Unser Text"})
+        with self.app.app_context():
+            row = db.query("SELECT * FROM game_metadata", one=True)
+            self.assertEqual(db.loads(row["tags"]), game_catalog.details("borderlands2", "Borderlands 2")["tags"])
+
+    def test_invalid_partial_edit_retains_draft_and_does_not_write_other_fields(self):
+        self.login(self.host, "Host")
+        self.upload(self.host, description="Original", genres="Puzzle", tags="2D")
+        url = "/games/test_world/metadata/edit"
+        response = self.post(self.host, url, {"_section": "genres", "genres": "x" * 41})
+        self.assertEqual(response.status_code, 400)
+        page = response.get_data(as_text=True)
+        self.assertIn('name="_section" value="genres"', page)
+        self.assertIn("x" * 41, page)
+        self.assertNotIn('name="description"', page)
+        self.assertEqual(self.post(self.host, url, {"_section": "author", "author": "2"}).status_code, 400)
+        with self.app.app_context():
+            row = db.query("SELECT * FROM game_metadata", one=True)
+            self.assertEqual((row["description"], db.loads(row["genres"]), db.loads(row["tags"])), ("Original", ["Puzzle"], ["2D"]))
+
+    def test_contextual_actions_keep_existing_permissions_and_csrf(self):
+        self.login(self.host, "Host")
+        self.login(self.friend, "Friend")
+        self.upload(self.host)
+        page = self.friend.get("/games/test_world").get_data(as_text=True)
+        self.assertNotIn('aria-label="Beschreibung bearbeiten"', page)
+        self.assertIn('aria-label="Installationsanleitung bearbeiten"', page)
+        url = "/games/test_world/metadata/edit"
+        self.assertEqual(self.post(self.friend, url, {"_section": "tags", "tags": "Forbidden"}).status_code, 403)
+        self.assertEqual(self.host.post(url, data={"_section": "tags", "tags": "No CSRF"}).status_code, 403)
 
 
 if __name__ == "__main__":
