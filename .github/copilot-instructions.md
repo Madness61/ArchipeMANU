@@ -1,68 +1,12 @@
-# Copilot-Anweisungen – ArchipeMANU
+# ArchipeMANU – verbindliche Entwicklungsregeln
 
-## Aktueller Projektstand
+Zuerst [README](../README.md), [Architektur](../docs/ARCHITECTURE.md) und [Entwicklung](../docs/DEVELOPMENT.md) lesen. Flask/Jinja, SQLite, Vanilla JS; Python 3.11–3.13. Historische Berichte sind keine aktuellen Anforderungen.
 
-Privater Archipelago-Multiworld-Hub auf **Flask, Jinja, SQLite und Vanilla JavaScript**. Python 3.11–3.13; Windows-/PowerShell-first.
-
-**Zuerst lesen:** [README.md](../README.md), [TODO.md](../TODO.md), [BROWSER_TESTS.md](../BROWSER_TESTS.md). Fachdetails in den verlinkten Dokumenten.
-
-**Integrationsstand (13.11.2026):** `feature/unified-local-repo` bündelt #7 → #8 → #9, die Dokumentation aus #10 und den standardmäßigen Public-Start. Lokales Checkout und Remote-Branch sollen denselben Commit enthalten. Für neue Aufgaben zunächst Basisbranch und offene Änderungen überprüfen; Integration im Feature-Branch bedeutet keine Übernahme nach `main`.
-
-## Windows-Start
-
-```powershell
-.\setup.ps1
-.\start.ps1
-# Optional nur auf dem eigenen Rechner:
-.\start.ps1 -LocalOnly
-```
-
-Nach Setup: `http://127.0.0.1:8080`, für andere Geräte `http://<Host-IP>:8080`. Der Windows-Start bindet standardmäßig an `0.0.0.0`; `-Public` bleibt kompatibel. Es gibt **individuelle Benutzerkonten**, kein gültiges gemeinsames `HUB_PASSWORD`-Login mehr. Die ersten Konten-/Migrationsschritte stehen in `AUTH_MIGRATION.md`. Konfigurationsvariablen in `hub/config.py` nachsehen, nicht aus historischen Projektplänen übernehmen.
-
-## Tests
-
-```powershell
-& "$env:USERPROFILE\.ap-yaml-hub\venv\Scripts\python.exe" -m unittest discover -s tests -v
-.\test-browser.ps1
-```
-
-Browser-Setup: `BROWSER_TESTS.md`. Tests verwenden temporäre SQLite-DB, Mock-Generator und für WebSocket-Tests einen lokalen Protokollserver. **Keine** produktiven `data/`-Verzeichnisse, Seeds, Accounts oder echten Räume für automatische Tests verwenden.
-
-Reale Seed-Generierung und Spielclient-Verbindungen separat prüfen und im PR von Mock-Tests unterscheiden.
-
-## Architektur und Zuständigkeiten
-
-- `hub/app.py` und Blueprints in `hub/mvp.py` / `hub/community.py`: Flask-Routen, Lobbys, Seed-Historie, Bibliothek.
-- `hub/auth.py`: Registrierung, persönliche Passwörter, Sessions, CSRF und Ratenlimits.
-- `hub/db.py`: SQLite und Migrationen; vorhandene Daten stets erhalten.
-- `hub/yamlgen.py` / `hub/lobby_selection.py`: APWorld-Optionen, YAML-Ebenen, Spielerprofile, Vorlagen, Lobbywerte.
-- `hub/apworld_library.py` / `hub/ap_bridge.py` / `ap_runner.py`: Archivierung, Schemaextraktion, lokale Archipelago-Generierung.
-- `hub/live_api.py` / `hub/live_store.py` / `hub/live_routes.py` / `hub/live_metrics.py`: **read-only WebHost-API**, Polling, Cache, Fortschrittshistorie.
-- `hub/ap_console.py` / `hub/console_routes.py` / `hub/static/console.js`: **separate** Archipelago-WebSocket-Konsole und Itemprotokoll.
-- `hub/logic_tracker.py` / `hub/logic_routes.py` / `logic_worker.py`: deaktivierter historischer Universal-Logik-Tracker; alte URLs antworten mit 410 ohne Worker, **nicht** mit der WebHost-Tracker-API verwechseln.
-- `hub/templates/`, `hub/static/`: Jinja, eigenes CSS/JS, SVG-Icons; Rundenzentrale mit `round*.html`, `round.css` und `round.js`.
-- `hub/check_preview.py` und `ap_runner.py`: explizite Standard-Check-Vorschau ohne spielbare Ausgabe; keine automatische Generierung beim Bibliotheksbesuch.
-
-## Arbeitsregeln
-
-1. Nutzerfluss und bestehenden Datenvertrag vor Änderungen prüfen; Backend-Checks und Berechtigungen nicht durch bloße JS-Sperren ersetzen.
-2. Bereits gespeicherte Accounts, YAMLs, APWorld-Versionen, Seeds und Event-Historie erhalten; additive Migrationen, wenn nötig.
-3. Der Server kann den lokalen Spielclient nicht zuverlässig als verbunden nachweisen. „Webkonsole verbunden“ nicht als „Spiel online“ darstellen.
-4. Die Live-Konsole ist das wichtigste UI-Element einer **laufenden** Runde; keine Umleitung in eine rein administrative Ansicht. Archipelago-Fachbegriffe sind für diese Gruppe bewusst passend.
-5. Transiente API-/WebSocket-Probleme korrekt behandeln. Keine erfundenen Item-Sendungen, exakten Fundzeiten oder wiederholten Benutzerbefehle.
-6. `Race`-/Spoilerregeln, private Nachrichten und Slotrechte in allen Ansichten und APIs bewahren.
-7. Bei Styling-Änderungen gemeinsame Tokens/Makros nutzen; für kommende DE/EN- und Theme-Umschaltung siehe `TODO.md`.
-8. Erst Tests ausführen, dann PR erstellen. Welche Tests **nicht** mit echten Archipelago-Spielclients liefen, ausdrücklich sagen.
-
-Historische Dokumente sind nicht automatisch aktuelle Anforderungen. Insbesondere ältere Aussagen zu Gruppenpasswörtern, UI-Plan und Archipelago-Tracker-Verfügbarkeit vor Übernahme im Code prüfen.
-
-
-## Sprache und Darstellung
-
-Aktueller Produktzweig: `feature/social-console-localization-themes`, auf dem
-Stabilitätspaket `feature/connection-reliability` (#12). Neue UI-Texte über `_()`
-in Jinja beziehungsweise `window.HUB_I18N.t()` in JavaScript und die gepaarten
-Kataloge in `hub/locales/` pflegen. Hinweise: `TRANSLATIONS.md`. Nutzerinhalte,
-Spiel-/Slot-/Item-/Checknamen und native AP-Meldungen niemals automatisch übersetzen.
-UI-Präferenzen verändern weder YAML-Werte noch Bereitschaft. Theme-Farben über
-zentrale Variablen; alle vier Größen in DE/EN und beiden Themes prüfen.
+- `main` ist der zentrale Stand. Feature-Branch von aktuellem `origin/main`, kurzlebiger PR direkt gegen `main`, Tests und Review vor Merge. Keine normalen gestapelten Feature-Branches; technische Ausnahmen ausdrücklich begründen. Schutzregeln niemals umgehen.
+- HTTP/Autorisierung/Antworten in `hub/routes/` bzw. den bestehenden fachlichen Blueprints. Geschäftslogik in `hub/services/`, AP-Kommunikation in `hub/integrations/`. Integrationen importieren keine Routen/Factory. Alte Modul-Aliasse dienen nur der Import-Kompatibilität. Gemeinsame Logik nur einmal implementieren.
+- Generator-/Worker-Einstiegspunkte im Projektstamm erhalten; keine APWorld-Regeln im Webserver/JS nachbauen. Progression prüft regulär nur einzelne Items. Zielanalyse ausdrücklich getrennt, Kombinationserweiterung deaktiviert.
+- Bestehende Konten, IDs, Seeds, YAMLs, APWorld-Archive und Historie erhalten. Niemals produktives `data/` für Tests benutzen oder löschen. Migrationen nur wenn nötig, additiv/wiederholbar und mit Altdaten-Test. Keine Migration für bloße Dateiverschiebungen.
+- Anmeldung, Rollen, CSRF, Rate-Limits, Slotrechte, Race-/Spoilerregeln in jeder API serverseitig prüfen. Private Nachrichten/Passwörter nicht veröffentlichen. Keine erfundenen Messwerte oder Behauptungen über lokale Spielclients.
+- Neue UI-Texte über gemeinsame DE/EN-Kataloge, Jinja `_()` und `window.HUB_I18N.t()`; Namen/Spielwerte/native AP-Nachrichten nicht übersetzen. Zentrale Theme-Tokens und responsive Komponenten verwenden.
+- Vollständige Python- und Playwright-Suite ausführen; bei AP-/Worker-Änderungen echte isolierte Integrationstests. Route-, Import-, Startskript-, Markdown-Link- und Übersetzungsprüfungen gehören zur Unit-Suite. Mocktests von echten Spielclient-Abnahmen unterscheiden; Tests nicht abschwächen.
+- Dauerhaft relevante Änderungen in bestehenden zentralen Dokumenten pflegen. Neue Markdown-Dateien nur für eigenständige Themen, alte Berichte ins Archiv. Aufgaben als GitHub Issues (Bug/Feature/UX/Refactoring/Tests/Dokumentation), Duplikate zusammenführen und PRs verlinken; keine konkurrierende TODO-Liste.

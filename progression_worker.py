@@ -73,7 +73,7 @@ def evaluate(request):
         raise Unsupported('reconstruction_mismatch')
     sphere_order={(loc['player'],loc['id']):n for n,sphere in enumerate(manifest.get('static',{}).get('spheres',[]))
                   for loc in sphere['locations'] if not sphere['unreachable'] and type(loc['id']) is int}
-    result = analyze(mw, request['live'], request.get('target'), sphere_order=sphere_order)
+    result = analyze(mw, request['live'], request.get('target'), sphere_order=sphere_order, mode=request.get('mode','items'))
     result.update(verified_model=manifest['model_hash'], ap_version=__version__)
     return result
 

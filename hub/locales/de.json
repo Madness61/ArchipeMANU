@@ -2058,5 +2058,16 @@
   "recommendation_c9a0acc1bcbe": "Unter den geprüften Paaren wurde kein zusätzlicher Kombinationseffekt gefunden.",
   "recommendation_4af29a685d35": "Weitere untersuchte Items ohne unmittelbaren Einzeleffekt",
   "recommendation_718b83a0626b": "Dieses Paar erreicht das Spielziel; keines seiner Einzelitems reicht dafür.",
-  "recommendation_95977ab43daa": "Dieses Paar erreicht das gewählte Ziel; keines seiner Einzelitems reicht dafür."
+  "recommendation_95977ab43daa": "Dieses Paar erreicht das gewählte Ziel; keines seiner Einzelitems reicht dafür.",
+  "m1964": "Kein verifizierter Fundort verfügbar.",
+  "m1965": "Weitere Exemplare und Fundorte",
+  "m1966": "Mehr anzeigen",
+  "m1967": "Starte die Berechnung bei Bedarf ausdrücklich.",
+  "m1968": "Die Zielprüfung ist unvollständig. Fehlende Ergebnisse beweisen keine Unmöglichkeit.",
+  "m1969": "Progression-Itemarten untersucht",
+  "m1970": "Die Analyse ist unvollständig. Nicht untersuchte Items wurden nicht als unwichtig eingestuft.",
+  "m1971": "Diese Items können später oder zusammen mit anderen Items wichtig sein.",
+  "m1972": "Sortiert nach zusätzlichen Checks, dann neuen Bereichen und Itemname. Viele Checks bedeuten nicht automatisch, dass ein Item für das Spielziel notwendig ist.",
+  "m1973": "Spielziel ausdrücklich prüfen",
+  "m1974": "Diese aufwendige Prüfung startet nur über den Button und wird getrennt von den Einzelitems gespeichert."
 }

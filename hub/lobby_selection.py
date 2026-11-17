@@ -71,7 +71,7 @@ def editor(room):
 
 
 def _draft_state(room, slug, selected_ref=None, reuse=True):
-    from .app import capture_template, group_default_ref, entry_preset
+    from hub.services.selection import capture_template, group_default_ref, entry_preset
 
     schema = ap_bridge.schema(slug)
     if schema is None:
@@ -124,7 +124,7 @@ def _save(state, updated):
 
 def start(room):
     """Choose between editing a draft and saving its base values without an editor."""
-    from .app import session_view
+    from hub.routes.lobbies import session_view
 
     action = request.form.get("_action", "edit")
     if action not in ("edit", "base"):
@@ -143,7 +143,7 @@ def start(room):
 
 
 def _render(state, schema, errors=None):
-    from .app import user_values, entry_yaml, templates_for
+    from hub.services.selection import user_values, entry_yaml, templates_for
 
     snapshot = db.loads(state["snapshot"])
     values = user_values(schema, snapshot["values"], g.user, state["overrides"])
@@ -168,7 +168,8 @@ def _render(state, schema, errors=None):
 
 def submit(sid):
     """A signed draft belongs to one player/lobby; only Apply changes the database."""
-    from .app import user_values, session_view
+    from hub.services.selection import user_values
+    from hub.routes.lobbies import session_view
 
     try:
         state = _signer().loads(request.form.get("_draft", ""), max_age=8 * 60 * 60)

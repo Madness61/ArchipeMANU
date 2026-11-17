@@ -5,7 +5,7 @@ from unittest.mock import patch
 from types import SimpleNamespace
 
 from progression_recommendations import refine
-from progression_model import analyze
+from progression.extensions.combinations import analyze
 from test_progression_core import fixture, RuleState, Location, item
 
 

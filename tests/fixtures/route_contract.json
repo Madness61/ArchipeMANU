@@ -1,0 +1,702 @@
+[
+  {
+    "rule": "/preferences",
+    "endpoint": "save_preferences",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/login",
+    "endpoint": "login",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/logout",
+    "endpoint": "logout",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/",
+    "endpoint": "index",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/games",
+    "endpoint": "games",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/games/<slug>/setup",
+    "endpoint": "game_setup",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/games/<slug>",
+    "endpoint": "game",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/games/<slug>/yaml",
+    "endpoint": "game_yaml",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/games/<slug>/default",
+    "endpoint": "set_game_default",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/api/games/<slug>/templates",
+    "endpoint": "api_templates",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/api/games/<slug>/names",
+    "endpoint": "api_names",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/api/worlds/status",
+    "endpoint": "world_status",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/api/games/<slug>/checks",
+    "endpoint": "game_check_preview",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/games/<slug>/templates/new",
+    "endpoint": "template_new",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/templates/<int:tid>/edit",
+    "endpoint": "template_edit",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/templates/<int:tid>/delete",
+    "endpoint": "template_delete",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/templates/<int:tid>/source",
+    "endpoint": "template_source",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/import",
+    "endpoint": "import_view",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/profile",
+    "endpoint": "profile",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions",
+    "endpoint": "session_create",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>",
+    "endpoint": "session_view",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/games/<slug>/play",
+    "endpoint": "game_play",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/entries",
+    "endpoint": "entry_add",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/entries/<int:eid>/delete",
+    "endpoint": "entry_delete",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/entries/<int:eid>/template",
+    "endpoint": "entry_template",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/lock",
+    "endpoint": "session_lock",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/clone",
+    "endpoint": "session_clone",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/delete",
+    "endpoint": "session_delete",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/yamls.zip",
+    "endpoint": "session_zip",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/generate",
+    "endpoint": "session_generate",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/status",
+    "endpoint": "session_status",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/download",
+    "endpoint": "session_download",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/admin",
+    "endpoint": "admin",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/admin/users/<int:uid>/delete",
+    "endpoint": "admin_delete_account",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/admin/sessions/<int:sid>/delete",
+    "endpoint": "admin_delete_round",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/admin/seeds/<int:bid>/delete",
+    "endpoint": "admin_delete_seed",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/admin/apworlds",
+    "endpoint": "admin_upload",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/admin/apworlds/<module>/delete",
+    "endpoint": "admin_delete_apworld",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/admin/apworlds/versions/<sha256>/activate",
+    "endpoint": "admin_activate_apworld",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/admin/apworlds/versions/<sha256>/download",
+    "endpoint": "admin_download_apworld",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/admin/extract",
+    "endpoint": "admin_extract",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/admin/users/<int:uid>/admin",
+    "endpoint": "admin_toggle",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/admin/status",
+    "endpoint": "admin_status",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/admin/users/<int:uid>/setup",
+    "endpoint": "admin_setup_account",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/entries/<int:eid>/apworld",
+    "endpoint": "mvp.entry_world_version",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/seeds",
+    "endpoint": "mvp.seed_list",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/lobbies",
+    "endpoint": "mvp.lobby_list",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/rounds",
+    "endpoint": "mvp.lobby_list",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/join",
+    "endpoint": "mvp.join_open_lobby",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/leave",
+    "endpoint": "mvp.leave_lobby",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/members/<int:uid>/remove",
+    "endpoint": "mvp.remove_member",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/choose",
+    "endpoint": "mvp.choose_game",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/selection/start",
+    "endpoint": "mvp.lobby_selection_start",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/selection",
+    "endpoint": "mvp.lobby_selection_submit",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/invite",
+    "endpoint": "mvp.invite_route",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/invite/<token>",
+    "endpoint": "mvp.invite_accept",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/entries/<int:eid>/options",
+    "endpoint": "mvp.entry_options",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/entries/<int:eid>/ready",
+    "endpoint": "mvp.entry_ready",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/active-lobby",
+    "endpoint": "mvp.active_lobby",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/finish",
+    "endpoint": "mvp.finish_game",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/status",
+    "endpoint": "mvp.build_status",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/download",
+    "endpoint": "mvp.build_download",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/assets/<int:file_index>",
+    "endpoint": "mvp.build_asset",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/hosting",
+    "endpoint": "mvp.save_hosting",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/stats",
+    "endpoint": "mvp.build_stats",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/stats/progression/<int:placement_id>",
+    "endpoint": "mvp.reveal_progression_world",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/stats/items/<int:player_id>",
+    "endpoint": "mvp.build_item_details",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/play",
+    "endpoint": "mvp.play_page",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/admin/guides/<slug>",
+    "endpoint": "mvp.guide_edit",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/register",
+    "endpoint": "auth.register",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/account/setup",
+    "endpoint": "auth.setup_password",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/games/<slug>/metadata/edit",
+    "endpoint": "community.metadata_edit",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/games/community/add",
+    "endpoint": "community.game_add",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/games/community/<sha256>/yaml",
+    "endpoint": "community.download_yaml",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/games/community/<sha256>/apworld",
+    "endpoint": "community.download_apworld",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/games/community/<sha256>/approve",
+    "endpoint": "community.approve",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/live",
+    "endpoint": "live.dashboard",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/live/data",
+    "endpoint": "live.data",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/live/connect",
+    "endpoint": "live.connect",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/live/refresh",
+    "endpoint": "live.refresh",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/console",
+    "endpoint": "console.page",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/console/data",
+    "endpoint": "console.data",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/console/recording/start",
+    "endpoint": "console.recording_start",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/console/recording/stop",
+    "endpoint": "console.recording_stop",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/console/commands",
+    "endpoint": "console.commands",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/console/connect",
+    "endpoint": "console.connect",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/console/disconnect",
+    "endpoint": "console.disconnect",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/console/command",
+    "endpoint": "console.command",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/progression",
+    "endpoint": "progression.page",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/progression/consent",
+    "endpoint": "progression.consent",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/progression/state",
+    "endpoint": "progression.state",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/progression/items",
+    "endpoint": "progression.items",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/progression/analysis",
+    "endpoint": "progression.analysis",
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/live/logic",
+    "endpoint": "logic.page",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/live/logic/data",
+    "endpoint": "logic.page",
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/live/logic/refresh",
+    "endpoint": "logic.page",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/live/logic/placements",
+    "endpoint": "logic.page",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/live/logic/install",
+    "endpoint": "logic.page",
+    "methods": [
+      "POST"
+    ]
+  }
+]

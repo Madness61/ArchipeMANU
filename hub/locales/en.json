@@ -2058,5 +2058,16 @@
   "recommendation_c9a0acc1bcbe": "No additional combination effect was found among the pairs examined.",
   "recommendation_4af29a685d35": "Other examined items without an immediate individual effect",
   "recommendation_718b83a0626b": "This pair reaches the game goal; neither of its individual items is sufficient.",
-  "recommendation_95977ab43daa": "This pair reaches the selected target; neither of its individual items is sufficient."
+  "recommendation_95977ab43daa": "This pair reaches the selected target; neither of its individual items is sufficient.",
+  "m1964": "No verified location available.",
+  "m1965": "Other copies and locations",
+  "m1966": "Show more",
+  "m1967": "Start this calculation explicitly when needed.",
+  "m1968": "The goal analysis is incomplete. Missing results do not prove impossibility.",
+  "m1969": "progression item types examined",
+  "m1970": "The analysis is incomplete. Untested items have not been classified as unimportant.",
+  "m1971": "These items may become important later or together with other items.",
+  "m1972": "Sorted by additional checks, then new regions and item name. Many checks do not automatically mean an item is necessary for the game goal.",
+  "m1973": "Analyze game goal explicitly",
+  "m1974": "This expensive analysis starts only through the button and is cached separately from single items."
 }
