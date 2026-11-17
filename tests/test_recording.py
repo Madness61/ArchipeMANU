@@ -122,6 +122,11 @@ class RecordingTests(unittest.TestCase):
             current=recording.worker(self.bid)
             self.wait_for(lambda:current.state=='connected' and current.items_synced)
             self.assertEqual(current.uuid,first.uuid)
+            # ReceivedItems and DataPackage are independent protocol packets.
+            # A synchronized inventory can still display an honest ID fallback
+            # until the catalogue is received, especially on slow CI runners.
+            self.wait_for(lambda:any(e.get('delivery',{}).get('item')=='Potion'
+                                     for e in self.state(query='?kind=items')['events']))
             events=self.state(query='?kind=items')['events']
             self.assertEqual([e['id'] for e in events[:1]],[original])
             self.assertEqual(len(events),2)

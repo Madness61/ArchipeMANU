@@ -108,7 +108,7 @@ if __name__=='__main__':
         if path.name=='logic.js':continue
         result=instrument_js(path)
         if write and path.name!='preferences.js':path.write_text(result,encoding='utf-8')
-    for path in (ROOT/'hub').glob('*.py'):
+    for path in (ROOT/'hub').rglob('*.py'):
         if path.name in ('logic_tracker.py','i18n.py','game_catalog.py'):continue
         tree=ast.parse(path.read_text(encoding='utf-8'))
         for node in ast.walk(tree):

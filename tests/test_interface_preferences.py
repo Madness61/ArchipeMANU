@@ -108,7 +108,7 @@ class CatalogCoverageTests(unittest.TestCase):
     def test_productive_backend_ui_errors_have_translation_entries(self):
         import ast
         from scripts.ui_catalog import human
-        for path in Path('hub').glob('*.py'):
+        for path in Path('hub').rglob('*.py'):
             if path.name in ('logic_tracker.py','logic_worker.py','ap_runner.py','i18n.py'):
                 continue
             for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):

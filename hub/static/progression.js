@@ -86,125 +86,113 @@
   $('progression-next').addEventListener('click',()=>{page++;find();});
   function recommendation(row){
     const box=node('article',null,'progression-item progression-recommendation');
-    const combined=row.items.reduce((sum,item)=>sum+item.count,0)>1;
-    box.append(node('h4',row.items.map(i=>i.name+(i.count>1?' × '+i.count:'')).join(' + ')),
-      node('p',(combined?t('Gesamteffekt')+': ':'')+'+'+row.new_checks.length+' '+t('zusätzliche Checks')+' · +'+row.new_regions.length+' '+t('neue Bereiche')));
-    if(combined){
-      box.append(node('p',t('Nur durch diese Kombination')+': +'+row.synergy.checks.length+' '+t('zusätzliche Checks')+' · +'+row.synergy.regions.length+' '+t('neue Bereiche'),'progression-synergy'));
-      if(row.synergy.goal)box.append(node('p',t('Dieses Paar erreicht das Spielziel; keines seiner Einzelitems reicht dafür.'),'ok'));
-      if(row.synergy.target)box.append(node('p',t('Dieses Paar erreicht das gewählte Ziel; keines seiner Einzelitems reicht dafür.'),'ok'));
-    }
-    if(row.goal_gain)box.append(node('p',t('Spielziel mit diesem Inventar erreichbar'),'ok'));
+    const item=row.items[0];
+    box.append(node('h4',item.name),node('p','+'+row.new_checks.length+' '+t('zusätzliche Checks')+' · +'+row.new_regions.length+' '+t('neue Bereiche')));
     if(row.target_gain)box.append(node('p',t('Der gewählte Bereich wird erreichbar'),'ok'));
-    const found=node('details');found.append(node('summary',t('Konkrete Fundorte ansehen')));
-    row.items.forEach(item=>(item.placements||[]).forEach(p=>found.append(placement(p))));box.append(found);
+    const placements=item.placements||[];
+    if(placements.length)box.append(placement(placements[0]));
+    else box.append(node('p',t('Kein verifizierter Fundort verfügbar.'),'muted small'));
+    if(placements.length>1){
+      const found=node('details');found.append(node('summary',t('Weitere Exemplare und Fundorte')+' ('+(placements.length-1)+')'));
+      placements.slice(1).forEach(p=>found.append(placement(p)));box.append(found);
+    }
     function locations(checks,regions,label){
       const detail=node('details');detail.append(node('summary',label));const list=node('ul');
       checks.forEach(id=>list.append(node('li',analysisTargets.find(l=>l.id===id)?.name||String(id))));regions.forEach(name=>list.append(node('li',name)));
       detail.append(list);box.append(detail);
     }
-    if(combined)locations(row.synergy.checks,row.synergy.regions,t('Zusätzliche Checks und Bereiche ansehen'));
-    locations(row.new_checks,row.new_regions,combined?t('Gesamten Effekt ansehen'):t('Neue Checks und Bereiche ansehen'));
+    locations(row.new_checks,row.new_regions,t('Neue Checks und Bereiche ansehen'));
     return box;
   }
   function normalize(data){
-    // Old in-flight/cached API responses also need set-based suppression. An
-    // absent single trial is unknown, never equivalent to a zero-item effect.
-    const target=$('progression-target')?.value||'';
-    const targetKnown=data.target_reachable ?? (target.startsWith('location:')?data.reachable.some(l=>l.id===Number(target.slice(9))):target.startsWith('region:')?(data.regions||[]).includes(target.slice(7)):false);
-    const annotate=row=>{
-      row.goal_gain=Boolean(row.goal_reachable&&!data.goal_reachable);
-      row.target_gain=Boolean(row.target_reached&&!targetKnown);
-      row.helpful=Boolean(row.new_checks.length||row.new_regions.length||row.goal_gain||row.target_gain);
-    };
-    data.singles.forEach(annotate);
-    const singles=new Map(data.singles.map(row=>[row.items[0].name,row])),seen=new Set();
-    data.combinations=data.combinations.filter(row=>{
-      annotate(row);
-      const identity=JSON.stringify(row.items.map(i=>[i.name,i.count]).sort());
-      if(seen.has(identity))return false;seen.add(identity);
-      const parts=row.items.map(i=>singles.get(i.name));if(parts.some(p=>!p))return false;
-      const checks=new Set(parts.flatMap(p=>p.new_checks)),regions=new Set(parts.flatMap(p=>p.new_regions));
-      row.synergy={checks:row.new_checks.filter(id=>!checks.has(id)),regions:row.new_regions.filter(name=>!regions.has(name)),
-        goal:row.goal_gain&&!parts.some(p=>p.goal_gain),target:row.target_gain&&!parts.some(p=>p.target_gain)};
-      return Boolean(row.synergy.checks.length||row.synergy.regions.length||row.synergy.goal||row.synergy.target);
+    // Ignore legacy cached pair results. Only one additional copy per type is
+    // eligible, regardless of older backend or cache response shapes.
+    const seen=new Set();
+    data.singles=(data.singles||[]).filter(row=>{
+      if(row.items?.length!==1||row.items[0].count!==1||seen.has(row.items[0].name))return false;
+      seen.add(row.items[0].name);row.helpful=Boolean(row.new_checks.length||row.new_regions.length);
+      row.target_gain=Boolean(row.target_reached&&!data.target_reachable);return true;
     });
-    const rank=row=>[-Number(row.target_gain),-Number(row.goal_gain),-(row.synergy?.checks.length??row.new_checks.length),-(row.synergy?.regions.length??row.new_regions.length),-row.new_checks.length,-row.new_regions.length];
-    const compare=(a,b)=>{const x=rank(a),y=rank(b);for(let i=0;i<x.length;i++)if(x[i]!==y[i])return x[i]-y[i];return 0;};
-    data.singles.sort(compare);data.combinations.sort(compare);
+    data.singles.sort((a,b)=>b.new_checks.length-a.new_checks.length||b.new_regions.length-a.new_regions.length||
+      a.items[0].name.toLowerCase().localeCompare(b.items[0].name.toLowerCase(),'en')||a.items[0].name.localeCompare(b.items[0].name,'en'));
     return data;
   }
   function recommendationSection(rows,label,emptyText,kind){
     const section=node('section',null,'progression-recommendations');section.dataset.recommendationKind=kind;section.append(node('h4',label));
     if(!rows.length){section.append(node('p',emptyText,'muted small'));return section;}
-    const groups=new Map();
-    rows.forEach(row=>{
-      const key=JSON.stringify([row.new_checks.slice().sort((a,b)=>a-b),row.new_regions.slice().sort(),row.goal_gain,row.target_gain,
-        row.synergy?[row.synergy.checks.slice().sort((a,b)=>a-b),row.synergy.regions.slice().sort(),row.synergy.goal,row.synergy.target]:null]);
-      if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);
-    });
-    let overflow=null,index=0;
-    groups.forEach(recipes=>{
-      const box=node('div',null,'progression-effect-group');box.append(recommendation(recipes[0]));
-      if(recipes.length>1){
-        const alternatives=node('details',null,'progression-alternatives');alternatives.append(node('summary',t('Alternativen mit derselben Wirkung')+' ('+(recipes.length-1)+')'));
-        recipes.slice(1).forEach(row=>alternatives.append(recommendation(row)));box.append(alternatives);
-      }
-      if(index++<6)section.append(box);
-      else{
-        if(!overflow){overflow=node('details',null,'progression-more');overflow.append(node('summary',t('Weitere Empfehlungen')+' ('+(groups.size-6)+')'));section.append(overflow);}
-        overflow.append(box);
-      }
-    });return section;
+    rows.slice(0,10).forEach(row=>section.append(recommendation(row)));
+    if(rows.length>10){
+      const more=node('details',null,'progression-more');more.append(node('summary',t('Mehr anzeigen')+' ('+(rows.length-10)+')'));
+      rows.slice(10).forEach(row=>more.append(recommendation(row)));section.append(more);
+    }
+    return section;
   }
   let analysisTargets=[];
-  function renderAnalysis(data){
-    const state=$('progression-analysis-state');
-    state.textContent=data.state==='ready'?t('Spielregeln und Seed stimmen überein'):data.state==='loading'?t('Die Spielregeln werden im Hintergrund geprüft …'):data.state==='idle'?t('Berechne deine nächsten Möglichkeiten mit dem gemeldeten Inventar.'):data.state==='busy'?t('Die Analyse ist ausgelastet. Bitte kurz warten.'):reasons[data.reason]||reasons.worker_failed;
+  function renderAnalysis(data,mode){
+    const isGoal=mode==='goal',state=$(isGoal?'progression-goal-status':'progression-analysis-state');
+    state.textContent=data.state==='ready'?t('Spielregeln und Seed stimmen überein'):data.state==='loading'?t('Die Spielregeln werden im Hintergrund geprüft …'):data.state==='idle'?t('Starte die Berechnung bei Bedarf ausdrücklich.'):data.state==='busy'?t('Die Analyse ist ausgelastet. Bitte kurz warten.'):reasons[data.reason]||reasons.worker_failed;
+    if(isGoal){
+      $('progression-goals').replaceChildren();
+      if(data.state!=='ready')return;
+      state.textContent=data.goal_reachable?t('Spielziel mit deinem gemeldeten Inventar erreichbar'):t('Spielziel mit deinem gemeldeten Inventar noch nicht erreichbar');
+      if(!data.necessity_complete)$('progression-goals').append(node('p',t('Die Zielprüfung ist unvollständig. Fehlende Ergebnisse beweisen keine Unmöglichkeit.'),'warn small'));
+      const verdict={necessary:t('Nachweislich notwendiges Exemplar'),replaceable_copy:t('Dieses Einzel-exemplar ist ersetzbar'),unknown:t('Noch nicht zuverlässig bestimmbar')};
+      (data.necessity||[]).forEach(row=>{const box=node('article',null,'progression-item');box.append(node('h4',row.item),node('p',verdict[row.verdict]));if(row.placement)box.append(placement(row.placement));$('progression-goals').append(box);});
+      return;
+    }
     $('progression-observed').textContent=data.observed_at?t('Inventarstand')+': '+observation(data.observed_at):'';
     $('progression-spheres').replaceChildren();
     (data.static?.spheres||[]).forEach(s=>{$('progression-spheres').append(node('p',(s.unreachable?t('Nicht erreichbar'):t('Schritt')+' '+s.number)+': '+s.locations.map(l=>l.name).join(', '),'small'));});
-    $('progression-helpful').replaceChildren();$('progression-reachable').replaceChildren();$('progression-goals').replaceChildren();
-    $('progression-goal-status').textContent=t('Noch nicht zuverlässig bestimmbar');
+    $('progression-helpful').replaceChildren();$('progression-reachable').replaceChildren();
     if(data.state!=='ready')return;
-    data=normalize(data);
-    $('progression-support').textContent=data.singles_complete&&data.combinations_complete&&data.necessity_complete?t('Verifizierte Logikhilfe'):t('Teilweise Unterstützung');
-    analysisTargets=data.targets;
-    const selected=$('progression-target')?.value;
-    if($('progression-target')){
-      const choices=[new Option(t('Allgemeine Hilfe'),'')];
-      data.targets.forEach(loc=>choices.push(new Option(loc.name,'location:'+loc.id)));
-      [...new Set(data.targets.map(loc=>loc.region))].forEach(name=>choices.push(new Option(name,'region:'+name)));
-      $('progression-target').replaceChildren(...choices);$('progression-target').value=selected||'';
+    data=normalize(data);analysisTargets=data.targets||[];
+    const target=$('progression-target');
+    if(target){
+      const selected=target.value,choices=[new Option(t('Allgemeine Hilfe'),'')];
+      analysisTargets.forEach(loc=>choices.push(new Option(loc.name,'location:'+loc.id)));
+      [...new Set(analysisTargets.map(loc=>loc.region))].forEach(name=>choices.push(new Option(name,'region:'+name)));
+      target.replaceChildren(...choices);target.value=selected||'';
     }
-    $('progression-helpful').append(node('p',data.reachable.length+' '+t('aktuell erreichbare, offene Checks')));
-    if(!data.singles_complete||!data.combinations_complete||!data.necessity_complete)$('progression-helpful').append(node('p',t('Begrenzte Analyse: Nicht alle Items, Paare oder Zielprüfungen wurden untersucht. Fehlende Ergebnisse beweisen keine Unmöglichkeit.'),'warn small'));
-    if(Number.isInteger(data.combinations_tested)&&Number.isInteger(data.combinations_total))$('progression-helpful').append(node('p',data.combinations_tested+' '+t('von')+' '+data.combinations_total+' '+t('möglichen Itemkombinationen untersucht'),'small progression-coverage'));
-    if(Number.isInteger(data.singles_tested))$('progression-helpful').append(node('p',data.singles_tested+' '+t('von')+' '+data.candidates_total+' '+t('Itemarten einzeln untersucht'),'small muted'));
+    $('progression-support').textContent=data.singles_complete?t('Verifizierte Logikhilfe'):t('Teilweise Unterstützung');
+    $('progression-helpful').append(node('p',(data.reachable||[]).length+' '+t('aktuell erreichbare, offene Checks')));
+    $('progression-helpful').append(node('p',data.singles_tested+' '+t('von')+' '+data.candidates_total+' '+t('Progression-Itemarten untersucht'),'small progression-coverage'));
+    if(!data.singles_complete)$('progression-helpful').append(node('p',t('Die Analyse ist unvollständig. Nicht untersuchte Items wurden nicht als unwichtig eingestuft.'),'warn small'));
     $('progression-helpful').append(recommendationSection(data.singles.filter(row=>row.helpful),t('Einzelne hilfreiche Items'),t('Unter den geprüften Einzelitems wurde kein unmittelbarer Zusatznutzen gefunden.'),'singles'));
-    $('progression-helpful').append(recommendationSection(data.combinations,t('Echte Itemkombinationen'),t('Unter den geprüften Paaren wurde kein zusätzlicher Kombinationseffekt gefunden.'),'combinations'));
     const zero=data.singles.filter(row=>!row.helpful);
-    if(zero.length){const detail=node('details');detail.append(node('summary',t('Weitere untersuchte Items ohne unmittelbaren Einzeleffekt')+' ('+zero.length+')'));const list=node('ul');zero.forEach(row=>list.append(node('li',row.items[0].name)));detail.append(list);$('progression-helpful').append(detail);}
-    data.reachable.forEach(loc=>$('progression-reachable').append(node('li',loc.name+' · '+loc.region)));
-    $('progression-goal-status').textContent=data.goal_reachable?t('Spielziel mit deinem gemeldeten Inventar erreichbar'):t('Spielziel mit deinem gemeldeten Inventar noch nicht erreichbar');
-    const verdict={necessary:t('Nachweislich notwendiges Exemplar'),replaceable_copy:t('Dieses Einzel-exemplar ist ersetzbar'),unknown:t('Noch nicht zuverlässig bestimmbar')};
-    data.necessity.forEach(row=>{const box=node('article',null,'progression-item');box.append(node('h4',row.item),node('p',verdict[row.verdict]));if(row.placement)box.append(placement(row.placement));$('progression-goals').append(box);});
+    if(zero.length){
+      const detail=node('details',null,'progression-zero');detail.append(node('summary',t('Weitere untersuchte Items ohne unmittelbaren Einzeleffekt')+' ('+zero.length+')'));
+      detail.append(node('p',t('Diese Items können später oder zusammen mit anderen Items wichtig sein.'),'small muted'));
+      zero.forEach(row=>detail.append(recommendation(row)));$('progression-helpful').append(detail);
+    }
+    (data.reachable||[]).forEach(loc=>$('progression-reachable').append(node('li',loc.name+' · '+loc.region)));
   }
+  let pendingAnalysis=null;
   async function analysis(start){
-    if(analysisBusy||!$('progression-analyze')||!revealed)return;
+    if(!revealed||!root.open)return;
+    if(analysisBusy){pendingAnalysis={start:start||Boolean(pendingAnalysis?.start),view};return;}
+    const mode=view==='goal'?'goal':'items',form=$(mode==='goal'?'progression-goal-analyze':'progression-analyze');
+    if(!form)return;
     analysisBusy=true;clearTimeout(timer);fail('');
-    const settings=Object.fromEntries(new FormData($('progression-analyze'))),target=$('progression-target').value;
+    const settings=Object.fromEntries(new FormData(form));settings.mode=mode;
+    const target=mode==='items'?$('progression-target')?.value||'':'';
     if(target.startsWith('location:')){settings.target_kind='location';settings.target_id=target.slice(9);}
     if(target.startsWith('region:')){settings.target_kind='region';settings.target_name=target.slice(7);}
     const selectedSlot=settings.slot;
     try{
       const data=await api('/analysis'+(start?'':'?'+new URLSearchParams(settings)),start?settings:null);
-      if(!revealed||$('progression-analyze').elements.slot.value!==selectedSlot)return;
-      renderAnalysis(data);
+      if(!revealed||form.elements.slot.value!==selectedSlot||(view==='goal'?'goal':'items')!==mode||
+         (mode==='items'&&target!==($('progression-target')?.value||'')))return;
+      renderAnalysis(data,mode);
       if(data.state==='loading'&&root.open)timer=setTimeout(()=>analysis(false),1200);
-    }catch(error){fail(error.message);}finally{analysisBusy=false;}
+    }catch(error){fail(error.message);}finally{analysisBusy=false;if(pendingAnalysis){const pending=pendingAnalysis;pendingAnalysis=null;analysis(pending.view===view&&pending.start);}}
   }
-  $('progression-analyze')?.addEventListener('submit',event=>{event.preventDefault();analysis(true);});
-  $('progression-analyze')?.elements.slot.addEventListener('change',()=>{analysisTargets=[];$('progression-target').replaceChildren(new Option(t('Allgemeine Hilfe'),''));analysis(false);});
+  ['progression-analyze','progression-goal-analyze'].forEach(id=>{
+    $(id)?.addEventListener('submit',event=>{event.preventDefault();analysis(true);});
+    $(id)?.elements.slot.addEventListener('change',()=>{
+      if(id==='progression-analyze'&&$('progression-target'))$('progression-target').replaceChildren(new Option(t('Allgemeine Hilfe'),''));
+      analysis(false);
+    });
+  });
+  $('progression-target')?.addEventListener('change',()=>analysis(false));
   if(root.dataset.standalone)open('finder');
 })();

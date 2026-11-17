@@ -58,7 +58,13 @@ def test_global_finder_and_progression_fallback_languages_themes(actors,artifact
         singles_tested=7,candidates_total=7,combinations_tested=6,combinations_total=21,
         goal_reachable=False,singles_complete=True,combinations_complete=False,necessity_complete=True,
         necessity=[dict(item='Key',verdict='necessary',placement=placed)],static=dict(spheres=[]))
-    a.route('**/progression/analysis*',lambda route:route.fulfill(json=rendered))
+    # Goal work must require its own POST; selecting the tab only reads cache.
+    goal_posts=[]
+    def respond(route):
+        is_goal='mode=goal' in route.request.url or 'mode=goal' in (route.request.post_data or '')
+        if is_goal and route.request.method=='POST':goal_posts.append(route.request.post_data)
+        route.fulfill(json=rendered if not is_goal or goal_posts else dict(state='idle'))
+    a.route('**/progression/analysis*',respond)
     for language in ('de','en'):
         set_preference(a,'language',language)
         for theme in ('light','dark','system'):
@@ -67,27 +73,29 @@ def test_global_finder_and_progression_fallback_languages_themes(actors,artifact
             expect(panel.locator('#progression-helpful')).to_contain_text('Key')
             expect(panel.locator('#progression-helpful')).to_contain_text('+1')
             single_section=panel.locator('[data-recommendation-kind="singles"]')
-            pair_section=panel.locator('[data-recommendation-kind="combinations"]')
-            expect(single_section.locator('.progression-effect-group')).to_have_count(3)
-            expect(single_section.locator('.progression-alternatives')).to_have_count(1)
-            expect(pair_section.locator('.progression-recommendation')).to_have_count(2)
-            expect(pair_section).not_to_contain_text('Key + Decoration')
-            expect(pair_section.locator('h4').nth(1)).to_have_text('Goal A + Goal B')
-            expect(pair_section.locator('.progression-synergy').last).to_contain_text('+1')
-            expect(panel.locator('.progression-coverage')).to_contain_text('6')
-            expect(panel.locator('.progression-coverage')).to_contain_text('21')
-            panel.locator('.progression-recommendation summary').first.click()
-            expect(panel.locator('#progression-helpful')).to_contain_text('Bob')
+            expect(panel.locator('[data-recommendation-kind="combinations"]')).to_have_count(0)
+            expect(single_section.locator(':scope > .progression-recommendation')).to_have_count(4)
+            expect(single_section.locator('.progression-alternatives')).to_have_count(0)
+            expect(single_section.locator('.progression-recommendation > h4').first).to_have_text('Alternative Key')
+            expect(panel.locator('.progression-coverage')).to_contain_text('7')
+            expect(single_section).to_contain_text('Bob')
+            expect(single_section).to_contain_text('Chest')
+            expect(single_section.locator('.progression-item').first).to_be_visible()
+            expect(panel.locator('.progression-zero')).not_to_have_attribute('open','')
             for width in (390,1440):
                 a.set_viewport_size(dict(width=width,height=920))
                 assert panel.evaluate('n=>n.scrollWidth<=n.clientWidth+1')
                 assert a.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
                 a.screenshot(path=str(artifact_dir/f'progression-{language}-{theme}-{width}.png'),full_page=True)
-                partial=pair_section.locator('.progression-recommendation').last
+                partial=single_section.locator('.progression-recommendation').last
                 partial.scroll_into_view_if_needed()
-                partial.screenshot(path=str(artifact_dir/f'synergy-{language}-{theme}-{width}.png'))
+                partial.screenshot(path=str(artifact_dir/f'single-item-{language}-{theme}-{width}.png'))
                 panel.evaluate('node=>node.scrollTop=0')
             panel.get_by_role('button',name='Spielziel' if language=='de' else 'Game goal',exact=True).click()
+            if not goal_posts:
+                expect(panel.locator('#progression-goals .progression-item')).to_have_count(0)
+                assert goal_posts==[]
+            panel.get_by_role('button',name='Spielziel ausdrücklich prüfen' if language=='de' else 'Analyze game goal explicitly',exact=True).click()
             expect(panel.locator('#progression-goals')).to_contain_text('Key')
             panel.locator('#progression-close').click()
     rendered['singles']+= [trial(['Other '+str(i)],[100+i]) for i in range(10)]
@@ -99,6 +107,15 @@ def test_global_finder_and_progression_fallback_languages_themes(actors,artifact
     expect(more).not_to_have_attribute('open','')
     more.locator('summary').first.click()
     expect(more).to_have_attribute('open','')
+    panel.locator('details:has(#progression-target) > summary').click()
+    with a.expect_response(lambda response: '/progression/analysis?' in response.url and 'target_id=10' in response.url) as selected:
+        panel.locator('#progression-target').select_option('location:10')
+    assert selected.value.request.method=='GET'
+    with a.expect_response(lambda response: response.request.method=='POST' and response.url.endswith('/progression/analysis')) as calculated:
+        panel.get_by_role('button',name='Calculate opportunities',exact=True).click()
+    assert 'target_kind=location' in calculated.value.request.post_data
+    assert 'target_id=10' in calculated.value.request.post_data
+    assert 'mode=items' in calculated.value.request.post_data
     panel.locator('#progression-close').click()
     # Consent revocation also blocks direct requests, independent of hidden UI.
     a.get_by_role('button',name='Find an item',exact=True).click()

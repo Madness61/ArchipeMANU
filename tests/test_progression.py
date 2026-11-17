@@ -129,6 +129,31 @@ class FinderTests(unittest.TestCase):
             result=progression.run_worker(dict(yamls={},manifest={}))
         self.assertEqual(result,dict(state='unsupported',reason='timeout'))
 
+    def test_goal_mode_requires_explicit_post_and_has_independent_cache(self):
+        self.grant()
+        data=dict(manifest={'seed':1},yamls={},live={'received':[]},observed_at=time.time())
+        def submit(fn):
+            future=Future();fn();future.set_result(None);return future
+        def evaluate(payload):
+            return dict(state='ready',mode=payload['mode'],singles=[],necessity=[])
+        with patch.object(progression,'prepare',side_effect=lambda *a:(dict(data),None)), \
+             patch.object(progression,'manifest',return_value=None), \
+             patch.object(progression._pool,'submit',side_effect=submit) as submitted, \
+             patch.object(progression,'run_worker',side_effect=evaluate) as worker, \
+             patch.object(ap_bridge,'ap_ready',return_value=True),patch.object(ap_bridge,'trusted_custom_execution',return_value=True):
+            self.assertEqual(self.client.get(self.url+'/analysis?mode=goal').json['state'],'idle')
+            submitted.assert_not_called()
+            self.assertEqual(self.post(self.url+'/analysis',{}).json['state'],'loading')
+            self.assertEqual(self.client.get(self.url+'/analysis').json['mode'],'items')
+            self.assertEqual(self.client.get(self.url+'/analysis?mode=goal').json['state'],'idle')
+            self.assertEqual(worker.call_count,1)
+            self.assertEqual(self.post(self.url+'/analysis',{'mode':'goal'}).json['state'],'loading')
+            self.assertEqual(self.client.get(self.url+'/analysis?mode=goal').json['mode'],'goal')
+            self.assertEqual(self.client.get(self.url+'/analysis').json['mode'],'items')
+            self.assertEqual(worker.call_count,2)
+            self.assertEqual(self.client.get(self.url+'/analysis?mode=pairs').status_code,400)
+            self.assertEqual(self.post(self.url+'/analysis',{'mode':'pairs'}).status_code,400)
+
     def test_old_algorithm_cache_is_not_reused_for_current_recommendations(self):
         from progression_model import digest
         data=dict(manifest={'seed':1},yamls={},live={'received':[]},observed_at=time.time())

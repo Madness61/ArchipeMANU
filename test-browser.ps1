@@ -2,7 +2,7 @@
 param([string]$Python = "", [switch]$Headed, [string]$Filter = "", [ValidateRange(0,5000)][int]$SlowMo = 0)
 if (-not $Python) { $Python = Join-Path $PSScriptRoot ".venv-browser\Scripts\python.exe" }
 if (-not (Test-Path -LiteralPath $Python)) {
-    throw "Browser-Testumgebung fehlt. Siehe BROWSER_TESTS.md (Python 3.13 und requirements-browser.txt)."
+    throw "Browser-Testumgebung fehlt. Siehe docs/DEVELOPMENT.md (Python 3.13 und requirements-browser.txt)."
 }
 $browserTestArgs = @("-m", "browser_tests")
 if ($Headed) { $browserTestArgs += "--headed" }

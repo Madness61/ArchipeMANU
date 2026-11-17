@@ -83,6 +83,9 @@ def own_slot(own):
 def analysis(sid,build_id):
     _,build,own = access(sid,build_id)
     slot = own_slot(own)
+    mode = request.values.get('mode','items')
+    if mode not in ('items','goal'):
+        abort(400)
     target = None
     kind = request.values.get('target_kind','')
     if kind:
@@ -107,7 +110,7 @@ def analysis(sid,build_id):
                    if target['kind']=='location' else any(r['player']==pid and r['name']==target['name'] for r in evidence['model'].get('regions',[])))
             if not valid:
                 abort(400)
-    result = progression.job(build,slot,g.user['id'],request.method=='POST',target)
+    result = progression.job(build,slot,g.user['id'],request.method=='POST',target,mode)
     if result['state']=='ready':
         verified = {(r['finder'],r['location_id']):r for r in progression.find(build,own,owner='mine',limit=0)['rows']}
         for row in result.get('singles',[]) + result.get('combinations',[]):

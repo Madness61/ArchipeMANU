@@ -5,7 +5,8 @@ from types import SimpleNamespace
 from unittest.mock import patch
 import unittest
 
-from progression_model import Unsupported, analyze
+from progression_model import Unsupported
+from progression.extensions.combinations import analyze
 
 
 class RuleState:

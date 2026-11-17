@@ -57,6 +57,20 @@ def run(request):
                 assert set(kept[extra]['synergy']['checks'])==exclusive
                 assert set(kept[extra]['synergy']['regions'])==exclusive_regions
         assert singles[0]['new_checks'] and len(kept)<len(pairs)
+        from progression_model import analyze
+        starts=[dict(item=i.code,location=-2,player=0,flags=int(i.classification))
+                for i in mw.precollected_items[1] if type(i.code) is int]
+        receipts=[dict(item=loc.item.code,location=loc.address,player=loc.player,flags=int(loc.item.classification))
+                  for loc in locations if loc.item.name not in names]
+        ordinary=analyze(mw,dict(slot=1,team=0,checked=[],missing=[l.address for l in locations],received=starts+receipts))
+        assert 'combinations' not in ordinary and 'necessity' not in ordinary
+        assert ordinary['singles_complete']
+        basin=next(r for r in ordinary['singles'] if r['items'][0]['name']=='Basin of Vows')
+        assert basin['new_checks']==singles[0]['new_checks']
+        assert basin['new_regions']==singles[0]['new_regions']
+        ranking=[(-len(r['new_checks']),-len(r['new_regions']),r['items'][0]['name'].casefold(),r['items'][0]['name']) for r in ordinary['singles']]
+        assert ranking==sorted(ranking)
+
         without_doll=CollectionState(mw)
         for loc in locations:
             if loc.item.name not in names and loc.item.name!='Small Doll':without_doll.collect(loc.item,True)

@@ -83,12 +83,24 @@ class RealProgressionTests(unittest.TestCase):
         self.assertEqual(result['state'],'ready',result)
         self.assertEqual(result['verified_model'],manifest['model_hash'])
         gains=[len(r['new_checks']) for r in result['singles']]
+        self.assertNotIn('combinations',result)
+        self.assertNotIn('necessity',result)
+        self.assertEqual(gains,sorted(gains,reverse=True))
+        self.assertEqual(result['singles_tested'],len(result['singles']))
+        self.assertEqual(result['singles_complete'],result['singles_tested']==result['candidates_total'])
+        # Separate real reconstruction and completion analysis, explicitly requested.
+        goal_request=dict(request,mode='goal')
+        goal=subprocess.run([str(AP_PYTHON),str(PROJECT/'progression_worker.py')],input=json.dumps(goal_request).encode(),
+                            cwd=self.source,env=env,capture_output=True,timeout=100)
+        (self.artifacts/(slug+'-goal.json')).write_bytes(goal.stdout)
+        goal_data=json.loads(goal.stdout)
+        self.assertEqual(goal_data['state'],'ready',goal_data)
+        self.assertIn('necessity',goal_data)
+        self.assertEqual(goal_data['singles'],[])
         self.report.append(dict(game=game,static=manifest['static']['state'],checks=len(checks),reachable=len(result['reachable']),
-                                best_single=max(gains,default=0),best_pair=max((len(r['new_checks']) for r in result['combinations']),default=0),
-                                single_complete=result['singles_complete'],pairs_complete=result['combinations_complete'],
-                                pairs_tested=result['combinations_tested'],pairs_total=result['combinations_total'],
-                                best_pair_extra=max((len(r['synergy']['checks']) for r in result['combinations']),default=0),
-                                necessary=sum(r['verdict']=='necessary' for r in result['necessity']),verified=result['verified_model']))
+                                best_single=max(gains,default=0),single_complete=result['singles_complete'],
+                                types_tested=result['singles_tested'],types_total=result['candidates_total'],
+                                necessary=sum(r['verdict']=='necessary' for r in goal_data['necessity']),verified=result['verified_model']))
         if slug=='checksFinder':
             self.verify_hub_api(root,players,output,manifest,live)
         # The reconstructed seed must refuse changed original evidence.
