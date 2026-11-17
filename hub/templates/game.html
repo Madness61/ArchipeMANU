@@ -3,25 +3,10 @@
 {% block title %}{{ schema.game }} · {{ app_name }}{% endblock %}
 {% block content %}
 <p class="small"><a href="{{ url_for('games') }}">{{ _("← Spiele") }}</a></p>
-<div class="panel game-detail-hero">{{ game_art(schema.game, schema.slug) }}<div class="page-head">
-  <div>
-    <h1>{{ schema.game }}</h1>
-    <p class="muted small">
-      {% if schema.custom %}{{ _("APWorld") }}{% else %}{{ _("In Archipelago eingebaut") }}{% endif %}
-      {% if schema.version != '0.0.0' %} {{ _("· v") }}{{ schema.version }}{% endif %}
-      · {{ schema.options|length }} {{ _("Optionen") }}
-    </p>
-  </div>
-  <div class="row">
-    {% if item and item.can_edit_metadata %}<a class="btn" href="{{ url_for('community.metadata_edit', slug=schema.slug) }}">{{ _("Spiel bearbeiten") }}</a>{% endif %}
-      <a class="btn" href="{{ url_for('mvp.guide_edit', slug=schema.slug) }}">{{ _("Installationsanleitung pflegen") }}</a>
-    <a class="btn" href="{{ url_for('template_new', slug=schema.slug) }}">{{ _("+ Neue Vorlage") }}</a>
-  </div>
-</div>
-</div>
+{% include "game_overview.html" %}
 <section class="panel"><h2>{{ _("Wie viele Checks hat der Spiel-Standard?") }}</h2><p class="small muted">{{ _("Gezählt werden Item-Fundorte in einem Einzelspiel-Probelauf mit den reinen Spielvorgaben, ohne Gruppen-Vorlage oder Profilwerte. Events und Startinventar zählen nicht mit. Andere Einstellungen, Zufallswerte und eure spätere Multiworld können die Anzahl verändern.") }}</p>{% with check_slug=schema.slug %}{% include "check_preview.html" %}{% endwith %}</section>
-{% include "game_setup_panel.html" %}
-<div class="section-head"><div><h2>{{ _("Vorlagen für deine Einstellungen") }}</h2><p class="muted small">{{ _("Wähle eine Vorlage und eine Lobby. Die Einstellungen kannst du dort noch ändern, bevor du sie übernimmst.") }}</p></div></div>
+{% with show_overview=false, edit_guide_slug=schema.slug %}{% include "game_setup_panel.html" %}{% endwith %}
+<div class="section-head"><div><h2>{{ _("Vorlagen für deine Einstellungen") }}</h2><p class="muted small">{{ _("Wähle eine Vorlage und eine Lobby. Die Einstellungen kannst du dort noch ändern, bevor du sie übernimmst.") }}</p></div><a class="btn" href="{{ url_for('template_new', slug=schema.slug) }}">{{ _("+ Neue Vorlage") }}</a></div>
 
 <div class="preset-grid">
 {% for t in templates %}

@@ -2070,5 +2070,18 @@
   "m1972": "Sorted by additional checks, then new regions and item name. Many checks do not automatically mean an item is necessary for the game goal.",
   "m1973": "Analyze game goal explicitly",
   "m1974": "This expensive analysis starts only through the button and is cached separately from single items.",
-  "m1975": "Last edited by"
+  "m1975": "Last edited by",
+  "m1976": "Unknown catalog field.",
+  "m1977": "Separate your own terms with commas.",
+  "m1978": "Game overview",
+  "m1979": "Edit description",
+  "m1980": "Edit genres",
+  "m1981": "Edit tags",
+  "m1982": "No tags added yet.",
+  "m1983": "Checks & settings",
+  "m1984": "Checks and presets are available once the APWorld has loaded successfully.",
+  "m1985": "Your group’s installation guide",
+  "m1986": "Edit installation guide",
+  "m1987": "No group guide yet. Use the pencil to add one.",
+  "m1988": "Edit game details ·"
 }

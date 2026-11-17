@@ -1,0 +1,17 @@
+{% if item and item.can_edit_metadata %}
+<details class="field-editor">
+  <summary class="edit-icon" aria-label="{{ edit_label }}" title="{{ edit_label }}">{{ icon('edit') }}</summary>
+  <form method="post" action="{{ url_for('community.metadata_edit', slug=item.slug) }}" class="stack">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="_section" value="{{ field }}">
+    <label for="edit-{{ field }}">{{ field_label }}</label>
+    {% if field == 'description' %}
+    <textarea id="edit-{{ field }}" name="{{ field }}" rows="4" maxlength="1500">{{ game_info.description }}</textarea>
+    {% else %}
+    <input id="edit-{{ field }}" name="{{ field }}" value="{{ '' if field == 'genres' and game_info.unassigned_genres else game_info[field]|join(', ') }}" aria-describedby="edit-{{ field }}-help">
+    <p id="edit-{{ field }}-help" class="small muted">{{ _("Eigene Begriffe mit Komma trennen.") }}</p>
+    {% endif %}
+    <div class="row"><button class="primary">{{ _("Speichern") }}</button><a class="btn" href="{{ url_for('game', slug=item.slug, _anchor='game-' ~ field) }}">{{ _("Abbrechen") }}</a></div>
+  </form>
+</details>
+{% endif %}
