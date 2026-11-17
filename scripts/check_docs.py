@@ -25,6 +25,7 @@ def documents(root=ROOT):
 
 
 def broken_links(root=ROOT):
+    root = root.resolve()
     for path in documents(root):
         text = path.read_text(encoding='utf-8')
         text = re.sub(r'^```.*?^```\s*$', '', text, flags=re.M | re.S)
@@ -32,7 +33,7 @@ def broken_links(root=ROOT):
             url = urlsplit(target)
             if url.scheme or url.netloc:
                 continue
-            resolved = (path.parent/unquote(url.path)).resolve() if url.path else path
+            resolved = (path.parent/unquote(url.path)).resolve() if url.path else path.resolve()
             if not resolved.is_relative_to(root.resolve()) or not resolved.exists():
                 yield f'{path.relative_to(root)}: missing path {target}'
             elif url.fragment and resolved.suffix == '.md' and unquote(url.fragment) not in headings(resolved.read_text(encoding='utf-8')):

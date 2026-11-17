@@ -42,7 +42,9 @@ class RepositoryContractTests(unittest.TestCase):
 
     def test_markdown_checker_reports_missing_file_and_anchor(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            # Also exercises Windows short temp paths: the supplied root need
+            # not equal its canonical resolved spelling. Valid anchors stay valid.
+            root = Path(directory)/'..'/Path(directory).name
             (root/'README.md').write_text('# One\n[Missing](missing.md)\n[Heading](#wrong)\n[Good](#one)', encoding='utf-8')
             errors = list(broken_links(root))
             self.assertEqual(len(errors), 2)
