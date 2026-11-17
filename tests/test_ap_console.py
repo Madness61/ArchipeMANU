@@ -54,7 +54,7 @@ class ConsoleTests(unittest.TestCase):
         fields.setdefault("transport", "ws")  # Local protocol fixture deliberately has no TLS.
         response = self.post(self.url+"/connect",fields,client=client)
         self.assertEqual(response.status_code,202,response.data)
-        self.wait_for(lambda:self.state(client)["state"] in ("connected","error"))
+        self.wait_for(lambda:self.state(client)["state"] in ("connected","action_required","reconnecting","temporarily_unavailable"))
         return self.state(client)
 
     def test_real_handshake_delivery_names_and_duplicate_item_packets(self):
@@ -70,7 +70,9 @@ class ConsoleTests(unittest.TestCase):
         self.assertEqual(delivery["recipient"]["name"],"Host")
         self.assertEqual(delivery["item"],"Progression Key")
         self.assertEqual(delivery["location"]["name"],"Old Fortress - Chest")
-        self.assertEqual(self.friend.get(self.url+"/data?kind=items").get_json()["events"],items)
+        friend_items=self.friend.get(self.url+"/data?kind=items").get_json()["events"]
+        self.assertEqual([(e['id'],e['text'],e['delivery']) for e in friend_items],[(e['id'],e['text'],e['delivery']) for e in items])
+        self.assertTrue(items[0]['for_me']);self.assertTrue(friend_items[0]['from_me'])
         hello = next(p for p in self.server.packets if p["cmd"]=="Connect")
         self.assertEqual((hello["game"],hello["tags"],hello["items_handling"],hello["slot_data"]),("",["TextOnly"],7,True))
         self.assertFalse(any(p["cmd"] in ("LocationChecks","StatusUpdate","LocationScouts") for p in self.server.packets))
@@ -86,7 +88,7 @@ class ConsoleTests(unittest.TestCase):
             # The API default is automatic even when older callers omit transport.
             response = self.post(self.url+"/connect", {})
             self.assertEqual(response.status_code, 202)
-            self.wait_for(lambda: self.state()["state"] in ("connected", "error"))
+            self.wait_for(lambda: self.state()["state"] in ("connected", "action_required"))
             self.assertEqual(self.state()["state"], "connected")
             self.assertEqual(self.state()["transport"], "ws")
             self.assertEqual([c.args[2] for c in opened.call_args_list], [True, False])
@@ -96,7 +98,7 @@ class ConsoleTests(unittest.TestCase):
     def test_explicit_ws_failure_has_actionable_error(self):
         with patch.object(ap_console, "open_socket", side_effect=EOFError("private transport internals")):
             state = self.connect(transport="ws")
-        self.assertEqual(state["state"], "error")
+        self.assertEqual(state["state"], "reconnecting")
         self.assertIn("Automatisch", state["error"])
         self.assertNotIn("private transport internals", state["error"])
 
@@ -116,7 +118,7 @@ class ConsoleTests(unittest.TestCase):
 
     def test_password_failure_seed_mismatch_and_no_plaintext_persistence(self):
         self.server.password = "Room-secret"
-        self.assertEqual(self.connect(password="Wrong-secret")["state"],"error")
+        self.assertEqual(self.connect(password="Wrong-secret")["state"],"action_required")
         self.assertIn("Raumpasswort",self.state()["error"])
         ap_console.stop_all()
         self.assertEqual(self.connect(password="Room-secret")["state"],"connected")
@@ -126,7 +128,7 @@ class ConsoleTests(unittest.TestCase):
         self.assertNotIn("Wrong-secret",serialized)
         ap_console.stop_all()
         self.server.seed = "OTHER_SEED"
-        self.assertEqual(self.connect(password="Room-secret")["state"],"error")
+        self.assertEqual(self.connect(password="Room-secret")["state"],"action_required")
         self.assertIn("anderen Seed",self.state()["error"])
 
     def test_identity_csrf_race_and_command_restrictions(self):
@@ -151,15 +153,14 @@ class ConsoleTests(unittest.TestCase):
         with self.app.app_context():
             path = db.get().execute("PRAGMA database_list").fetchone()[2]
             endpoint = db.query("SELECT id FROM hosted_rooms",one=True)["id"]
-        with patch.object(ap_console,"MAX_EVENTS",120):
-            for i in range(130):
-                ap_console.record(path,self.bid,None,"items",{"text":f"event-{i}"},hosted_id=endpoint)
+        for i in range(130):
+            ap_console.record(path,self.bid,None,"items",{"text":f"event-{i}"},hosted_id=endpoint)
         batch = self.state()["events"]
         self.assertEqual(len(batch),100)
         self.assertEqual(batch[-1]["text"],"event-129")
         older = self.state(query=f"?before={batch[0]['id']}")["events"]
-        self.assertEqual(len(older),20)
-        self.assertEqual(older[0]["text"],"event-10")
+        self.assertEqual(len(older),30)
+        self.assertEqual(older[0]["text"],"event-0")
         self.assertEqual(self.state(query=f"?after={batch[-1]['id']}")["events"],[])
         with self.app.app_context():
             db.execute("INSERT INTO hosted_rooms(build_id,host,port,entered_by,created_at) VALUES (?,'127.0.0.1',1234,1,'later')",(self.bid,))
@@ -175,6 +176,25 @@ class ConsoleTests(unittest.TestCase):
         self.wait_for(lambda:not current.valid())
         self.wait_for(lambda:not current.thread.is_alive())
         self.assertEqual(self.client.get(self.url+"/data").status_code,401)
+
+    def test_package_arriving_during_render_keeps_old_version_for_invalidation(self):
+        with self.app.app_context():
+            ap_console.record(self.path/'hub.db',self.bid,None,'items',dict(type='item',
+                sender='Friend',recipient='Host',sender_game='Test World',recipient_game='Test World',
+                item_id=501,location_id=1001))
+        real_events=ap_console.events
+        def arriving_package(*args,**kwargs):
+            rows=real_events(*args,**kwargs)
+            db.execute('INSERT INTO console_packages(build_id,game,items,locations,updated_at) VALUES (?,?,?,?,?)',
+                       (self.bid,'Test World',db.dumps({'501':'Progression Key'}),db.dumps({'1001':'Chest'}),123))
+            return rows
+        with patch.object(ap_console,'events',side_effect=arriving_package):
+            first=self.state()
+        self.assertEqual(first['catalog_version'],0)
+        self.assertIn('Item #501',first['events'][0]['text'])
+        next_state=self.state()
+        self.assertEqual(next_state['catalog_version'],123)
+        self.assertIn('Progression Key',next_state['events'][0]['text'])
 
 
 class SocketAddressTests(unittest.TestCase):

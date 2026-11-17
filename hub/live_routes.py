@@ -62,10 +62,10 @@ def connect(sid, build_id):
         live_api.room_id(link)
     except ValueError as exc:
         flash(str(exc), "error")
-        return redirect(url_for("live.dashboard", sid=sid, build_id=build_id))
+        return redirect(url_for("session_view", sid=sid, build=build_id, _anchor="round-host-connection"))
     live_store.attach(build_id, link, g.user["id"], auto_host=True)
     collector()
-    return redirect(url_for("live.dashboard", sid=sid, build_id=build_id))
+    return redirect(url_for("session_view", sid=sid, build=build_id, _anchor="progress"))
 
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/live/refresh", methods=["POST"])

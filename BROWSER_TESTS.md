@@ -1,5 +1,78 @@
 # Automatische Browser-Tests
 
+## Progression-Hilfe und globale Itemsuche (16.11.2026)
+
+Der Empfehlungs-Test prüft inzwischen auch die clientseitige Kompatibilität mit
+älteren API-Ergebnissen: ein dominantes Einzelitem mit wirkungslosem Zusatz wird
+unterdrückt, echte partielle Synergie und reine Zielsynergie bleiben erhalten.
+Gleiche Ergebnismengen werden als Alternativen gruppiert; gleich große Mengen
+unterschiedlicher Checks bleiben getrennt. Gesamteffekt, exklusiver Zusatznutzen,
+Suchabdeckung und aufklappbare lange Listen werden in DE/EN und allen Themes
+geprüft. Dies sind ausdrücklich UI-Fixtures; echte Regeln werden separat geprüft.
+Die reale Integration umfasst zusätzlich das DS3-Basin-Szenario mit Seed 20261116,
+`late_basin_of_vows=off/after_small_doll` und deaktivierten DLCs. Das
+Regel-Testinventar ist kontrolliert gesetzt und wird nicht als echter Live-
+Inventarzustand ausgegeben. Die konkrete Checkanzahl wird nicht fest codiert.
+
+Abnahme der Empfehlungskorrektur: **271 Python-Tests (131,7 Sekunden)**,
+**21 Browser-Szenarien (308,1 Sekunden)** und **4 echte AP-Integrationen
+(79,7 Sekunden)** erfolgreich. Ein zusätzlicher gezielter Progression-Lauf
+erzeugte Detail-Screenshots des Paar-Zusatznutzens in DE/EN und allen Themes;
+Desktop und Mobil wurden visuell geprüft. Im ersten Browser-Gesamtlauf wurde
+ein bestehender Mobil-Test-Rennfall nach einer Formularweiterleitung erkannt;
+nach gezielter Synchronisierung besteht der gesamte Lauf.
+
+Die Suite umfasst zusätzlich den Ablauf `test_progression.py`: zwei getrennte
+Konten, Itemsuche unmittelbar aus der Rundenzentrale, persönliche Spoilerfreigabe,
+Suche über mehrere Empfänger, eigene Items, historische Seeds ohne Logikdaten,
+unveränderter Konsolenentwurf und serverseitige Sperre nach Widerruf.
+Ergebnisansichten werden in DE/EN, Light/Dark/System und bei 390/1440 px geprüft;
+Screenshots liegen im jeweiligen Test-Logordner. Native Item-/Spielnamen bleiben
+unverändert. Die Suchanfragen bedienen die echte API mit dem isolierten
+Mock-Generator; dynamische Ergebniskarten werden ausdrücklich mit einer UI-Fixture
+gerendert. Sie ersetzen keinen echten Engine-Test.
+
+Die separate Suite `python -m unittest discover -s integration_tests -v` erzeugt
+echte isolierte Seeds für ChecksFinder, Meritous und Custom-Pseudoregalia und
+rekonstruiert sie mit Original-YAML, Seed, Modellhash und Regelproben. Für
+ChecksFinder wird außerdem der vollständige angemeldete API-/Hintergrundprozess
+inklusive Cachewechsel nach einem Empfang getestet. Eine fehlende APWorld-Datei
+wird vor Auswertung abgelehnt. Benötigt den installierten lokalen AP-Checkout;
+die Suite kopiert ihn in ein temporäres Verzeichnis und verwendet weder
+Produktivdaten noch echte Online-Räume. Die regulären GitHub-Actions-Jobs erfassen
+die neuen Python- und Playwright-Tests automatisch; die echte AP-Suite bleibt
+eine gesonderte Integrationsprüfung.
+
+Aktuelle Architektur, gemessene Check-Zuwächse und Grenzen:
+[PROGRESSION_ENGINE.md](PROGRESSION_ENGINE.md).
+
+Ergebnis des Grundstands vor der Empfehlungskorrektur: **258 Python-Tests (116,1 Sekunden)**,
+**21 Browser-Szenarien (295,3 Sekunden)** und **3 echte AP-Integrationen
+(60,0 Sekunden)** erfolgreich. Desktop- und Smartphone-Screenshots der neuen
+Hilfe wurden zusätzlich visuell geprüft. Keine reale Spielclient-Abnahme.
+
+## Verifizierter Feinschliff vom 15. November 2026
+
+Der vollständige lokale Lauf besteht aus **243 erfolgreichen Python-Tests** und
+**20 erfolgreichen Playwright-Szenarien**. Zusätzlich zu den Kernabläufen prüfen
+die Tests ausdrücklich aktivierte Host-Aufzeichnung ohne offene Webseiten,
+unabhängige API-/Konsolendiagnose, nachgewiesene Empfangsergänzungen und einen
+tatsächlichen Neustart des isolierten Hub-Prozesses mit derselben SQLite-Datenbank.
+Der Testserver hält dabei Schema und Konten fest, verwendet denselben lokalen
+HTTP-Port und kontaktiert ausschließlich den lokalen Fake-AP-Protokollserver.
+
+DE/EN und Light/Dark werden bei 390/768/1440/2560 px geprüft und als Screenshots
+gespeichert; Systemmodus folgt dem emulierten Betriebssystem. Label-Kontraste,
+Fokus, reduzierte Bewegung, Entwürfe und horizontales Überlaufen sind enthalten.
+Für Theme-Screenshots wird das Ende der kurzen Farbtransition abgewartet.
+Zentrale Konsolen-, Diagnose-, Bibliotheks- und Neustartansichten wurden visuell geprüft.
+
+Artefakte dieses Laufs: `test-results/final-polish-browser-verified/`, Python-Ausgabe:
+`test-results/final-polish-python-complete.txt`. Dies sind ignorierte lokale
+Testartefakte. Reale Spielclients, WLAN-/Hamachi-Ausfälle und Mehrspieler-Langzeit-
+betrieb auf echten Archipelago-Räumen wurden nicht ausgeführt. Ältere Ergebnisse
+weiter unten sind historische Einzelstände.
+
 ## Erweiterung vom 9. November 2026: Archipelago-Konsole
 
 Nach der Transportkorrektur: **181 Python-Tests erfolgreich (58,8 Sekunden)**;

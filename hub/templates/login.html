@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Anmelden · {{ app_name }}{% endblock %}
+{% block title %}{{ _("Anmelden ·") }} {{ app_name }}{% endblock %}
 {% block content %}
 <div class="panel" style="max-width:420px;margin:40px auto">
-  <h1>Anmelden</h1>
-  <p class="muted">Melde dich mit deinem persönlichen Konto an.</p>
+  <h1>{{ _("Anmelden") }}</h1>
+  <p class="muted">{{ _("Melde dich mit deinem persönlichen Konto an.") }}</p>
   <form method="post" class="stack">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-    <div><label>Benutzername<br><input name="username" autocomplete="username" required maxlength="32" autofocus style="width:100%"></label></div>
-    <div><label>Persönliches Passwort<br><input name="password" type="password" autocomplete="current-password" required maxlength="1024" style="width:100%"></label></div>
-    <button class="primary">Anmelden</button>
+    <div><label>{{ _("Benutzername") }}<br><input name="username" autocomplete="username" required maxlength="32" autofocus style="width:100%"></label></div>
+    <div><label>{{ _("Persönliches Passwort") }}<br><input name="password" type="password" autocomplete="current-password" required maxlength="1024" style="width:100%"></label></div>
+    <button class="primary">{{ _("Anmelden") }}</button>
   </form>
-  <p><a href="{{ url_for('auth.register') }}">Konto erstellen</a></p>
-  <p class="small"><a href="{{ url_for('auth.setup_password') }}">Bestehendes Konto einrichten / Passwort wiederherstellen</a><br>
-    <span class="muted">Dafür benötigst du einen persönlichen Einrichtungscode vom Host.</span></p>
+  <p><a href="{{ url_for('auth.register') }}">{{ _("Konto erstellen") }}</a></p>
+  <p class="small"><a href="{{ url_for('auth.setup_password') }}">{{ _("Bestehendes Konto einrichten / Passwort wiederherstellen") }}</a><br>
+    <span class="muted">{{ _("Dafür benötigst du einen persönlichen Einrichtungscode vom Host.") }}</span></p>
 </div>
 {% endblock %}

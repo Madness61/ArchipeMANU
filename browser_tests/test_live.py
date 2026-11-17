@@ -3,7 +3,7 @@ import json
 import re
 from playwright.sync_api import expect
 
-from .test_players import register, upload_world, create_lobby, join_lobby, select_game, mark_ready, nav
+from .test_players import area, generated, register, upload_world, create_lobby, join_lobby, select_game, mark_ready, nav
 
 
 def test_dashboard_room_link_polling_two_players_charts_and_mobile(actors, live_server, artifact_dir):
@@ -16,11 +16,11 @@ def test_dashboard_room_link_polling_two_players_charts_and_mobile(actors, live_
     mark_ready(alice, "Alice"); mark_ready(bob, "Bob")
     alice.reload()
     alice.get_by_role("button", name="Seed generieren", exact=True).click()
-    build = alice.locator('[data-build-status="succeeded"]')
-    expect(build).to_be_visible(timeout=15000)
+    build = generated(alice)
     build.get_by_label("Archipelago-Raum für Live-Statistiken", exact=True).fill(
         "https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw")
     build.get_by_role("button", name="Raum verbinden", exact=True).click()
+    alice.get_by_role("link",name="Erweiterte Statistiken öffnen",exact=True).click()
     expect(alice.get_by_role("heading", level=1)).to_have_text("Unser Live-Abend")
     expect(alice.locator("#kpi-checks")).to_have_text("2", timeout=15000)
     expect(alice.locator("#kpi-progress")).to_have_text("20 %")
@@ -92,6 +92,7 @@ def test_dashboard_room_link_polling_two_players_charts_and_mobile(actors, live_
     alice.get_by_label("Archipelago-Raum für Live-Statistiken", exact=True).fill(
         "https://archipelago.gg/room/EBESExQVFhcYGRobHB0eHw")
     alice.get_by_role("button", name="Raumlink ändern", exact=True).click()
+    alice.get_by_role("link",name="Erweiterte Statistiken öffnen",exact=True).click()
     expect(alice.locator("#kpi-checks")).to_have_text("—")
     bob.get_by_role("button", name="Jetzt aktualisieren", exact=True).click()
     expect(bob.locator("#live-room-code")).to_have_text("EBESExQVFhcYGRobHB0eHw")

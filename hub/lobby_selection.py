@@ -139,7 +139,7 @@ def start(room):
         return session_view(room["id"], selection=result), 400
     _save(state, {})
     flash("Die Werte aus deiner Auswahl sind gespeichert, ohne die YAML zu öffnen. Melde dich jetzt bei deiner Teilnahme bereit.", "info")
-    return redirect(url_for("session_view", sid=room["id"], _anchor="participants-section"))
+    return redirect(url_for("session_view", sid=room["id"], _anchor="own-readiness"))
 
 
 def _render(state, schema, errors=None):

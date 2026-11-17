@@ -1,20 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Spiel hinzufügen · {{ app_name }}{% endblock %}
+{% block title %}{{ _("Spiel hinzufügen ·") }} {{ app_name }}{% endblock %}
 {% block content %}
-<p class="small"><a href="{{ url_for('games') }}">← Spielebibliothek</a></p>
-<div class="row spread"><h1>Neues Spiel hinzufügen</h1><span class="chip">Für alle Spieler</span></div>
-<p class="muted">Alle angemeldeten Mitspieler können eine Custom APWorld hochladen. Sie wird sofort archiviert, aktiviert und automatisch eingelesen. Eine Admin-Freigabe ist nicht erforderlich.</p>
+<p class="small"><a href="{{ url_for('games') }}">{{ _("← Spielebibliothek") }}</a></p>
+<div class="row spread"><h1>{{ _("Neues Spiel hinzufügen") }}</h1><span class="chip">{{ _("Für alle Spieler") }}</span></div>
+<p class="muted">{{ _("Alle angemeldeten Mitspieler können eine Custom APWorld hochladen. Sie wird sofort archiviert, aktiviert und automatisch eingelesen. Eine Admin-Freigabe ist nicht erforderlich.") }}</p>
 <form method="post" action="{{ url_for('community.game_add') }}" enctype="multipart/form-data" class="panel stack" style="margin-top:18px">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <div class="grid">
-    <label>Spielname (optional, sonst APWorld-Manifest)<br><input name="name" value="{{ request.form.get('name', '') }}" maxlength="100" style="width:100%" placeholder="z. B. Dark Souls III"></label>
-    <label>Custom APWorld *<br><input type="file" name="apworld" accept=".apworld" required></label>
-    <label>Passende YAML-Vorlage (optional)<br><input type="file" name="yaml" accept=".yaml,.yml"></label>
-    <label>Quellenlink (optional)<br><input type="url" name="source_url" value="{{ request.form.get('source_url', '') }}" style="width:100%" placeholder="https://github.com/..."></label>
+    <label>{{ _("Spielname (optional, sonst APWorld-Manifest)") }}<br><input name="name" value="{{ request.form.get('name', '') }}" maxlength="100" style="width:100%" placeholder="{{ _("z. B. Dark Souls III") }}"></label>
+    <label>{{ _("Custom APWorld *") }}<br><input type="file" name="apworld" accept=".apworld" required></label>
+    <label>{{ _("Passende YAML-Vorlage (optional)") }}<br><input type="file" name="yaml" accept=".yaml,.yml"></label>
+    <label>{{ _("Quellenlink (optional)") }}<br><input type="url" name="source_url" value="{{ request.form.get('source_url', '') }}" style="width:100%" placeholder="{{ _("https://github.com/...") }}"></label>
   </div>
   {% with values=request.form %}{% include "catalog_fields.html" %}{% endwith %}
-  <p class="small muted">Max. 20 MiB pro APWorld und 512 KiB pro YAML. Die YAML bleibt als Originalvorlage erhalten. Nach dem Aktivieren liest Archipelago die tatsächlich unterstützten Spieloptionen ein.</p>
-  <p class="small muted">APWorlds enthalten Python-Code, der beim Einlesen und Generieren mit den Rechten des Servers läuft.</p>
-  <div class="row"><button class="primary">Zur Spielebibliothek hinzufügen</button><a class="btn" href="{{ url_for('games') }}">Abbrechen</a></div>
+  <p class="small muted">{{ _("Max. 20 MiB pro APWorld und 512 KiB pro YAML. Die YAML bleibt als Originalvorlage erhalten. Nach dem Aktivieren liest Archipelago die tatsächlich unterstützten Spieloptionen ein.") }}</p>
+  <p class="small muted">{{ _("APWorlds enthalten Python-Code, der beim Einlesen und Generieren mit den Rechten des Servers läuft.") }}</p>
+  <div class="row"><button class="primary">{{ _("Zur Spielebibliothek hinzufügen") }}</button><a class="btn" href="{{ url_for('games') }}">{{ _("Abbrechen") }}</a></div>
 </form>
 {% endblock %}

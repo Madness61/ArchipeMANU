@@ -1,0 +1,4 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Item-Finder & Progression") }} · {{ room.name }}{% endblock %}
+{% block content %}<p><a href="{{ url_for('session_view',sid=room.id,build=build.id) }}">{{ _("Zur Runde") }}</a></p>{% with progression_standalone=true %}{% include "progression_panel.html" %}{% endwith %}{% endblock %}
+{% block scripts %}<script src="{{ url_for('static',filename='progression.js') }}" defer></script>{% endblock %}

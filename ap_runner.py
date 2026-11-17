@@ -196,9 +196,13 @@ def validate_player_files(players):
         random.setstate(state)
 
 
-def generate(players: str, out: str, spoiler: int, race: bool) -> None:
+def generate(players: str, out: str, spoiler: int, race: bool, seed=None, skip_output=False) -> None:
     sys.argv = ["Generate.py", "--player_files_path", players, "--outputpath", out,
                 "--spoiler", str(spoiler)] + (["--race"] if race else [])
+    if seed is not None:
+        sys.argv += ["--seed", str(seed)]
+    if skip_output:
+        sys.argv += ["--skip_output"]
     import Utils
     Utils.init_logging("Generate_hub", loglevel="info")  # AP's own setup, also logs to stdout for the hub
 
@@ -216,7 +220,7 @@ def generate(players: str, out: str, spoiler: int, race: bool) -> None:
         from hub.stats import aggregate_placements
         from BaseClasses import ItemClassification
         player_ids = sorted(multiworld.player_ids)
-        players = [{"id": p, "name": multiworld.get_player_name(p),
+        stats_players = [{"id": p, "name": multiworld.get_player_name(p),
                     "game": multiworld.game[p]} for p in player_ids]
         placements = []
         details = []
@@ -241,7 +245,7 @@ def generate(players: str, out: str, spoiler: int, race: bool) -> None:
                     "location_id": loc.address, "item_id": item.code,
                     "location": loc.name, "item": item.name,
                 })
-        result = aggregate_placements(players, placements)
+        result = aggregate_placements(stats_players, placements)
         with open(os.path.join(out, "item_distribution.json"), "w", encoding="utf-8") as fp:
             json.dump(result, fp, ensure_ascii=False, indent=2)
         print("Real item distribution statistics written.")
@@ -250,16 +254,52 @@ def generate(players: str, out: str, spoiler: int, race: bool) -> None:
     except Exception:
         # Successful seed generation must not be discarded for analytics errors.
         logging.exception("Item distribution analytics unavailable for this seed.")
+    try:
+        from progression_model import save_seed
+        save_seed(multiworld, seed, players, out, os.getcwd())
+    except Exception:
+        logging.exception("Optional progression evidence unavailable; generated seed remains usable.")
+
+
+def preview_checks(players: str, out: str) -> None:
+    """Real single-player generation, using AP's native no-output mode.
+
+    No ROM patch, multidata, spoiler, or hub round is produced. The fixed seed
+    makes this a reproducible reference, not a promise about every multiworld.
+    """
+    import settings
+    settings.no_gui = True
+    settings.skip_autosave = True
+    sys.argv = ["Generate.py", "--player_files_path", players, "--outputpath", out,
+                "--spoiler", "0", "--skip_output", "--seed", "20261110"]
+    import Generate
+    from Main import main as ERmain
+    validate_player_files(players)
+    args, seed = Generate.main()
+    multiworld = ERmain(args, seed)
+    if len(multiworld.player_ids) != 1:
+        raise ValueError("Standard check preview requires exactly one player.")
+    locations = [loc for loc in multiworld.get_filled_locations()
+                 if loc.player == 1 and type(loc.address) is int
+                 and loc.item and type(loc.item.code) is int]
+    if len({loc.address for loc in locations}) != len(locations):
+        raise ValueError("Duplicate check addresses in preview.")
+    result = dict(source="archipelago_standard_probe", checks=len(locations),
+                  game=multiworld.game[1], seed=20261110)
+    with open(os.path.join(out, "check_preview.json"), "w", encoding="utf-8") as fp:
+        json.dump(result, fp)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["extract", "generate"])
+    parser.add_argument("command", choices=["extract", "generate", "preview"])
     parser.add_argument("--out", required=True)
     parser.add_argument("--players")
     parser.add_argument("--hide", default="")
     parser.add_argument("--spoiler", type=int, default=1)
     parser.add_argument("--race", action="store_true")
+    parser.add_argument("--seed", type=int)
+    parser.add_argument("--skip-output", action="store_true")
     args = parser.parse_args()
 
     sys.path.insert(0, os.getcwd())
@@ -268,8 +308,10 @@ def main() -> None:
 
     if args.command == "extract":
         extract(args.out)
+    elif args.command == "preview":
+        preview_checks(args.players, args.out)
     else:
-        generate(args.players, args.out, args.spoiler, args.race)
+        generate(args.players, args.out, args.spoiler, args.race, args.seed, args.skip_output)
 
 
 if __name__ == "__main__":

@@ -1,69 +1,69 @@
 {% extends "base.html" %}
 {% from "ui.html" import icon, game_art with context %}
-{% block title %}Jetzt spielen · {{ room.name }}{% endblock %}
+{% block title %}{{ _("Jetzt spielen ·") }} {{ room.name }}{% endblock %}
 {% block content %}
-<p><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
+<p><a href="{{ url_for('session_view', sid=room.id) }}">{{ _("← Zur Lobby") }}</a></p>
 {% set is_active_lobby = active_connections|selectattr('build_id', 'equalto', build.id)|list %}
-<div class="page-head"><div><p class="eyebrow">Alles für den Spieleabend</p><h1>{{ 'Abgeschlossene Runde' if build.completed_at else 'Aktive Lobby' if is_active_lobby else 'Spielstart & Verbindung' }} · {{ room.name }}</h1><p class="muted">Seed #{{ build.id }} · {{ build.created_at[:16] }}</p></div><span class="chip {{ 'ok' if build.status == 'succeeded' else 'warn' }}">{{ 'Abgeschlossen' if build.completed_at else status_labels.get(build.status,build.status) }}</span></div>
-<nav class="play-steps" aria-label="Dein Spielstart"><a class="play-step" href="#prepare-games"><b>1</b><div><h3>Spiel vorbereiten</h3><p>Einrichtung prüfen und Slotnamen merken.</p></div></a><a class="play-step" href="#connection"><b>2</b><div><h3>Verbindung herstellen</h3><p>Server und Port in deinen Client übernehmen.</p></div></a><a class="play-step" href="#play-files"><b>3</b><div><h3>Spieldateien laden</h3><p>Die benötigten Dateien für deine Runde.</p></div></a></nav>
-<div class="section-head" id="prepare-games"><div><p class="eyebrow">Dein Einstieg</p><h2>Deine Spiele</h2><p class="muted small">Bereite dein Spiel vor und verwende beim Verbinden genau diesen Slotnamen.</p></div></div>
+<div class="page-head"><div><p class="eyebrow">{{ _("Alles für den Spieleabend") }}</p><h1>{{ _('Abgeschlossene Runde') if build.completed_at else _('Aktive Lobby') if is_active_lobby else _('Spielstart & Verbindung') }} · {{ room.name }}</h1><p class="muted">{{ _("Seed #") }}{{ build.id }} · {{ build.created_at|localdate }}</p></div><span class="chip {{ _('ok') if build.status == 'succeeded' else 'warn' }}">{{ _('Abgeschlossen') if build.completed_at else _(status_labels.get(build.status,build.status)) }}</span></div>
+<nav class="play-steps" aria-label="{{ _("Dein Spielstart") }}"><a class="play-step" href="#prepare-games"><b>1</b><div><h3>{{ _("Spiel vorbereiten") }}</h3><p>{{ _("Einrichtung prüfen und Slotnamen merken.") }}</p></div></a><a class="play-step" href="#connection"><b>2</b><div><h3>{{ _("Verbindung herstellen") }}</h3><p>{{ _("Server und Port in deinen Client übernehmen.") }}</p></div></a><a class="play-step" href="#play-files"><b>3</b><div><h3>{{ _("Spieldateien laden") }}</h3><p>{{ _("Die benötigten Dateien für deine Runde.") }}</p></div></a></nav>
+<div class="section-head" id="prepare-games"><div><p class="eyebrow">{{ _("Dein Einstieg") }}</p><h2>{{ _("Deine Spiele") }}</h2><p class="muted small">{{ _("Bereite dein Spiel vor und verwende beim Verbinden genau diesen Slotnamen.") }}</p></div></div>
 {% if own %}
 {% for slot in own %}
 <article class="panel own-game-card">
-<div class="row">{{ game_art(slot.game_name, slot.game, true) }}<div><p class="eyebrow">Deine Welt in dieser Runde</p><h3>{{ slot.game_name }}</h3></div></div>
-<div class="slot-identity"><div><small>Dein Spielername im Spiel-Client</small><code id="slot-{{ loop.index }}">{{ slot.slot }}</code></div><button type="button" data-copy="#slot-{{ loop.index }}">Kopieren {{ icon('copy') }}</button></div>
-<details class="technical-options"><summary>Technische Spieldaten</summary><p class="muted small">APWorld-Version: {{ slot.game_version }}{% if slot.apworld_sha256 %} · SHA-256: {{ slot.apworld_sha256[:12] }}…{% endif %}</p></details>
+<div class="row">{{ game_art(slot.game_name, slot.game, true) }}<div><p class="eyebrow">{{ _("Deine Welt in dieser Runde") }}</p><h3>{{ slot.game_name }}</h3></div></div>
+<div class="slot-identity"><div><small>{{ _("Dein Spielername im Spiel-Client") }}</small><code id="slot-{{ loop.index }}">{{ slot.slot }}</code></div><button type="button" data-copy="#slot-{{ loop.index }}">{{ _("Kopieren") }} {{ icon('copy') }}</button></div>
+<details class="technical-options"><summary>{{ _("Technische Spieldaten") }}</summary><p class="muted small">{{ _("APWorld-Version:") }} {{ slot.game_version }}{% if slot.apworld_sha256 %} {{ _("· SHA-256:") }} {{ slot.apworld_sha256[:12] }}…{% endif %}</p></details>
 {% set guide = guides.get(slot.game) %}
 {% if guide and guide.steps %}
-<h4>Installation</h4><pre class="log">{{ guide.steps }}</pre>
-{% if guide.game_version %}<p>Spielversion: {{ guide.game_version }}</p>{% endif %}
-{% if guide.mod_url %}<p><a href="{{ guide.mod_url }}" target="_blank" rel="noopener noreferrer">Mod-/Client-Download</a></p>{% endif %}
-{% if guide.source_url %}<p><a href="{{ guide.source_url }}" target="_blank" rel="noopener noreferrer">Quellinformationen</a></p>{% endif %}
-{% if guide.trouble %}<details><summary>Häufige Probleme</summary><pre class="log">{{ guide.trouble }}</pre></details>{% endif %}
+<h4>{{ _("Installation") }}</h4><pre class="log">{{ guide.steps }}</pre>
+{% if guide.game_version %}<p>{{ _("Spielversion:") }} {{ guide.game_version }}</p>{% endif %}
+{% if guide.mod_url %}<p><a href="{{ guide.mod_url }}" target="_blank" rel="noopener noreferrer">{{ _("Mod-/Client-Download") }}</a></p>{% endif %}
+{% if guide.source_url %}<p><a href="{{ guide.source_url }}" target="_blank" rel="noopener noreferrer">{{ _("Quellinformationen") }}</a></p>{% endif %}
+{% if guide.trouble %}<details><summary>{{ _("Häufige Probleme") }}</summary><pre class="log">{{ guide.trouble }}</pre></details>{% endif %}
 {% endif %}
-<details class="technical-options"><summary>Voraussetzungen, Einrichtung & Downloads für {{ slot.game_name }}</summary>
+<details class="technical-options"><summary>{{ _("Voraussetzungen, Einrichtung & Downloads für") }} {{ slot.game_name }}</summary>
   {% with game_info=setup_infos[slot.game], guide=none, guide_id='slot-guide-' ~ loop.index %}{% include "game_setup_panel.html" %}{% endwith %}
 </details>
 </article>
 {% endfor %}
-{% else %}<p>Du hast in diesem Seed keinen eigenen Slot.</p>{% endif %}
+{% else %}<p>{{ _("Du hast in diesem Seed keinen eigenen Slot.") }}</p>{% endif %}
 
 {% include "connection.html" %}
-{% if not race and build.status == 'succeeded' %}<section class="panel analysis-section"><div class="row spread"><div><p class="eyebrow">Archipelago-Textclient</p><h2>Itemprotokoll & Befehle</h2><p class="muted">Sieh, wer wem welche Items schickt. Verbinde deinen eigenen Slot für Chat, empfangene Items und Hinweise.</p></div><a class="btn primary" href="{{ url_for('console.page',sid=room.id,build_id=build.id) }}">Live-Konsole öffnen</a></div></section>{% endif %}
-<div class="section-head" id="play-files"><div><p class="eyebrow">Deine Spieldateien</p><h2>Benötigte Dateien</h2></div></div>
+{% if not race and build.status == 'succeeded' %}<section class="panel analysis-section"><div class="row spread"><div><p class="eyebrow">{{ _("Archipelago-Textclient") }}</p><h2>{{ _("Itemprotokoll & Befehle") }}</h2><p class="muted">{{ _("Sieh, wer wem welche Items schickt. Verbinde deinen eigenen Slot für Chat, empfangene Items und Hinweise.") }}</p></div><a class="btn primary" href="{{ url_for('console.page',sid=room.id,build_id=build.id) }}">{{ _("Live-Konsole öffnen") }}</a></div></section>{% endif %}
+<div class="section-head" id="play-files"><div><p class="eyebrow">{{ _("Deine Spieldateien") }}</p><h2>{{ _("Benötigte Dateien") }}</h2></div></div>
 {% if build.status == 'succeeded' %}
-<p><a class="btn primary" href="{{ url_for('mvp.build_download', sid=room.id, build_id=build.id) }}">Multiworld-ZIP herunterladen</a></p>
+<p><a class="btn primary" href="{{ url_for('mvp.build_download', sid=room.id, build_id=build.id) }}">{{ _("Multiworld-ZIP herunterladen") }}</a></p>
 {% endif %}
 
 {% if assets %}
-<p class="small muted">Nur Dateien, die in der Multiworld-ZIP vorhanden sind. Die Zuordnung zu einem bestimmten Spielerslot kann je nach APWorld variieren; bitte die jeweilige Mod-Anleitung beachten.</p>
+<p class="small muted">{{ _("Nur Dateien, die in der Multiworld-ZIP vorhanden sind. Die Zuordnung zu einem bestimmten Spielerslot kann je nach APWorld variieren; bitte die jeweilige Mod-Anleitung beachten.") }}</p>
 <div class="panel stack">
 {% for asset in assets %}
   <div class="row spread play-file">
-    <span><code>{{ asset.name }}</code> <small class="muted">({{ (asset.size / 1024)|round(1) }} KiB)</small></span>
-    <a class="btn" href="{{ url_for('mvp.build_asset', sid=room.id, build_id=build.id, file_index=asset.index) }}">Herunterladen</a>
+    <span><code>{{ asset.name }}</code> <small class="muted">({{ (asset.size / 1024)|round(1) }} {{ _("KiB)") }}</small></span>
+    <a class="btn" href="{{ url_for('mvp.build_asset', sid=room.id, build_id=build.id, file_index=asset.index) }}">{{ _("Herunterladen") }}</a>
   </div>
 {% endfor %}
 </div>
 {% else %}
-<p class="muted">Keine separaten Patchdateien im Seed-ZIP gefunden. Viele Spiele benötigen ihren eigenen Client oder ein anderes Patch-Verfahren.</p>
+<p class="muted">{{ _("Keine separaten Patchdateien im Seed-ZIP gefunden. Viele Spiele benötigen ihren eigenen Client oder ein anderes Patch-Verfahren.") }}</p>
 {% endif %}
 {% include "completion.html" %}
-<details class="panel analysis-section" id="play-technical"><summary>Technische Informationen & Check-Analyse</summary><h2>Check-Analyse</h2>
+<details class="panel analysis-section" id="play-technical"><summary>{{ _("Technische Informationen & Check-Analyse") }}</summary><h2>{{ _("Check-Analyse") }}</h2>
 {% if race %}
-<p class="muted">Race-Modus: Die Seed-Analyse ist für diese Runde ausgeblendet.</p>
+<p class="muted">{{ _("Race-Modus: Die Seed-Analyse ist für diese Runde ausgeblendet.") }}</p>
 {% elif stats %}
 <div class="panel table-wrap" id="check-analysis">
-  <table><thead><tr><th>Spiel</th><th>Welten</th><th>Checks mit platziertem Item</th></tr></thead>
+  <table><thead><tr><th>{{ _("Spiel") }}</th><th>{{ _("Welten") }}</th><th>{{ _("Checks mit platziertem Item") }}</th></tr></thead>
     <tbody>{% for game in overview %}<tr><td>{{ game.name }}</td><td>{{ game.players|length }}</td><td>{{ game.locations }}</td></tr>{% endfor %}</tbody>
   </table>
-  <p class="muted small">{{ stats.total_placements }} platzierte Items insgesamt. Gezählt werden adressierte Fundorte mit einem platzierten Item; Events, Startinventar und Item-Link-Gruppenslots sind nicht enthalten.</p>
+  <p class="muted small">{{ stats.total_placements }} {{ _("platzierte Items insgesamt. Gezählt werden adressierte Fundorte mit einem platzierten Item; Events, Startinventar und Item-Link-Gruppenslots sind nicht enthalten.") }}</p>
 </div>
-<p><a class="btn" href="{{ url_for('mvp.build_stats', sid=room.id, build_id=build.id) }}#progression">Progression-Items und Seed-Analyse öffnen</a></p>
+<p><a class="btn" href="{{ url_for('mvp.build_stats', sid=room.id, build_id=build.id) }}#progression">{{ _("Progression-Items und Seed-Analyse öffnen") }}</a></p>
 {% else %}
-<p class="muted">Für diesen Seed sind keine verifizierten Statistikdaten gespeichert. Die Analyse ist verfügbar, sobald ein erfolgreicher Seed mit Statistikdaten vorliegt.</p>
+<p class="muted">{{ _("Für diesen Seed sind keine verifizierten Statistikdaten gespeichert. Die Analyse ist verfügbar, sobald ein erfolgreicher Seed mit Statistikdaten vorliegt.") }}</p>
 {% endif %}
 
-</details><div class="section-head"><div><h2>Mitspieler</h2><p class="muted small">Diese Welten gehören zu eurem gemeinsamen Seed.</p></div></div>
+</details><div class="section-head"><div><h2>{{ _("Mitspieler") }}</h2><p class="muted small">{{ _("Diese Welten gehören zu eurem gemeinsamen Seed.") }}</p></div></div>
 <div class="grid">{% for slot in slots %}<article class="panel"><div class="row">{{ game_art(slot.game_name, slot.game, true) }}<div><h3>{{ slot.slot }}</h3><p class="small muted" style="margin:0">{{ slot.game_name }}</p></div></div></article>{% endfor %}</div>
 {% endblock %}

@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Spiel bearbeiten · {{ item.name }}{% endblock %}
+{% block title %}{{ _("Spiel bearbeiten ·") }} {{ item.name }}{% endblock %}
 {% block content %}
-<p><a href="{{ url_for('game', slug=item.slug) if item.installed else url_for('game_setup', slug=item.slug) }}">← Zum Spiel</a></p>
-<div class="page-head"><div><p class="eyebrow">Euer Spielekatalog</p><h1>{{ item.name }} bearbeiten</h1><p class="muted">Eigene Katalogangaben bleiben beim Wechsel der APWorld-Version erhalten.</p></div></div>
+<p><a href="{{ url_for('game', slug=item.slug) if item.installed else url_for('game_setup', slug=item.slug) }}">{{ _("← Zum Spiel") }}</a></p>
+<div class="page-head"><div><p class="eyebrow">{{ _("Euer Spielekatalog") }}</p><h1>{{ item.name }} {{ _("bearbeiten") }}</h1><p class="muted">{{ _("Eigene Katalogangaben bleiben beim Wechsel der APWorld-Version erhalten.") }}</p></div></div>
 <form method="post" class="panel stack catalog-editor">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   {% include "catalog_fields.html" %}
-  <div class="row"><button class="primary">Spielangaben speichern</button><a class="btn" href="{{ url_for('games') }}">Abbrechen</a></div>
+  <div class="row"><button class="primary">{{ _("Spielangaben speichern") }}</button><a class="btn" href="{{ url_for('games') }}">{{ _("Abbrechen") }}</a></div>
 </form>
 {% if item.metadata %}<form method="post" class="technical-options">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="_action" value="reset">
-  <p class="small muted">Du kannst jederzeit zu den mitgelieferten Katalogangaben zurückkehren.</p><button>Eigene Angaben zurücksetzen</button>
+  <p class="small muted">{{ _("Du kannst jederzeit zu den mitgelieferten Katalogangaben zurückkehren.") }}</p><button>{{ _("Eigene Angaben zurücksetzen") }}</button>
 </form>{% endif %}
 {% endblock %}

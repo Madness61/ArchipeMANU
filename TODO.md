@@ -1,0 +1,162 @@
+# TODO / Roadmap – ArchipeMANU
+
+Stand: 16. November 2026. Dies ist die **priorisierte Aufgabenliste**. Erledigte Punkte beziehen sich auf den gemeinsamen Entwicklungsstand; eine Übernahme nach `main` und reale Spielclient-Tests werden separat bestätigt.
+Technische Stabilisierung und visuelles Redesign sind **zwei getrennte Arbeitspakete**. Die Archipelago-WebHost-Tracker-API und der experimentelle Universal-Logik-Tracker sind **verschiedene Komponenten**.
+
+## Aktuelle Entwicklungszweige prüfen
+
+- [x] [PR #7: Rundenzentrale / vereinfachte Navigation](https://github.com/Madness61/ArchipeMANU/pull/7) im Integrationsbranch enthalten.
+- [x] [PR #8: Standard-Check-Vorschau](https://github.com/Madness61/ArchipeMANU/pull/8) im Integrationsbranch enthalten.
+- [x] [PR #9: Itemprotokoll und Chat im Mittelpunkt](https://github.com/Madness61/ArchipeMANU/pull/9) einschließlich Anmeldekorrekturen im Integrationsbranch enthalten.
+- [x] [PR #10: Roadmap und Dokumentation](https://github.com/Madness61/ArchipeMANU/pull/10) mit dem vorhandenen Funktionsstand abgeglichen.
+- [x] Public-Start als Standard mit `-LocalOnly` als Alternative integriert und dokumentiert.
+- [ ] Gemeinsamen Integrations-PR prüfen und ausdrücklich für die Übernahme nach `main` freigeben.
+- [ ] Die reale Nutzerführung mit mindestens zwei Spielern und einer existierenden Runde im Browser abnehmen. Mock-Tests ersetzen keinen echten Spielclient.
+
+## Universelle Progression-Hilfe und globaler Item-Finder
+
+- [x] Paar-Gesamteffekt von exklusiver Synergie unterscheiden; redundante und nur unabhängige Effekte unterdrücken.
+- [x] Nichtalphabetische Kandidatenauswahl mit Ziel-, Einzelwirkungs-, Nullwirkungs- und Mehrfachkopien-Priorität sowie exakter Suchabdeckung implementieren.
+- [x] Hilfreiche Einzelitems zuerst, echte Paare mit getrenntem Gesamteffekt und Zusatznutzen, gleichwertige Alternativen gruppiert und lange Listen aufklappbar anzeigen.
+- [x] DS3-Basin-Regression mit echten Regeln und zwei Zugangsoptionen ohne fest codierte Checkzahl absichern; Zugangsänderung ohne Small Doll zusätzlich nachweisen.
+- [x] Auf vollständigem Stand von #14 in eigenem Feature-Branch aufbauen; alten UT deaktiviert lassen.
+- [x] Globale Suche direkt bei der Konsole, kombinierbare Filter, getrennte Check-/Empfangsnachweise und persönliche Spoilerfreigabe.
+- [x] Ursprünglichen Seed, YAML-Hashes, aufgelöste Optionen, APWorld-Provenienz, Platzierungen, statische Spheres und Regelproben sichern.
+- [x] Separaten begrenzten Worker für echte Rekonstruktion, Inventar, Einzelitems, Zweierkombinationen und Exemplar-Zielprüfung implementieren.
+- [x] Bei Abweichungen/fehlenden Daten sicher auf Suche und statische Informationen zurückfallen.
+- [x] DE/EN und Light/Dark/System in der bestehenden Rundenzentrale verwenden.
+- [x] Echte isolierte Generierung/Rekonstruktion mit ChecksFinder, Meritous und Custom-Pseudoregalia prüfen.
+- [ ] Item-Link-Gruppen zuverlässig dynamisch auflösen; derzeit ausdrücklich nicht unterstützt.
+- [ ] Weitere APWorlds und gemischte echte Mehrspieler-Seeds prüfen; vorhandene Remote-Item-Tests ersetzen dies nicht.
+- [ ] Zielgerichtete Auswahl über den begrenzten Kandidatenpool hinaus, Tiefe drei und erschöpfende minimale Zielkombinationen ergänzen.
+- [ ] Reale Spielclient-Abnahme durchführen. Die Hilfe bewertet AP-Logik, keine lokalen Storyzustände.
+
+Details, konkrete gemessene Check-Zuwächse und Grenzen: [PROGRESSION_ENGINE.md](PROGRESSION_ENGINE.md).
+
+## Finaler Feinschliff – Historie, Diagnose und Wartbarkeit
+
+- [x] Dauerhafte Ereignishistorie ohne automatisches Abschneiden; paginierte Abfragen beibehalten.
+- [x] Belegte eigene `ReceivedItems` ergänzen und von beobachteten Live-Sendungen unterscheiden; keine Fundzeiten oder weltweite Historien erfinden.
+- [x] Optionale, ausdrücklich freigegebene Host-Aufzeichnung nur über den eigenen Slot, ohne Chat und fremde Anmeldungen.
+- [x] Freigabe, UUID, Betriebszustand und Lease persistent halten; Passwort nur im RAM; Neustart und Unterbrechungen transparent behandeln.
+- [x] Deduplizierung, gemeinsame Lückenmarkierungen, Wiederaufnahme, Rechte-, Race- und Raumschutz testen.
+- [x] Browser/Hub, WebHost-API, persönliche Konsole, Recorder und unbekannten Spielclient unabhängig diagnostizieren.
+- [x] Veraltete aktive Tracker-Werbung entfernen und dynamische DE/EN-Texte einschließlich Fehlern bereinigen.
+- [x] Theme-Farben zentralisieren und redundante Farb-Overrides entfernen, ohne erneutes Redesign.
+- [x] Gesamte Python-/Browser-Suite und echte isolierte Prozessneustarts prüfen; 243 Python-Tests und 20 Browser-Szenarien erfolgreich. Screenshots bei 390/768/1440/2560 px erzeugt und zentrale Ansichten visuell geprüft.
+- [x] [Feinschliff-PR #14](https://github.com/Madness61/ArchipeMANU/pull/14) zur Prüfung bereitstellen; keine automatische Übernahme nach `main`.
+
+Offen bleibt eine reale Mehrspieler-/WLAN-/VPN-Abnahme mit installierten Archipelago-Spielclients. Die automatisierten Protokoll- und Prozessneustarttests verwenden ausschließlich isolierte Daten und lokale Testserver.
+
+## Arbeitspaket A – Verbindungsstabilität und Logik-Tracker deaktivieren
+
+**Priorität: höchste. Eigenständiger Feature-Branch und PR, vor dem UX-Redesign.**
+
+### A1 – Ursache der Verbindungsabbrüche reproduzieren
+
+- [x] Vier Verbindungsarten auseinanderhalten: Browser ↔ Hub, Hub ↔ WebHost-API, Hub ↔ Archipelago-WebSocket, lokaler Spielclient ↔ Archipelago-Server.
+- [ ] Reale WLAN-/VPN- und Spielclient-Abnahme nachstellen (automatisierte Protokoll-/Hintergrundtests sind umgesetzt): Browser im Hintergrund/anderer Tab, Spiel im Vordergrund, 30+ Minuten, kurzzeitiges WLAN-/VPN-Problem, abgelaufene Authentifizierung, Server nicht erreichbar, Raum gewechselt.
+- [x] In `hub/ap_console.py` die 30-Minuten-Inaktivitätslogik (`IDLE_SECONDS` / `last_seen`) prüfen; die Textverbindung darf nicht nur wegen eines nicht sichtbaren Browserfensters enden.
+- [x] Bei jedem Ausfall Ursache, Zeitpunkt, Verbindungsart und Wiederherstellungsstatus nachvollziehbar protokollieren, ohne Passwörter oder private Nachrichten zu loggen.
+
+### A2 – Zuverlässiger Archipelago-WebSocket
+
+- [x] Eine **ausdrücklich gestartete** serverseitige Textverbindung während einer aktiven Runde unabhängig vom sichtbaren Browser erhalten; Autorisierung weiterhin regelmäßig prüfen.
+- [x] Automatische Wiederverbindung für **transiente** Netzwerk-, Socket-, Ping- und Timeoutfehler mit begrenztem exponential Backoff plus Jitter implementieren.
+- [x] Bei falschem Passwort, ungültigem Slot, Seed-Mismatch, fehlenden Rechten, Logout, absichtlichem Trennen und abgeschlossenen Runden **nicht** automatisch erneut anmelden.
+- [x] Bestehende Slot-/Seedprüfung, Race-Schutz, WS/WSS-TLS-Regeln und Rechte erhalten; keine automatische Wiederholung bereits gesendeter Chatnachrichten oder Befehle.
+- [x] Nach Reconnect Serverzustand und Empfangsliste erneut synchronisieren, Deduplizierung fortsetzen, alten Socket und Worker zuverlässig entsorgen; pro Benutzer/Seed keine parallelen Reconnect-Schleifen.
+- [x] Verpasste ItemSend-Ereignisse **nicht erfinden**: Unterbrechungszeitraum im Protokoll erkennbar machen, vergangene Sendungen nur anzeigen, wenn tatsächlich nachweisbar.
+- [x] Prüfen, ob eine bewusst aktivierte serverseitige Beobachterverbindung den gruppenweiten Item-Feed robuster macht. Keine fremden Slots ohne Autorisierung verwenden.
+- [x] Authentifizierungsgeheimnisse nur solange nötig im Arbeitsspeicher behalten; nach Beendigung verwerfen. Nach Prozessneustart keine nahtlose Verbindung ohne erforderliche Daten behaupten.
+
+### A3 – WebHost-API und Statusanzeige
+
+- [x] Offizielle Raumports automatisch übernehmen; laufende Textkonsole bei Portwechsel desselben Raums erneut verbinden und Verlauf erhalten. Manuelle Server bleiben konfigurierbar; lokale Spielclients müssen separat aktualisiert werden.
+- [x] `hub/live_api.py` / `hub/live_store.py` auf Timeout, HTTP 429/5xx, unvollständige Antworten, Raum-/Trackerwechsel, Collector-Neustart und mehrere parallele Browser überprüfen.
+- [x] Vorhandene gemeinsame Caches und upstream TTLs (dynamisch ca. 60 s, statisch ca. 300 s) erhalten; kontrollierte Retries/Backoff und `Retry-After` berücksichtigen, soweit vorhanden.
+- [x] Letzten erfolgreichen Fortschrittsstand weiter anzeigen, aber als **veraltet** markieren; WebHost-Fehler dürfen die WebSocket-Konsole nicht als „offline“ markieren.
+- [x] In der Konsole den Unterschied zwischen `connected`, `reconnecting`, `temporarily unavailable`, `action required` und absichtlich `disconnected` nachvollziehbar darstellen.
+- [x] Letzten erfolgreichen Kontakt, Fehlerursache und nächsten Versuch in einer kompakten Diagnoseansicht anzeigen.
+- [x] Lokale Spielclient-Verbindung **unbekannt** nennen, solange sie nicht verlässlich gemessen wird. Konsole ≠ Spielclient.
+- [x] Browser-Polling auf überlappende Requests, Tab-Wechsel, Sessionablauf und Verlust von nicht gesendeten Chatentwürfen testen.
+
+### A4 – Experimentellen Universal-Logik-Tracker aus dem Produkt nehmen
+
+- [x] Universal-Logik-Tracker / „Erreichbare Checks“ / Go-Mode aus produktiver Navigation, Rundenzentrale und Spielstart entfernen.
+- [x] Automatische Universal-Tracker-Berechnungen, zugehörige Worker und unnötige Logik-Endpunkte deaktivieren; alte URLs verständlich umleiten oder mit Hinweis beantworten.
+- [x] Historischen Code über Git verfügbar lassen; keine produktiven Benutzer-, Seed- oder Eventdaten unnötig löschen.
+- [x] **Nicht entfernen:** offizielle WebHost-Tracker-API, Check-/Fortschrittszähler, Live-Dashboard, Itemprotokoll, Chat, `/received`, `/missing`, `/hint`, Seed-Statistiken und Standard-Check-Vorschau.
+- [x] Tests und Dokumentation an die neue Produktgrenze anpassen; nicht mehr vorhandene Trackerfunktionen nicht weiter in README/Navigation anpreisen.
+
+### A5 – Technische Abnahme
+
+- [x] Mit isoliertem Archipelago-Testserver und gezielten Zeit-/Ping-Simulationen testen: kurze und längere Abbrüche, simulierte 30-Minuten-Hintergrundzeit, Ping-Timeout, Reconnect, wiederholte Events, falsches Passwort, falscher Slot, Logout, Raumwechsel, Re-Login.
+- [x] Sicherstellen, dass Chat- und Serverbefehle nicht doppelt gesendet werden.
+- [x] API-Tests für HTTP 429, Timeout, 5xx, stale cache, mehrere offene Browser und Reset/Trackerwechsel.
+- [x] Gesamte Python- und Playwright-Suite ausführen; realen Mehrspieler-Langzeittest **separat** kennzeichnen.
+- [x] `CONNECTION_RELIABILITY.md` mit Zustandsmodell, Grenzen, Backoff, Fehlerdiagnose und manueller Fehlerbehebung ergänzen.
+
+**Definition of Done A:** Während eines Spieleabends bleibt eine aktivierte Textverbindung auch ohne sichtbaren Browser bestehen; vorübergehende Verbindungsabbrüche werden automatisch behoben, irreparable Fehler korrekt erklärt, vergangene Nachrichten nicht dupliziert oder erfunden. Der experimentelle Logik-Tracker ist aus der produktiven Oberfläche entfernt.
+
+## Arbeitspaket B – UX-Redesign, DE/EN, Light/Dark
+
+**Priorität: nach A. Eigenständiger Feature-Branch und PR auf dem stabilisierten Stand.**
+
+### B1 – Laufende Runde neu priorisieren
+
+- [x] Die **Live-Konsole** als Herzstück laufender Runden behalten: Finder → Empfänger, Item, Check, Chat und Befehle direkt sichtbar.
+- [x] Konsole auf Desktop im Hauptbereich priorisieren; ergänzende Spiel- und Verbindungsinformationen erreichbar halten. Auf Mobilgeräten Konsole zuerst.
+- [x] Vorbereitung, laufende Runde und Abschluss visuell und funktional unterscheiden; in der Vorbereitung Spielauswahl/Bereitschaft und beim Abschluss Ergebnisse priorisieren.
+- [x] Gleichartige große Karten, redundante Host-/Portanzeigen und unnötige Scrollstrecken reduzieren; Features **nicht** in zusätzliche verschachtelte Tabs verstecken.
+- [x] Die Archipelago-Fachbegriffe **beibehalten**; die Gruppe kennt Seed, Slot, Check, APWorld und Go-Mode.
+
+### B2 – Konsole als soziales Erlebnis
+
+- [x] Schnellfilter: Alle, Für mich, Von mir, Andere Spieler, Chat und System. Bestehende Suche/Protokollhistorie erhalten.
+- [x] Persönlich empfangene Items visuell hervorheben; konsistente Spielerfarben in Konsole, Spielerkarten und Charts nutzen.
+- [x] Vollständigen Finder-/Empfänger-/Item-/Location-Kontext anzeigen, wenn vom Server geliefert; keine erfundenen Namen/Zeiten.
+- [x] Status aus Arbeitspaket A (verbunden, Reconnect, Unterbrechung, letzter Kontakt) unaufdringlich im Konsolenkopf anzeigen.
+- [x] Bestehende private Nachrichten, Rollen, Race- und Spoilerregeln unangetastet lassen.
+
+### B3 – Deutsch / Englisch
+
+- [x] Zentralisierte Übersetzungsressourcen und einheitliche Übersetzungs-API für **Jinja und JavaScript** implementieren.
+- [x] Beide Sprachen vollständig abdecken: Navigation, Formulare, Hilfen, Fehlermeldungen, Status, Admin, Konsolen-UI und kuratierte Installationsanleitungen.
+- [x] Sprache direkt umschaltbar; Einstellung im Profil speichern, Browser-Sprache beim ersten Besuch optional nutzen; dokumentierter Fallback.
+- [x] Zeit-, Datums- und Zahlenformate lokalisieren. Spiel-, Slot-, Item- und Location-Namen, YAML-Schlüssel sowie originale Archipelago-Servermeldungen und -Befehle **nicht übersetzen**.
+- [x] Tests für fehlende Übersetzungen und dynamisch erzeugte Fehlermeldungen ergänzen.
+
+### B4 – Light / Dark / System
+
+- [x] Beide Themes vollständig über zentrale Design-Tokens umsetzen, inklusive Konsole, Diagrammen, Tabellen, Formularen und Statusfarben; nicht nur CSS-Farben invertieren.
+- [x] Wahl `light` / `dark` / `system` anbieten, im Profil speichern, ohne Seitenreload wechseln und vor dem sichtbaren Rendern anwenden (kein Theme-Flash).
+- [x] Lesbare Kontraste, Tastaturfokus, responsive Layouts und `prefers-reduced-motion` prüfen.
+- [x] Desktop/Tablet/Mobil bei 390, 768, 1440 und 2560 px mit DE/EN und beiden Themes visuell testen.
+
+### B5 – Abnahme
+
+- [x] User-Flow von neuer Lobby bis Spielstart und Item-Austausch automatisiert mit isoliertem Protokollserver geprüft.
+- [ ] Diesen Ablauf zusätzlich mit echten Spielclients und mindestens zwei Spielern manuell abnehmen.
+- [x] Automatisierte Tests für Sprache, Theme-Persistenz, Konsolenfilter, Spielerkarten, Rechte, Setup-/Download-Aktionen und Verbindungsstatus.
+- [x] `DESIGN_SYSTEM.md`, Übersetzungshinweise und README aktualisieren.
+
+**Definition of Done B:** Eine laufende Runde öffnet direkt die große, gut lesbare Konsole; ergänzende Aufgaben bleiben schnell erreichbar. Jede wesentliche Seite funktioniert in DE und EN sowie Light und Dark einschließlich dynamischer Meldungen.
+
+## Später / optional – nicht in die beiden Hauptaufträge mischen
+
+- [ ] Opt-in-Benachrichtigungen für Items an den eigenen Slot (keine ungefragten Sounds oder Benachrichtigungen).
+- [ ] Optionale Spieleravatare und stabile, gut unterscheidbare Spielerfarben.
+- [ ] Persönliche Einrichtungs-Checkliste pro Spiel (manuell bestätigte Schritte klar von automatisch geprüften trennen).
+- [ ] Präsentations-/Stream-Ansicht mit Item-Feed und Gruppenfortschritt.
+- [ ] Reale Ende-zu-Ende-Tests mit ausgewählten Spielclients und einem längeren Spieleabend; Ergebnisse und bekannte Versionskombinationen dokumentieren.
+
+## Nicht Teil des aktuellen Umfangs
+
+- Kein Wiederaktivieren des alten Universal-Trackers. Die neue generische Seed-Rekonstruktion ist ein separater Auftrag mit ausdrücklicher Validierung und Rückfallstufen; sie verspricht keine universelle lokale Spielzustandserkennung.
+- Keine automatische lokale Mod-/ROM-Installation.
+- Keine unbestätigten Online- oder Zustellungsnachweise und keine erfundenen Eventzeiten.
+- Keine direkte Umgestaltung der komplexen Seed-Generierung im Rahmen des UI-Redesigns.
+- Kein ungeprüfter Merge der voneinander abhängigen offenen PRs.
+
+**Arbeitsregel:** Für A und B jeweils einen eigenen PR mit nachvollziehbaren Tests und einer klaren Beschreibung, was *wirklich* mit echten Spielclients geprüft wurde.

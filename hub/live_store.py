@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timezone
 
 from . import config, db, live_api, live_metrics
+from . import i18n
 
 POLL_SECONDS = 60
 LEASE_SECONDS = 55
@@ -77,23 +78,36 @@ def migrate():
                          (row["build_id"], identifier, row["entered_by"], time.time()))
 
 
-def attach(build_id, url, actor, auto_host=False):
+def attach(build_id, url, actor, auto_host=False, *, connection=None):
     identifier = live_api.room_id(url)
     now = time.time()
-    with db.transaction() as conn:
-        conn.execute("BEGIN IMMEDIATE")
-        conn.execute("UPDATE live_rooms SET active=0 WHERE build_id=?", (build_id,))
-        conn.execute("""INSERT INTO live_rooms(build_id,room_id,entered_by,auto_host,created_at)
-            VALUES (?,?,?,?,?) ON CONFLICT(build_id,room_id) DO UPDATE SET
-            active=1,entered_by=excluded.entered_by,auto_host=excluded.auto_host,
-            created_at=excluded.created_at,next_poll=0""",
-                     (build_id, identifier, actor, int(auto_host), now))
-        live_id = conn.execute("SELECT id FROM live_rooms WHERE build_id=? AND active=1", (build_id,)).fetchone()["id"]
-    return live_id
+    if connection is None:
+        with db.transaction() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            return attach(build_id, url, actor, auto_host, connection=conn)
+    conn = connection
+    conn.execute("UPDATE live_rooms SET active=0 WHERE build_id=?", (build_id,))
+    conn.execute("""INSERT INTO live_rooms(build_id,room_id,entered_by,auto_host,created_at)
+        VALUES (?,?,?,?,?) ON CONFLICT(build_id,room_id) DO UPDATE SET
+        active=1,entered_by=excluded.entered_by,auto_host=excluded.auto_host,
+        created_at=excluded.created_at,next_poll=0""",
+                 (build_id, identifier, actor, int(auto_host), now))
+    return conn.execute("SELECT id FROM live_rooms WHERE build_id=? AND active=1", (build_id,)).fetchone()["id"]
 
 
 def current(build_id):
     return db.query("SELECT * FROM live_rooms WHERE build_id=? AND active=1", (build_id,), one=True)
+
+
+def official_address(room_url, host, identifier=None):
+    """Only an official room can supply the port of archipelago.gg itself."""
+    if host != "archipelago.gg":
+        return False
+    try:
+        actual = live_api.room_id(room_url)
+        return identifier is None or actual == identifier
+    except ValueError:
+        return False
 
 
 def cached_api(endpoint, identifier, now):
@@ -140,6 +154,10 @@ def refresh(live_id, now=None):
     room_data = None
     try:
         room_data, _ = cached_api("room_status", room["room_id"], now)
+        # Port discovery must not wait for (or depend on) a working tracker.
+        with db.transaction() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            _update_address(conn, room, room_data, now)
         tracker_id = room_data.get("tracker")
         try:
             live_api.suuid(tracker_id)
@@ -176,16 +194,16 @@ def refresh(live_id, now=None):
             conn.execute("""UPDATE live_rooms SET tracker_id=?,room_json=?,latest_json=?,state='ready',
                 error='',last_success=?,next_poll=?,lease_until=0 WHERE id=?""",
                          (tracker_id, db.dumps(room_data), db.dumps(metrics), source_at, now + POLL_SECONDS, live_id))
-            _update_address(conn, room, room_data, now)
         return True
     except live_api.APIError as exc:
+        # An unavailable tracker must not slow down a healthy room-status feed.
+        # cached_api still honors each upstream endpoint's own Retry-After.
+        retry_after = min(POLL_SECONDS, exc.retry_after) if room_data else exc.retry_after
         with db.transaction() as conn:
             conn.execute("""UPDATE live_rooms SET state=?,error=?,next_poll=?,lease_until=0,
                 room_json=COALESCE(?,room_json) WHERE id=? AND active=1""",
-                         (exc.kind, str(exc), now + exc.retry_after,
+                         (exc.kind, str(exc), now + retry_after,
                           db.dumps(room_data) if room_data else None, live_id))
-            if room_data:
-                _update_address(conn, room, room_data, now)
         return False
     except Exception:
         logging.exception("Live collector failed for local connection %s", live_id)
@@ -200,13 +218,18 @@ def _update_address(conn, linked, room_data, now):
     port = live_metrics.number(room_data.get("last_port"), 1)
     if not linked["auto_host"] or port is None or port > 65535:
         return
-    active = conn.execute("SELECT active,auto_host,entered_by FROM live_rooms WHERE id=?", (linked["id"],)).fetchone()
-    if not active or not active["active"] or not active["auto_host"]:
+    active = conn.execute("""SELECT l.active,l.auto_host,l.entered_by,b.completed_at FROM live_rooms l
+        JOIN seed_builds b ON b.id=l.build_id WHERE l.id=?""", (linked["id"],)).fetchone()
+    if not active or not active["active"] or not active["auto_host"] or active["completed_at"]:
         return
     previous = conn.execute("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1",
                             (linked["build_id"],)).fetchone()
     link = f"{live_api.ORIGIN}/room/{linked['room_id']}"
-    if previous and previous["host"] == "archipelago.gg" and previous["port"] == port and previous["room_url"] == link:
+    if previous and official_address(previous["room_url"], previous["host"], linked["room_id"]):
+        # Same room, same journal identity. A port rotation isn't a new room.
+        # Manual saves and actual room changes still create a new endpoint ID.
+        if previous["port"] != port:
+            conn.execute("UPDATE hosted_rooms SET port=?,confirmed=0 WHERE id=?", (port, previous["id"]))
         return
     actor = conn.execute("SELECT id FROM users WHERE id=?", (active["entered_by"],)).fetchone()
     if not actor:
@@ -295,6 +318,13 @@ def presentation(linked, build, window="6h", now=None):
     events = [dict(id=r["id"], at=iso(r["observed_at"]), since=iso(r["since_at"]),
                    kind=r["kind"], player=r["player_key"], text=r["message"]) for r in db.query(
         "SELECT * FROM live_events WHERE live_id=? ORDER BY id DESC LIMIT 100", (linked["id"],))]
+    names={p['key']:p['name'] for p in (data or {}).get('players',[])}
+    for event in events:
+        prefix=names.get(event['player'],'')+': '
+        if event['player'] in names and event['text'].startswith(prefix):
+            event['text']=prefix+i18n.t(event['text'][len(prefix):])
+        else:
+            event['text']=i18n.t(event['text'])
     room_info = db.loads(linked["room_json"])
     expected = sorted((s["slot"], s["game_name"]) for s in metadata.get("slots", []))
     actual = room_info.get("players")

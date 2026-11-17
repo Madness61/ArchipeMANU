@@ -1,6 +1,14 @@
 // Small progressive enhancements; every page works without JS except the name pickers.
 (function () {
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  // Never replace a page with an English 401 or silently discard an open composer.
+  window.HUB_AUTH_REQUIRED = loginUrl => {
+    const notice=document.getElementById('auth-required'),link=document.getElementById('auth-required-link');
+    if(!notice||!link)return;
+    const target=new URL(loginUrl||'/login',location.origin);
+    if(target.origin!==location.origin||target.pathname!=='/login')return;
+    link.href=target.href;notice.classList.add('flash','warn');notice.hidden=false;
+  };
 
   // One navigation drawer on small screens, with keyboard focus containment.
   const menuToggle = document.getElementById("menu-toggle");
@@ -13,7 +21,7 @@
     const active = open && mobile.matches;
     document.body.classList.toggle("menu-open", active);
     menuToggle.setAttribute("aria-expanded", String(active));
-    menuToggle.setAttribute("aria-label", active ? "Menü schließen" : "Menü öffnen");
+    menuToggle.setAttribute("aria-label", active ? window.HUB_I18N.t("Menü schließen") : window.HUB_I18N.t("Menü öffnen"));
     menuToggle.querySelector("use").setAttribute("href", menuToggle.querySelector("use").getAttribute("href").replace(/#[^#]+$/, active ? "#close" : "#menu"));
     scrim.hidden = !active;
     main.inert = active;
@@ -56,18 +64,18 @@
         const item = document.createElement("li"), name = document.createElement("strong");
         name.textContent = option.dataset.optionName;
         const field = option.querySelector("[id^='f-']");
-        const current = field?.type === "checkbox" ? (field.checked ? "An" : "Aus") : field?.value || "Komplexer Wert";
+        const current = field?.type === "checkbox" ? (field.checked ? "An" : "Aus") : field?.value || window.HUB_I18N.t("Komplexer Wert");
         item.append(name, document.createTextNode(" · " + current.slice(0,120)));
         list.append(item);
       });
       editor.querySelector("[data-change-count]").textContent = String(changed.length);
-      if (!changed.length) { const item = document.createElement("li"); item.textContent = "Keine angepassten Werte."; list.append(item); }
+      if (!changed.length) { const item = document.createElement("li"); item.textContent = window.HUB_I18N.t("Keine angepassten Werte."); list.append(item); }
     };
     const filterOptions = () => {
-      const query = search.value.toLocaleLowerCase("de").trim();
+      const query = search.value.toLocaleLowerCase(window.HUB_I18N.locale).trim();
       let count = 0;
       options.forEach(option => {
-        const visible = !query || option.textContent.toLocaleLowerCase("de").includes(query) || option.dataset.optionKey.includes(query);
+        const visible = !query || option.textContent.toLocaleLowerCase(window.HUB_I18N.locale).includes(query) || option.dataset.optionKey.includes(query);
         option.hidden = !visible; if (visible) count++;
       });
       groups.forEach(group => {
@@ -76,7 +84,7 @@
         if (query && !group.hidden) group.open = true;
         if (!query && openStates.has(group)) { group.open = openStates.get(group); openStates.delete(group); }
       });
-      editor.querySelector("[data-option-count]").textContent = count + " von " + options.length + " Optionen";
+      editor.querySelector("[data-option-count]").textContent = count + window.HUB_I18N.t(" von ") + options.length + window.HUB_I18N.t(" Optionen");
       editor.querySelector("[data-options-empty]").hidden = count > 0;
     };
     search.addEventListener("input", filterOptions);
@@ -92,7 +100,7 @@
     if (!chooseGame) return;
     const selected = chooseGame.selectedOptions[0];
     const title = document.querySelector("[data-chosen-game-name]");
-    if (title) title.textContent = chooseGame.value ? selected.textContent : "Welche Welt wird deine?";
+    if (title) title.textContent = chooseGame.value ? selected.textContent : window.HUB_I18N.t("Welche Welt wird deine?");
     const art = document.querySelector(".selection-art .game-art");
     if (art && selected?.dataset.hue) art.style.setProperty("--game-hue", selected.dataset.hue);
     document.querySelectorAll("[data-choose-game]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.chooseGame === chooseGame.value)));
@@ -116,7 +124,7 @@
   const libraryFilters = document.getElementById("library-filters");
   if (libraryFilters) {
     const cards = $$("[data-library-game]").map(card => ({
-      card, search: card.dataset.search, kind: card.dataset.kind,
+      card, search: (card.dataset.search+' '+[...card.querySelectorAll('.genre-tags .chip,.catalog-tags .chip')].map(node=>node.textContent).join(' ')).toLocaleLowerCase(window.HUB_I18N.locale), kind: card.dataset.kind,
       state: card.dataset.state, genres: JSON.parse(card.dataset.genres), tags: JSON.parse(card.dataset.tags), setup: card.dataset.setup,
     }));
     const fields = ["q", "kind", "state", "genre", "tag", "setup"];
@@ -134,7 +142,7 @@
         item.card.hidden = !visible;
         if (visible) count++;
       });
-      document.getElementById("library-count").textContent = `${count} von ${cards.length} Spielen`;
+      document.getElementById("library-count").textContent = window.HUB_I18N.t('{v0} von {v1} Spielen',{v0:count.toLocaleString(window.HUB_I18N.locale),v1:cards.length.toLocaleString(window.HUB_I18N.locale)});
       document.getElementById("library-empty").hidden = count > 0;
       if (updateUrl) {
         const url = new URL(location.href);
@@ -175,7 +183,7 @@
     if (!target) return;
     const value = target.textContent.trim();
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(value).then(() => { button.textContent = "Kopiert"; });
+      navigator.clipboard.writeText(value).then(() => { button.textContent = window.HUB_I18N.t("Kopiert"); });
     } else {
       button.title = value;
     }
@@ -205,20 +213,31 @@
     sessionRefreshing = true;
     const status = document.getElementById("session-refresh-status");
     const participants = document.getElementById("participants-section");
-    status.textContent = "Teilnehmer und generierte Runden werden aktualisiert …";
+    status.textContent = window.HUB_I18N.t("Teilnehmer und generierte Runden werden aktualisiert …");
     participants?.setAttribute("aria-busy", "true");
     button.setAttribute("aria-disabled", "true");
     try {
       const response = await fetch(button.href, {cache: "no-store", headers: {"Accept": "text/html"}});
-      if (!response.ok) throw new Error("Refresh failed");
+      if (!response.ok) throw new Error(window.HUB_I18N.t("Refresh failed"));
       const page = new DOMParser().parseFromString(await response.text(), "text/html");
-      if (!page.getElementById("participants-section")) throw new Error("Session unavailable");
+      if (!page.getElementById("round-center") && !page.getElementById("participants-section")) throw new Error(window.HUB_I18N.t("Session unavailable"));
       const drafts = $$("form[data-preserve-draft][data-dirty='1']").map(form => ({
         id: form.id,
         fields: $$("input,select,textarea", form).filter(field => field.name !== "_csrf").map(field => ({
           name: field.name, value: field.value, checked: field.checked,
         })),
       }));
+      const currentRound = document.getElementById("round-center"), nextRound = page.getElementById("round-center");
+      if (currentRound && nextRound && (currentRound.dataset.phase !== nextRound.dataset.phase || currentRound.dataset.buildStatus !== nextRound.dataset.buildStatus)) {
+        if (drafts.length) {
+          status.textContent = window.HUB_I18N.t("Der Rundenstatus hat sich geändert. Deine Eingaben bleiben hier erhalten. Öffne die Runde erneut, um den neuen Stand zu sehen.");
+          return;
+        }
+        history.replaceState(null, "", response.url + "#play");
+        location.reload();
+        return;
+      }
+      if (currentRound && nextRound) Object.assign(currentRound.dataset, nextRound.dataset);
       $$("[data-refresh-fragment], #main-navigation").forEach(fragment => {
         const updated = page.getElementById(fragment.id);
         if (updated) fragment.replaceWith(updated);
@@ -232,9 +251,9 @@
           if (field) { field.value = saved.value; if (typeof saved.checked === "boolean") field.checked = saved.checked; }
         });
       });
-      status.textContent = "Teilnehmer und generierte Runden wurden aktualisiert.";
+      status.textContent = window.HUB_I18N.t("Teilnehmer und generierte Runden wurden aktualisiert.");
     } catch {
-      status.textContent = "Aktualisierung fehlgeschlagen. Bitte erneut versuchen oder neu anmelden. Deine Eingaben bleiben erhalten.";
+      status.textContent = window.HUB_I18N.t("Aktualisierung fehlgeschlagen. Bitte erneut versuchen oder neu anmelden. Deine Eingaben bleiben erhalten.");
     } finally {
       document.getElementById("participants-section")?.removeAttribute("aria-busy");
       document.querySelectorAll("[data-session-refresh]").forEach(link => link.removeAttribute("aria-disabled"));
@@ -254,10 +273,10 @@
       const target = details.querySelector(".progression-world");
       const fallback = details.querySelector(".progression-fallback");
       loading = true;
-      target.textContent = "Fundorte werden geladen …";
+      target.textContent = window.HUB_I18N.t("Fundorte werden geladen …");
       try {
         const response = await fetch(details.dataset.progressionUrl, { headers: { "Accept": "application/json" }, cache: "no-store" });
-        if (!response.ok) throw new Error("Reveal failed");
+        if (!response.ok) throw new Error(window.HUB_I18N.t("Reveal failed"));
         const data = await response.json();
         const list = document.createElement("ul");
         data.worlds.forEach((world) => {
@@ -271,7 +290,7 @@
         fallback.hidden = true;
         loaded = true;
       } catch {
-        target.textContent = "Fundorte konnten nicht geladen werden. Erneut aufklappen oder den Link unten verwenden.";
+        target.textContent = window.HUB_I18N.t("Fundorte konnten nicht geladen werden. Erneut aufklappen oder den Link unten verwenden.");
       } finally {
         loading = false;
       }
@@ -318,10 +337,10 @@
 
   // Session page: template dropdowns depend on the chosen game.
   const templatesFor = (slug) => fetch(window.HUB_TEMPLATES_URL.replace("__SLUG__", encodeURIComponent(slug))).then((r) => r.json());
-  const label = (t) => (t.is_default ? "★ " : "") + t.name + " · " + (t.ref === "default" ? "Spielvorgaben" : t.source)
-    + (t.summary?.length ? ` · ${t.summary.length} Änderungen` : "");
+  const label = (t) => (t.is_default ? "★ " : "") + (t.ref==='default'?window.HUB_I18N.t(t.name):t.name) + ' · ' + window.HUB_I18N.t(t.ref === 'default' ? window.HUB_I18N.t('Spielvorgaben') : t.source)
+    + (t.summary?.length ? window.HUB_I18N.t(' · {v0} Änderungen',{v0:t.summary.length.toLocaleString(window.HUB_I18N.locale)}) : "");
   const templateOption = (t) => {
-    const option = new Option(label(t) + (t.compatible === false ? " (inkompatibel)" : ""), t.ref);
+    const option = new Option(label(t) + (t.compatible === false ? window.HUB_I18N.t(' (inkompatibel)') : ""), t.ref);
     option.disabled = t.compatible === false;
     return option;
   };
@@ -337,21 +356,21 @@
       const target = document.getElementById("template-explanation");
       if (!target) return;
       const baseButton = document.getElementById("use-base-values");
-      baseButton.textContent = selected && selected.ref !== "default" ? "Vorlage übernehmen" : "Standardwerte übernehmen";
+      baseButton.textContent = selected && selected.ref !== "default" ? window.HUB_I18N.t("Vorlage übernehmen") : window.HUB_I18N.t("Standardwerte übernehmen");
       if (!selected) {
-        target.textContent = addGame.value ? "Die Standardauswahl wird beim Übernehmen geprüft." : "Wähle ein Spiel, um seine Grundeinstellungen zu sehen.";
+        target.textContent = addGame.value ? window.HUB_I18N.t("Die Standardauswahl wird beim Übernehmen geprüft.") : window.HUB_I18N.t("Wähle ein Spiel, um seine Grundeinstellungen zu sehen.");
         return;
       }
       const title = document.createElement("strong");
       title.textContent = selected.name;
       const description = document.createElement("p");
       description.className = "small";
-      description.textContent = selected.description;
+      description.textContent = selected.ref==='default'?window.HUB_I18N.t(selected.description):selected.description;
       target.replaceChildren(title, description);
       if (selected.summary?.length) {
         const heading = document.createElement("p");
         heading.className = "small muted";
-        heading.textContent = `${selected.summary.length} Abweichungen vom Spiel-Standard:`;
+        heading.textContent = window.HUB_I18N.t('{v0} Abweichungen vom Spiel-Standard:',{v0:selected.summary.length.toLocaleString(window.HUB_I18N.locale)});
         const summary = document.createElement("ul");
         summary.className = "summary";
         selected.summary.slice(0, 6).forEach(([name, value]) => {
@@ -363,7 +382,7 @@
         if (selected.summary.length > 6) {
           const more = document.createElement("p");
           more.className = "small muted";
-          more.textContent = "Weitere Werte siehst du unter „Einstellungen anpassen“.";
+          more.textContent = window.HUB_I18N.t("Weitere Werte siehst du unter „Einstellungen anpassen“.");
           target.append(more);
         }
       }
@@ -374,7 +393,7 @@
       const editor = document.getElementById("selection-editor");
       if (editor) editor.hidden = true;
       currentTemplates = [];
-      addRef.replaceChildren(new Option("Standardauswahl der Gruppe", ""));
+      addRef.replaceChildren(new Option(window.HUB_I18N.t("Standardauswahl der Gruppe"), ""));
       explainTemplate();
       if (!slug) return;
       templatesFor(slug).then((list) => {
@@ -383,7 +402,7 @@
           currentTemplates = list;
           explainTemplate();
         }
-      }).catch(() => { addRef.title = "Vorlagen konnten nicht geladen werden. Die Auswahl funktioniert auch mit dem Gruppen-Standard."; });
+      }).catch(() => { addRef.title = window.HUB_I18N.t("Vorlagen konnten nicht geladen werden. Die Auswahl funktioniert auch mit dem Gruppen-Standard."); });
     });
     addRef.addEventListener("change", () => {
       const editor = document.getElementById("selection-editor");

@@ -1,0 +1,7 @@
+<form class="appearance-form" action="{{ url_for('save_preferences') }}" method="post" aria-label="{{ _("Sprache und Darstellung") }}">
+<input type="hidden" name="_csrf" value="{{ csrf_token }}">
+<label>{{ _("Sprache") }}<select name="language" data-preference="language"><option value="de" {% if ui_prefs.language=='de' %}selected{% endif %}>{{ _("Deutsch") }}</option><option value="en" {% if ui_prefs.language=='en' %}selected{% endif %}>{{ _("English") }}</option></select></label>
+<label>{{ _("Darstellung") }}<select name="theme" data-preference="theme"><option value="dark" {% if ui_prefs.theme=='dark' %}selected{% endif %}>{{ _("Dunkel") }}</option><option value="light" {% if ui_prefs.theme=='light' %}selected{% endif %}>{{ _("Hell") }}</option><option value="system" {% if ui_prefs.theme=='system' %}selected{% endif %}>{{ _("System") }}</option></select></label>
+<span class="small muted" role="status" aria-live="polite"></span>
+<noscript><button>{{ _("Speichern") }}</button></noscript>
+</form>

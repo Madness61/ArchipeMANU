@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% from "option_fields.html" import field with context %}
 {% from "ui.html" import option_tools with context %}
-{% block title %}Slotoptionen · {{ schema.game }}{% endblock %}
+{% block title %}{{ _("Slotoptionen ·") }} {{ schema.game }}{% endblock %}
 {% block content %}
-<p><a href="{{ url_for('session_view', sid=room.id) }}">← Zur Lobby</a></p>
-<h1>Deine Optionen · {{ schema.game }}</h1>
-<p class="muted">Priorität: APWorld-Standard → gewählte Vorlage → dein Spielerprofil → diese Lobby-Einstellungen. Deine Lobby-Änderungen haben immer Vorrang.</p>
-<p class="muted small">Die gewählte Vorlage wird für diesen Slot als Kopie fixiert. Für eine neue Vorlagenfassung die Vorlage in der Lobby erneut auswählen.</p>
+<p><a href="{{ url_for('session_view', sid=room.id) }}">{{ _("← Zur Lobby") }}</a></p>
+<h1>{{ _("Deine Optionen ·") }} {{ schema.game }}</h1>
+<p class="muted">{{ _("Priorität: APWorld-Standard → gewählte Vorlage → dein Spielerprofil → diese Lobby-Einstellungen. Deine Lobby-Änderungen haben immer Vorrang.") }}</p>
+<p class="muted small">{{ _("Die gewählte Vorlage wird für diesen Slot als Kopie fixiert. Für eine neue Vorlagenfassung die Vorlage in der Lobby erneut auswählen.") }}</p>
 <p class="small">
-{% if expert %}<a href="{{ url_for('mvp.entry_options', eid=entry.id) }}">Einfacher Modus</a>
-{% else %}<a href="{{ url_for('mvp.entry_options', eid=entry.id, expert=1) }}">Alle Optionen anzeigen</a>{% endif %}
+{% if expert %}<a href="{{ url_for('mvp.entry_options', eid=entry.id) }}">{{ _("Einfacher Modus") }}</a>
+{% else %}<a href="{{ url_for('mvp.entry_options', eid=entry.id, expert=1) }}">{{ _("Alle Optionen anzeigen") }}</a>{% endif %}
 </p>
 <form method="post" class="panel" data-option-editor>
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-  {% for key,message in errors.items() %}<p class="err">{{ key }}: {{ message }}</p>{% endfor %}
+  {% for key,message in errors.items() %}<p class="err">{{ key }}: {{ _(message) }}</p>{% endfor %}
   {{ option_tools() }}
   {% for group, opts in groups.items() %}
     <details class="group">
@@ -21,14 +21,14 @@
       {% for opt in opts %}{{ field(opt) }}{% endfor %}
     </details>
   {% endfor %}
-  <p class="row"><button class="primary" name="_action" value="save">Einstellungen speichern</button>
-    <button name="_action" value="preview">Vorschau aktualisieren</button><a href="{{ url_for('session_view', sid=room.id) }}">Zurück</a></p>
-  <p><button name="_action" value="reset">Alle Lobby-Änderungen auf Vorlage/Profil zurücksetzen</button></p>
+  <p class="row"><button class="primary" name="_action" value="save">{{ _("Einstellungen speichern") }}</button>
+    <button name="_action" value="preview">{{ _("Vorschau aktualisieren") }}</button><a href="{{ url_for('session_view', sid=room.id) }}">{{ _("Zurück") }}</a></p>
+  <p><button name="_action" value="reset">{{ _("Alle Lobby-Änderungen auf Vorlage/Profil zurücksetzen") }}</button></p>
 </form>
 <details class="panel" id="yaml-preview" style="margin-top:16px" {% if pending %}open{% endif %}>
-  <summary>YAML-Vorschau · {{ 'noch nicht gespeichert' if pending else 'gespeicherte Konfiguration' }}</summary>
-  {% if pending %}<p class="muted small">Diese Vorschau wird erst nach „Einstellungen speichern“ für die Generierung verwendet.</p>{% endif %}
-  {% if yaml_preview %}<pre class="log">{{ yaml_preview }}</pre>{% else %}<p class="err">Keine gültige YAML: Bitte die markierten Fehler korrigieren.</p>{% endif %}
+  <summary>{{ _("YAML-Vorschau ·") }} {{ _('noch nicht gespeichert') if pending else 'gespeicherte Konfiguration' }}</summary>
+  {% if pending %}<p class="muted small">{{ _("Diese Vorschau wird erst nach „Einstellungen speichern“ für die Generierung verwendet.") }}</p>{% endif %}
+  {% if yaml_preview %}<pre class="log">{{ yaml_preview }}</pre>{% else %}<p class="err">{{ _("Keine gültige YAML: Bitte die markierten Fehler korrigieren.") }}</p>{% endif %}
 </details>
 {% endblock %}
 {% block scripts %}

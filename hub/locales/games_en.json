@@ -1,0 +1,840 @@
+{
+  "bloodstained_rotn": {
+    "description": "Explore a demonic castle as Miriam, collect shard abilities and discover new paths with changing equipment.",
+    "requirements": [
+      "Bloodstained: Ritual of the Night for Windows and a Bloodstained AP release package matching the APWorld."
+    ],
+    "steps": [
+      "Back up saves. Use a game client and APWorld from the same compatible release; do not mix instructions for older integrations.",
+      "Copy the release package's Game files into the game folder as documented. Remove old randomizer files first according to the developer's guide.",
+      "Create a new Story save with the difficulty matching your YAML. After loading, press F5 to open the connection window and enter the server, slot name and optional password."
+    ]
+  },
+  "tmc": {
+    "description": "Travel through Hyrule with Link and Ezlo, shrink to Minish size and solve dungeons using new equipment.",
+    "requirements": [
+      "Your own European GBA ROM of The Legend of Zelda: The Minish Cap, Archipelago with a matching TMC APWorld and BizHawk 2.7 or later."
+    ],
+    "steps": [
+      "Open your .aptmc slot patch from the round with Archipelago and select the European original ROM for patching.",
+      "Start the generated GBA ROM in BizHawk and enable Run in background. Open the BizHawk client and load connector_bizhawk_generic.lua in the Lua console.",
+      "Keep the Lua console open and connect the BizHawk client to the round's Server:Port. The client must recognise the game before checks and items can be transferred."
+    ]
+  },
+  "tboir": {
+    "description": "Fight through randomly generated basements and combine items into new abilities and attacks.",
+    "requirements": [
+      "The Binding of Isaac: Rebirth with all DLCs through Repentance or Repentance+, The Archipelago of Isaac from Steam Workshop and the matching tboir.apworld.",
+      "A backed-up save with paths to final bosses unlocked, and Archipelago with Isaac Client."
+    ],
+    "steps": [
+      "Back up your save, subscribe to the Workshop mod and install the matching APWorld in Archipelago Launcher. Restart the launcher afterwards.",
+      "Select a sufficiently advanced save in the game, enable The Archipelago of Isaac and start a run.",
+      "Open Isaac Client, enter Server:Port and connect. Supply the slot name and selected save. Begin playing only once the in-game connection indicator is green."
+    ]
+  },
+  "ss": {
+    "description": "Explore the sky and surface with Link, solve dungeons and open new paths using tools.",
+    "requirements": [
+      "Your own US Skyward Sword disc image, revision 1.00: the Wii version, not Skyward Sword HD.",
+      "Dolphin or a Wii configured using the developer's guide, plus SS AP Patcher and ss.apworld from matching releases."
+    ],
+    "steps": [
+      "Install the APWorld locally. After generation, apply your .apssr slot patch to the original ISO using the matching SS AP Patcher.",
+      "Start the generated disc image in Dolphin and open Skyward Sword Client in Archipelago Launcher. For real Wii hardware, follow the separate console guide.",
+      "Use only File 1 for the multiworld. Connect the client with /connect Server:Port and check the game hash and slot assignment before playing."
+    ]
+  },
+  "borderlands_tps": {
+    "description": "Explore Elpis with low-gravity jumps, character abilities and random loot.",
+    "requirements": [
+      "Borderlands: The Pre-Sequel for PC; match the YAML's DLC selection to your own content.",
+      "BL2/TPS Mod Manager (Python SDK), coroutines and BouncyLootGod.sdkmod; APWorld and mod from a matching release."
+    ],
+    "steps": [
+      "Back up saves. Install Python SDK Mod Manager for The Pre-Sequel using its guide.",
+      "Install coroutines in sdk_mods first, launch the game and verify the dependency loads. Close the game afterwards.",
+      "Copy BouncyLootGod.sdkmod from releases into BorderlandsPreSequel/sdk_mods. Enable it in Mod Manager and close the game again.",
+      "The host needs borderlands_tps.apworld for generation. Before playing, start the corresponding client in Archipelago Launcher and connect with Server:Port and the exact slot name. Then start the modded game; the wrong launch order can cause problems."
+    ]
+  },
+  "pseudoregalia": {
+    "description": "Open up a 3D dream world through new movement abilities and precise jumps.",
+    "requirements": [
+      "Pseudoregalia for Steam and pseudoregalia-archipelago.zip from a release matching the APWorld.",
+      "APWorld/mod 0.11.0 requires the normal game version; Full Gold is unsupported. Steam Deck/Linux needs the additional steps in the developer's guide."
+    ],
+    "steps": [
+      "Back up the entire Pseudoregalia Steam game folder as a separate copy, for example Pseudoregalia_AP. Set up the mod in that copy.",
+      "Extract pseudoregalia-archipelago.zip directly into the copied game folder. Do not create an extra nested folder. Verify pseudoregalia/Content/Paks/AP_Randomizer_p.pak exists.",
+      "Start the modified pseudoregalia.exe, create a new file in the main menu and enter Server:Port, slot name and optional password. Connect with Start.",
+      "Adjust client settings under Options → Mods and save with Apply. PseudoMenuMod is incompatible; test other mods individually."
+    ]
+  },
+  "RE4R": {
+    "description": "Leon's rescue mission as a multiworld with shared items, optionally featuring The Mercenaries.",
+    "requirements": [
+      "Resident Evil 4 Remake (2023) on Steam, including Separate Ways and Treasure Map: Expansion as specified by the developer, plus RE4R AP Wizard matching the APWorld.",
+      "Windows is the supported platform; Linux is experimental. Beta: back up saves and save frequently.",
+      "Host: the developer's guide specifies Archipelago 0.6.7 only for generation. Check compatibility before the round; the hub does not switch Archipelago versions automatically."
+    ],
+    "steps": [
+      "Extract the RE4R AP Wizard release ZIP into a new empty folder. Run RE4R.AP.Launcher.exe and let Setup Status install missing components.",
+      "Prepare settings under Join a Multiworld. For this hub, the host must have the matching RE4R.apworld installed. Use the same YAML values and slot name for the round.",
+      "After generation and server startup, enter the room address and slot name in the Wizard and generate the game patch. The Wizard sets up REFramework, the client and world patch.",
+      "Start the game, press Insert to open the Archipelago window and check the Server connection. Difficulty and Included Content must match the YAML. Separate Ways is not yet supported as playable content; a Mercenaries-only game does not need the campaign patch."
+    ]
+  },
+  "_common": [
+    "Choose and confirm your game and YAML settings in the lobby. The host then generates the shared seed; this may already require original files or additional programs on the host computer.",
+    "After successful generation, download your own slot files from the round if the game guide requires them. The host must also set up a reachable multiworld server.",
+    "Connect your game client or mod using the server address including port, exact slot name and optional room password shown in the generated round. You can play once your installation and connection are ready."
+  ],
+  "_unknown": {
+    "description": "{name} is an additional Archipelago integration. Setup depends on this APWorld.",
+    "requirements": [
+      "A game version matching the APWorld and the client or mod specified by its developer. Requirements have not been documented here yet."
+    ],
+    "steps": [
+      "Check the APWorld developer's guide and install compatible game, client and mod versions. Ask the host for the exact source if the upload has none."
+    ]
+  },
+  "ahit": {
+    "description": "Explore colourful 3D worlds and collect Time Pieces using different hat abilities.",
+    "requirements": [
+      "Steam version of A Hat in Time and the Archipelago Workshop mod."
+    ],
+    "steps": [
+      "Back up saves, select the tcplink Steam branch and subscribe to the Workshop mod. Enable the developer console. Connect the AHIT client from the Archipelago Launcher, then start a new save."
+    ]
+  },
+  "alttp": {
+    "description": "Explore Hyrule, solve dungeons and collect equipment for Link's adventure.",
+    "requirements": [
+      "Japanese A Link to the Past ROM version 1.0, Archipelago and an SNI-compatible SNES emulator."
+    ],
+    "steps": [
+      "Provide the original ROM on the generator and when patching. Open your slot patch with Archipelago, start the generated ROM and connect your emulator and SNI using the SNES client."
+    ]
+  },
+  "shorthike": {
+    "description": "Hike, climb and glide around an island searching for golden feathers.",
+    "requirements": [
+      "PC version of A Short Hike and AShortHike.Randomizer with its dependencies."
+    ],
+    "steps": [
+      "Set up the linked Mod Installer according to its README and install the randomizer. When starting or continuing a game, enter the server, slot name and optional password in the connection window."
+    ]
+  },
+  "apquest": {
+    "description": "A small grid-based adventure with a few checks.",
+    "requirements": [
+      "Archipelago with the APQuest client; older installations may also need the matching APQuest APWorld."
+    ],
+    "steps": [
+      "Open APQuest in the Archipelago Launcher. Enter the server, connect and use your round's slot name. No separately purchased base game is required."
+    ]
+  },
+  "adventure": {
+    "description": "Find the enchanted chalice and return it through castles and dragons.",
+    "requirements": [
+      "Adventure NTSC ROM, BizHawk and Archipelago's Adventure client; Windows or Linux."
+    ],
+    "steps": [
+      "Open your generated slot patch and select the original ROM. Enable background execution in BizHawk and load connector_adventure.lua. Connect the emulator and Adventure client as described in the guide."
+    ]
+  },
+  "aquaria": {
+    "description": "Explore Naija's underwater world through singing, combat and new forms.",
+    "requirements": [
+      "Installed Aquaria and Aquaria Randomizer for your operating system."
+    ],
+    "steps": [
+      "Make a copy of your Aquaria game folder. Extract the randomizer there and run aquaria_randomizer. Enter the server and slot name in its launcher; use a separate copy for each round."
+    ]
+  },
+  "blasphemous": {
+    "description": "Explore Cvstodia through challenging combat and interconnected areas.",
+    "requirements": [
+      "PC version of Blasphemous, Mod Installer and the multiworld mod."
+    ],
+    "steps": [
+      "Install the multiworld mod and dependencies using the linked Mod Installer. Install Double Jump or Boots of Pleading too if your YAML requires them. Select a save and connect through the mod menu."
+    ]
+  },
+  "bomb_rush_cyberfunk": {
+    "description": "Ride, grind and paint graffiti to take over the city's districts.",
+    "requirements": [
+      "Bomb Rush Cyberfunk and BRC Archipelago with BepInEx 5 and ModLocalizer."
+    ],
+    "steps": [
+      "Install the Archipelago mod with r2modman or set up the documented dependencies manually. Start the modded game and configure the connection in the mod."
+    ]
+  },
+  "borderlands2": {
+    "description": "A loot shooter with quests, character skills and randomised equipment.",
+    "requirements": [
+      "Borderlands 2 for PC, BL2 Python SDK Mod Manager, coroutines, BouncyLootGod and the same APWorld version as the host."
+    ],
+    "steps": [
+      "Back up characters. Install the SDK and coroutines, put BouncyLootGod.sdkmod in sdk_mods and install the matching APWorld locally. Connect the Borderlands 2 client first, then launch the modded game. Exclude unavailable DLCs in the YAML."
+    ]
+  },
+  "bumpstik": {
+    "description": "Shoot coloured tiles onto a grid to form matches and chains.",
+    "requirements": [
+      "Archipelago's Bumper Stickers edition, available as a download or browser game."
+    ],
+    "steps": [
+      "Download and extract the game or open the linked browser version. Select Archipelago Mode, enter the server details and press Start."
+    ]
+  },
+  "cvcotm": {
+    "description": "Explore Dracula's castle using your whip and combinations of magical cards.",
+    "requirements": [
+      "US Castlevania: Circle of the Moon ROM, BizHawk 2.7 or later and Archipelago."
+    ],
+    "steps": [
+      "Apply your .apcvcotm slot patch to the US ROM with Archipelago. Start the generated GBA ROM in BizHawk and configure the BizHawk client and Lua connection. The Wii U VC ROM is incompatible; the Advance Collection ROM has no audio according to the guide."
+    ]
+  },
+  "cv64": {
+    "description": "A 3D Castlevania with combat, traps and exploration.",
+    "requirements": [
+      "US Castlevania 64 version 1.0 ROM, BizHawk 2.7 or later and Archipelago."
+    ],
+    "steps": [
+      "Patch the original ROM and load it in BizHawk. Set controller 1 to Memory Card for saves and restart the emulator. Connect the BizHawk client to the emulator and round."
+    ]
+  },
+  "celeste_open_world": {
+    "description": "Climb the mountain in an open-world variation where movement mechanics are unlocked.",
+    "requirements": [
+      "PC version of Celeste, Olympus/Everest and the Celeste Open World Archipelago mod."
+    ],
+    "steps": [
+      "Install Olympus and use it to set up Everest. Install the Open World mod and dependencies. Launch through Everest and configure the connection using the mod guide."
+    ]
+  },
+  "celeste64": {
+    "description": "Collect strawberries and explore a compact 3D mountain.",
+    "requirements": [
+      "The dedicated Archipelago edition of Celeste 64."
+    ],
+    "steps": [
+      "Download and extract the Archipelago build. Enter Url, SlotName and optional Password in AP.json. Start Celeste64; on Linux/Steam Deck follow the documented Proton instructions."
+    ]
+  },
+  "checksfinder": {
+    "description": "Solve minefields, collect checks and expand your possibilities.",
+    "requirements": [
+      "ChecksFinder browser version or downloaded game client."
+    ],
+    "steps": [
+      "Open the browser version or extract the download. Choose Play Online, enter the server, port and slot name in the console window and press Connect, then switch to the game window."
+    ]
+  },
+  "cccharles": {
+    "description": "Explore an island with an upgradeable train and escape a monster.",
+    "requirements": [
+      "Choo-Choo Charles for Windows, Archipelago and CCCharles Random Mod."
+    ],
+    "steps": [
+      "Download CCCharles_Random and copy its Obscure folder into the game installation as documented. Install the matching client and follow its connection instructions."
+    ]
+  },
+  "civ_6": {
+    "description": "Develop a civilisation through research, culture and conquest.",
+    "requirements": [
+      "Civilization VI for Windows with Rise & Fall and Gathering Storm, Archipelago and Civ VI AP Mod."
+    ],
+    "steps": [
+      "Copy the mod into the Civ VI Mods folder and enable both expansions and the mod. Set up the Civ VI client and connect with a new game using the guide. Both expansions are required for this integration."
+    ]
+  },
+  "dlcquest": {
+    "description": "A satirical platformer where even basic abilities must be unlocked.",
+    "requirements": [
+      "DLCQuest for PC and DLCQuestipelago with BepInEx; the full installer includes the mod loader."
+    ],
+    "steps": [
+      "Run DLCQuestipelagoInstaller from the mod release and select your game path. Fill ArchipelagoConnectionInfo.json in the modified installation with the server, port and slot name. Launch through BepInEx.NET.Framework.Launcher or the created shortcut."
+    ]
+  },
+  "doom_1993": {
+    "description": "Fight through classic DOOM episodes, finding keys and weapons.",
+    "requirements": [
+      "DOOM with your own DOOM.WAD and Archipelago Crispy DOOM (APDOOM)."
+    ],
+    "steps": [
+      "Download and extract APDOOM and copy DOOM.WAD from your game installation into it. Run apdoom-launcher, select DOOM and connect with the server, slot name and optional password."
+    ]
+  },
+  "doom_ii": {
+    "description": "Classic first-person combat against demons, with key puzzles and large levels.",
+    "requirements": [
+      "DOOM II with your own DOOM2.WAD and Archipelago Crispy DOOM (APDOOM)."
+    ],
+    "steps": [
+      "Download and extract APDOOM and copy DOOM2.WAD from your game installation into it. Run apdoom-launcher, select DOOM II and connect using the round details."
+    ]
+  },
+  "dark_souls_3": {
+    "description": "Fight through Lothric and develop a character with changing equipment.",
+    "requirements": [
+      "Dark Souls III for PC and a DS3 Archipelago Client version matching the integration."
+    ],
+    "steps": [
+      "Extract the client separately. Once per multiworld, load the server and slot details in the included DS3Randomizer and generate local randomizer data. Start the game as described in the client guide; check game and client versions."
+    ]
+  },
+  "earthbound": {
+    "description": "Follow Ness and friends through a strange world with turn-based combat.",
+    "requirements": [
+      "English EarthBound ROM, Archipelago and an SNI-compatible SNES emulator."
+    ],
+    "steps": [
+      "Provide the ROM for generation or patching as required. Open your slot patch in Archipelago, start the generated ROM and connect the SNES client and SNI. Follow the guide's emulator configuration."
+    ]
+  },
+  "factorio": {
+    "description": "Build factories, automate research and expand production chains.",
+    "requirements": [
+      "Factorio on the player and Factorio host computers, plus Archipelago for the host; a separate game installation is recommended."
+    ],
+    "steps": [
+      "Configure Factorio's path in Archipelago. Load the round's generated mod/game data with the Factorio client and start or join a Factorio server. This server is required in addition to the multiworld server."
+    ]
+  },
+  "faxanadu": {
+    "description": "Explore the World Tree, fight monsters and find equipment.",
+    "requirements": [
+      "English Faxanadu ROM and the Daxanadu game client."
+    ],
+    "steps": [
+      "Download Daxanadu and put Faxanadu (U).nes in its extracted folder. Start Daxanadu, open ARCHIPELAGO, enter the server and slot name and select PLAY."
+    ]
+  },
+  "ff1": {
+    "description": "A classic party RPG with turn-based combat and a crystal quest.",
+    "requirements": [
+      "US NES Final Fantasy ROM, BizHawk, Archipelago and the external Final Fantasy Randomizer."
+    ],
+    "steps": [
+      "Generate the Archipelago YAML and randomised ROM through Final Fantasy Randomizer as documented. Use that specific YAML for the round. Load the ROM in BizHawk and connect the BizHawk client; a normal empty default profile does not replace this export."
+    ]
+  },
+  "ffmq": {
+    "description": "An accessible RPG with exploration and turn-based battles.",
+    "requirements": [
+      "North American Final Fantasy Mystic Quest ROM version 1.0 or 1.1, Archipelago and an SNI-compatible SNES emulator."
+    ],
+    "steps": [
+      "Apply your generated slot patch to the matching original ROM with Archipelago. Load the randomised ROM, start the SNES client and connect SNI as documented."
+    ]
+  },
+  "gl": {
+    "description": "A dungeon adventure with combat, loot and unlockable areas.",
+    "requirements": [
+      "US N64 Gauntlet Legends ROM, RetroArch with Mupen64Plus-Next and Archipelago's Gauntlet Legends client."
+    ],
+    "steps": [
+      "Open and patch the .apgl file with Archipelago. Enable Network Commands in RetroArch, load the ROM with Mupen64Plus-Next and connect the Gauntlet Legends client. The guide states generation does not require a ROM."
+    ]
+  },
+  "heretic": {
+    "description": "A fantasy first-person shooter with magical weapons, keys and monsters.",
+    "requirements": [
+      "Heretic with your own HERETIC.WAD and Archipelago Crispy DOOM (APDOOM)."
+    ],
+    "steps": [
+      "Extract APDOOM, copy HERETIC.WAD from your game folder into it and start apdoom-launcher. Select Heretic and connect with the server and slot name."
+    ]
+  },
+  "hk": {
+    "description": "Explore Hallownest with precise combat and new movement abilities.",
+    "requirements": [
+      "PC version of Hollow Knight and Lumafly Mod Manager."
+    ],
+    "steps": [
+      "Install Lumafly, select your game installation and install Archipelago with its dependencies. Start the modded game and connect the round through its Archipelago menu. This integration uses Lumafly, not BepInEx."
+    ]
+  },
+  "hylics2": {
+    "description": "A surreal RPG with exploration and turn-based battles.",
+    "requirements": [
+      "Hylics 2, 32-bit BepInEx 5 and ArchipelagoHylics2."
+    ],
+    "steps": [
+      "Set up BepInEx, start the game once and extract the mod into BepInEx/plugins. Use /connect in the in-game console with the server and slot name before collecting checks."
+    ]
+  },
+  "inscryption": {
+    "description": "Combine card battles with puzzles and changing game worlds.",
+    "requirements": [
+      "Inscryption and ArchipelagoMod with matching BepInEx dependencies."
+    ],
+    "steps": [
+      "Back up your save. Create an r2modman/Thunderstore profile containing ArchipelagoMod and dependencies. Start modded and connect through the Archipelago menu; avoid untested extra mods."
+    ]
+  },
+  "jakanddaxter": {
+    "description": "Collect power cells and explore the open world with Jak and Daxter.",
+    "requirements": [
+      "Your own copy of Jak and Daxter: The Precursor Legacy, OpenGOAL Launcher and ArchipelaGOAL."
+    ],
+    "steps": [
+      "Set up the original game in OpenGOAL first. Install ArchipelaGOAL through the mod feature. Start your Archipelago game through the Jak and Daxter client as documented."
+    ]
+  },
+  "kh1": {
+    "description": "Explore Disney worlds with Sora and discover Keyblades and abilities.",
+    "requirements": [
+      "Kingdom Hearts HD 1.5+2.5 ReMIX for Steam/Epic, OpenKH, KH1FM Randomizer and Archipelago."
+    ],
+    "steps": [
+      "Run the game once and verify original files. Set up OpenKH with Panacea and Lua backend. Process the generated KH1 ZIP with mod_generator from KH1FM Randomizer and load the mod in the game. Connect the KH1 client."
+    ]
+  },
+  "kh2": {
+    "description": "Travel through Disney worlds and expand Sora's combat and movement abilities.",
+    "requirements": [
+      "Kingdom Hearts II Final Mix for Steam/Epic, OpenKH with Panacea and Lua backend, and Archipelago."
+    ],
+    "steps": [
+      "Follow the linked OpenKH guide and install GoA-ROM-Edition, APCompanion and KH2-ArchipelagoEnablers. Load your slot patch as documented and connect the KH2 client. Check compatible mod and game versions."
+    ]
+  },
+  "kdl3": {
+    "description": "Explore imaginative 2D levels with Kirby and his animal friends.",
+    "requirements": [
+      "US or Japanese Kirby's Dream Land 3 ROM, Archipelago and an SNI-compatible emulator with ROM access."
+    ],
+    "steps": [
+      "Apply your slot patch with Archipelago and start the ROM in a compatible emulator. Connect SNI and the SNES client. RetroArch is not supported for this integration according to the guide."
+    ]
+  },
+  "landstalker": {
+    "description": "An isometric treasure-hunting adventure with combat and platform puzzles.",
+    "requirements": [
+      "US Landstalker ROM, Landstalker Archipelago Client for Windows and a Genesis Plus GX emulator."
+    ],
+    "steps": [
+      "Put the ROM into the extracted client folder and start randstalker_archipelago. Configure RetroArch or BizHawk with Genesis Plus GX as documented and connect the client and round."
+    ]
+  },
+  "lingo": {
+    "description": "Solve language-based puzzles in an interconnected 3D world.",
+    "requirements": [
+      "Lingo for PC and Lingo Archipelago Randomizer."
+    ],
+    "steps": [
+      "Subscribe to the Workshop mod or install the randomizer manually. In the game select Settings → Level → Archipelago, start a new game and enter server and slot details in the connection form."
+    ]
+  },
+  "ladx": {
+    "description": "Explore Koholint, solve dungeons and collect instruments.",
+    "requirements": [
+      "US Link's Awakening DX ROM version 1.0, Archipelago, and BizHawk or RetroArch as documented."
+    ],
+    "steps": [
+      "Open your slot patch with Archipelago and select the original ROM. Load the generated GBC ROM in the emulator and start the game-specific client and emulator connection as documented."
+    ]
+  },
+  "lufia2ac": {
+    "description": "Explore a randomly generated Ancient Cave with an RPG party.",
+    "requirements": [
+      "US Lufia II: Rise of the Sinistrals ROM, Archipelago and an SNI-compatible SNES emulator."
+    ],
+    "steps": [
+      "Provide the original ROM for generation/patching, open your slot patch and start the ROM. Connect the SNES client and SNI; avoid unsupported SNES Mini configurations."
+    ]
+  },
+  "mlss": {
+    "description": "A humorous Mario RPG with turn-based battles and timed actions.",
+    "requirements": [
+      "US Mario & Luigi: Superstar Saga ROM, BizHawk and Archipelago's BizHawk client."
+    ],
+    "steps": [
+      "Open your generated slot patch, apply it to your ROM and load the GBA ROM in BizHawk. Connect the BizHawk client using the Lua connector and round details."
+    ]
+  },
+  "mm2": {
+    "description": "Defeat Robot Masters and use their weapons in classic platform levels.",
+    "requirements": [
+      "English Mega Man 2 ROM or Mega Man Legacy Collection, BizHawk and Archipelago."
+    ],
+    "steps": [
+      "Open your slot patch with Archipelago and provide the ROM or supported Collection files. Start the generated NES ROM in BizHawk and connect the BizHawk client."
+    ]
+  },
+  "mm3": {
+    "description": "Navigate platform levels and unlock weapons and movement options.",
+    "requirements": [
+      "English Mega Man 3 ROM or Mega Man Legacy Collection, BizHawk and Archipelago."
+    ],
+    "steps": [
+      "Open your slot patch with Archipelago and select the original files. Start the generated NES ROM in BizHawk and configure the BizHawk client and Lua connection."
+    ]
+  },
+  "mmbn3": {
+    "description": "Collect Battle Chips and fight on tactical real-time grids.",
+    "requirements": [
+      "US MegaMan Battle Network 3 Blue ROM, BizHawk and Archipelago."
+    ],
+    "steps": [
+      "Provide the Blue ROM; the guide also describes exporting it from Legacy Collection Vol. 1. Apply your slot patch, load the generated GBA ROM in BizHawk and connect the game-specific client."
+    ]
+  },
+  "meritous": {
+    "description": "Explore a large dungeon and fight enemies with charged PSI attacks.",
+    "requirements": [
+      "The standalone Archipelago edition Meritous Gaiden."
+    ],
+    "steps": [
+      "Download the game and extract it into a writable folder. Enable ap-enable and set server, port and slotname in meritous-ap.json. Start meritous and begin a new game."
+    ]
+  },
+  "musedash": {
+    "description": "Run and fight to the rhythm across a changing selection of songs.",
+    "requirements": [
+      "Muse Dash for Windows, MelonLoader, matching .NET runtimes and Muse Dash Archipelago mod."
+    ],
+    "steps": [
+      "Install MelonLoader for MuseDash.exe and place the mod files as documented. Start the modded game and connect your slot. Muse Plus is optional; configure the YAML for your available songs."
+    ]
+  },
+  "noita": {
+    "description": "Explore a physically simulated world of spells, hazards and secrets.",
+    "requirements": [
+      "Noita for PC and NoitaArchipelago."
+    ],
+    "steps": [
+      "Extract the mod into mods/archipelago. Allow Unsafe mods and enable Archipelago in the mod menu. Configure server and slot in the mod and start a new game for the round."
+    ]
+  },
+  "oot": {
+    "description": "Explore Hyrule as young and adult Link and solve interconnected dungeons.",
+    "requirements": [
+      "US Ocarina of Time ROM version 1.0, BizHawk 2.10 or later and Archipelago."
+    ],
+    "steps": [
+      "Apply your .apz5 file to the original ROM with Archipelago. Load the generated ROM in BizHawk, enable background execution and connect the OoT client with the Lua connector."
+    ]
+  },
+  "osrs": {
+    "description": "Complete tasks and train skills in a region-locked RuneScape world.",
+    "requirements": [
+      "RuneLite, an Old School RuneScape account and the Jagex Launcher if required."
+    ],
+    "steps": [
+      "Install Archipelago and Region Locker from RuneLite Plugin Hub. Apply the documented Region Locker settings, then connect the Archipelago plugin using the server and slot. Configure the YAML for your account and available content."
+    ]
+  },
+  "overcooked2": {
+    "description": "Cook against the clock in changing kitchens and unlock new levels.",
+    "requirements": [
+      "Overcooked! 2 for Windows and OC2-Modding; Steam recommended, Epic supported."
+    ],
+    "steps": [
+      "Install OC2-Modding as documented and start the modded game. Connect the round in the login menu; the mod loads its game data. Console and Windows Store versions are incompatible according to the guide."
+    ]
+  },
+  "paint": {
+    "description": "Unlock painting tools and canvas space to reproduce a target image.",
+    "requirements": [
+      "A browser and the Archipelago Paint website."
+    ],
+    "steps": [
+      "Open the linked Paint website and enter the server, slot name and optional password. Press Connect. Save the complete URL including its hash to continue later."
+    ]
+  },
+  "pokemon_emerald": {
+    "description": "Catch Pokémon and explore Hoenn through turn-based battles.",
+    "requirements": [
+      "English Pokémon Emerald ROM, BizHawk 2.7 or later and Archipelago."
+    ],
+    "steps": [
+      "Apply your slot patch to your English ROM with Archipelago. Load the generated GBA ROM in BizHawk and configure the BizHawk client and Lua connection."
+    ]
+  },
+  "pokemon_rb": {
+    "description": "Explore Kanto, catch Pokémon and defeat the Pokémon League.",
+    "requirements": [
+      "Matching Pokémon Red or Blue ROM, BizHawk and Archipelago."
+    ],
+    "steps": [
+      "Provide the original ROM for the edition selected in the YAML. Open your slot patch, start the generated ROM in BizHawk and connect the Pokémon client using the Lua connector and server."
+    ]
+  },
+  "raft": {
+    "description": "Expand your raft and explore islands in a flooded world.",
+    "requirements": [
+      "Raft, Raft Mod Loader, Raftipelago and ModUtils in compatible versions."
+    ],
+    "steps": [
+      "Use the documented Raft version; the current guide specifies Steam branch 1.09_precrossplayupdate. Install RML, enable Raftipelago and ModUtils and start through RML. Connect the round in the mod."
+    ]
+  },
+  "ror2": {
+    "description": "Survive enemy waves and combine increasingly powerful items.",
+    "requirements": [
+      "Risk of Rain 2 and the Archipelago mod with dependencies."
+    ],
+    "steps": [
+      "Create a game profile in r2modman and install the Archipelago mod. Use Start modded and configure the connection as documented. Players in the same game need compatible mods."
+    ]
+  },
+  "smz3": {
+    "description": "A Super Metroid and A Link to the Past crossover with transitions between worlds.",
+    "requirements": [
+      "Super Metroid ROM and Japanese Zelda 3 ROM version 1.0, Archipelago and an SNI-compatible SNES emulator."
+    ],
+    "steps": [
+      "Provide both original ROMs and open your generated SMZ3 slot patch with Archipelago. Start the combined ROM and connect the SNES client and SNI to the round."
+    ]
+  },
+  "satisfactory": {
+    "description": "Build sprawling factories and optimise belts and production chains.",
+    "requirements": [
+      "Satisfactory for Steam/Epic and Satisfactory Mod Manager."
+    ],
+    "steps": [
+      "Install an Archipelago mod version matching the APWorld through Mod Manager. Start the modded game and enter server details in the mod. It connects directly; a separate Archipelago game client is not required."
+    ]
+  },
+  "saving_princess": {
+    "description": "Explore a space station using guns and new movement abilities.",
+    "requirements": [
+      "Saving Princess from itch.io and Archipelago with the Saving Princess client."
+    ],
+    "steps": [
+      "Download the game, then start Saving Princess Client in the Archipelago Launcher and follow its installation prompts. Use this client for future launches too. On Linux, follow the documented Wine/7z prerequisites."
+    ]
+  },
+  "soe": {
+    "description": "Travel through different eras with a boy and his dog.",
+    "requirements": [
+      "US Secret of Evermore ROM, an SNI-compatible SNES emulator and the client linked in the guide."
+    ],
+    "steps": [
+      "Apply your generated slot patch to your ROM. Start it in the emulator, configure SNI and connect the web or SNES client to the round as documented."
+    ]
+  },
+  "shivers": {
+    "description": "Explore an abandoned museum and solve puzzles to capture ghosts.",
+    "requirements": [
+      "GOG or disc version of Shivers, ScummVM 2.7 or later and Shivers Randomizer Client."
+    ],
+    "steps": [
+      "Add the game files to ScummVM. Install the randomizer client and follow its guide to connect ScummVM and your slot. No SNES ROM or emulator patch file is involved."
+    ]
+  },
+  "sa2b": {
+    "description": "Play fast-paced levels and unlock emblems, abilities and Chao content.",
+    "requirements": [
+      "Sonic Adventure 2 for Steam, SA Mod Manager, .NET Desktop Runtime and SA2B Archipelago Mod."
+    ],
+    "steps": [
+      "Install and enable the mod in SA Mod Manager. Open Configure Mod, set the server and slot details and launch through Mod Manager. Chao Karate checks require the Battle DLC."
+    ]
+  },
+  "sc2": {
+    "description": "Play campaign missions and unlock units and upgrades.",
+    "requirements": [
+      "StarCraft II, Archipelago with Starcraft2 client and the relevant campaigns."
+    ],
+    "steps": [
+      "Start Starcraft2 Client and run /download_data to install required maps and data. Connect the round and launch missions from the client. Exclude unavailable campaigns in the YAML."
+    ]
+  },
+  "stardew_valley": {
+    "description": "Develop a farm, explore mines and build village relationships.",
+    "requirements": [
+      "Stardew Valley 1.6 for PC, SMAPI and a StardewArchipelago version matching the APWorld."
+    ],
+    "steps": [
+      "Install SMAPI and extract StardewArchipelago into Mods. Launch through SMAPI and create an Archipelago save using the round's connection details. The mod's major version must match the generator; do not update mid-round."
+    ]
+  },
+  "subnautica": {
+    "description": "Explore an alien ocean, build bases and reach new depths.",
+    "requirements": [
+      "Subnautica for PC and the Subnautica Archipelago mod."
+    ],
+    "steps": [
+      "Extract the mod archive into the game folder so Subnautica/BepInEx exists. Start the game and enter the server, PlayerName and optional password in the main menu's connection form. Linux launch options are documented in the guide."
+    ]
+  },
+  "sm64ex": {
+    "description": "Explore Peach's castle and collect stars in 3D worlds.",
+    "requirements": [
+      "Your own Super Mario 64 ROM and the dedicated SM64AP Launcher or Archipelago sm64ex port."
+    ],
+    "steps": [
+      "Set up SM64AP Launcher and platform-specific build tools, and provide the matching original ROM. Build/start the Archipelago port and connect as documented. An arbitrary other SM64 port does not replace this integration."
+    ]
+  },
+  "marioland2": {
+    "description": "Collect six golden coins through Mario's 2D world.",
+    "requirements": [
+      "Super Mario Land 2: 6 Golden Coins ROM version 1.0, BizHawk and Archipelago."
+    ],
+    "steps": [
+      "Apply your slot patch to your ROM with Archipelago and load it in the emulator. Enable AutoSaveRAM and background execution in BizHawk and connect the game-specific client and Lua connector."
+    ]
+  },
+  "smw": {
+    "description": "Explore Dinosaur Land with Mario and Yoshi, discovering exits and abilities.",
+    "requirements": [
+      "Your own original Super Mario World (USA).sfc ROM, Archipelago and an SNI-compatible SNES emulator."
+    ],
+    "steps": [
+      "The host must configure the US ROM on the generator computer before generation. Players then open their .apsmw file with Archipelago and select their own ROM. Start the generated .sfc in the emulator, configure SNI/Lua connector and connect the SNES client."
+    ]
+  },
+  "sm": {
+    "description": "Explore Zebes and open new paths with Samus's equipment and abilities.",
+    "requirements": [
+      "Japan/USA Super Metroid ROM, Archipelago and an SNI-compatible SNES emulator."
+    ],
+    "steps": [
+      "Provide the original ROM for generation/patching. Apply your slot patch with Archipelago, start the generated ROM and connect SNI and the SNES client to the round."
+    ]
+  },
+  "tunic": {
+    "description": "Explore a mysterious world as a small fox and uncover its rules.",
+    "requirements": [
+      "TUNIC for PC and TUNIC Randomizer with the explicitly required BepInEx IL2CPP version."
+    ],
+    "steps": [
+      "Install the BepInEx version specified in the guide and extract the randomizer into the game folder. Start the modded game and configure its Archipelago connection. Match mod, loader and APWorld versions."
+    ]
+  },
+  "terraria": {
+    "description": "Build, explore and fight bosses in a 2D sandbox.",
+    "requirements": [
+      "Terraria for Steam, tModLoader and the Archipelago Workshop mod."
+    ],
+    "steps": [
+      "Subscribe to the mod, start tModLoader and enable it under Workshop → Manage Mods. After reloading, set up a compatible game and connect as documented. Other mods must not alter the required progression."
+    ]
+  },
+  "tloz": {
+    "description": "Explore the original Hyrule and collect Triforce fragments.",
+    "requirements": [
+      "US The Legend of Zelda ROM version 1.0 PRG0, BizHawk and Archipelago's Zelda1Client."
+    ],
+    "steps": [
+      "Apply your generated slot patch to the original ROM with Archipelago and start it in BizHawk. Load the documented Lua connector and connect Zelda1Client to the round."
+    ]
+  },
+  "messenger": {
+    "description": "A ninja adventure across two eras with precise platforming.",
+    "requirements": [
+      "The Messenger for PC and Archipelago with The Messenger integration."
+    ],
+    "steps": [
+      "Select The Messenger in the Archipelago Launcher and let it install Courier and Randomizer. Continue launching through this entry to load compatible mod files, and configure the connection in the randomizer."
+    ]
+  },
+  "tww": {
+    "description": "Sail the sea with Link and solve dungeons across many islands.",
+    "requirements": [
+      "Your own North American GameCube ISO of The Wind Waker, Dolphin and the dedicated TWW AP Randomizer."
+    ],
+    "steps": [
+      "Install the Archipelago build of the randomizer, select your ISO and process generated slot data as documented. Start the randomised game in Dolphin and connect the TWW client. The normal standalone randomizer is a different build."
+    ]
+  },
+  "witness": {
+    "description": "Explore an island of line puzzles and discover shared rules.",
+    "requirements": [
+      "The Witness for 64-bit Windows and The Witness Archipelago Randomizer."
+    ],
+    "steps": [
+      "Start the game with a fresh save. Then open the randomizer, enter the server and slot and select Connect. Use the same save to continue."
+    ]
+  },
+  "timespinner": {
+    "description": "Travel through time and open a 2D world with new abilities.",
+    "requirements": [
+      "Timespinner for Steam, GOG or Humble, plus TsRandomizer for your operating system."
+    ],
+    "steps": [
+      "Extract TsRandomizer into the game folder and launch it instead of the normal game. Configure the Archipelago connection in the randomizer; unsupported console editions do not work for this integration."
+    ]
+  },
+  "undertale": {
+    "description": "An RPG with dialogue-based decisions and dodge-based combat.",
+    "requirements": [
+      "Undertale for Steam and Archipelago with the Undertale client."
+    ],
+    "steps": [
+      "Run /auto_patch in the Undertale client with your game installation path. This creates a separate Archipelago game copy. Start that copy for the round and connect the client; Archipelago updates may require patching again."
+    ]
+  },
+  "v6": {
+    "description": "Reverse gravity to cross dangerous platforming rooms.",
+    "requirements": [
+      "VVVVVV for Steam/GOG and the dedicated V6AP build."
+    ],
+    "steps": [
+      "Extract V6AP into the game folder. Set -v6ap_name to your slot and -v6ap_ip to Server:Port; add -v6ap_passwd if required. Launch the game with these options."
+    ]
+  },
+  "wargroove": {
+    "description": "Command units across tactical battlefields and capture enemy strongholds.",
+    "requirements": [
+      "Wargroove for Steam on Windows/Linux with Double Trouble DLC and Archipelago with the Wargroove client."
+    ],
+    "steps": [
+      "Back up saves and configure the game path under wargroove_options/root_directory in Archipelago. Start the Wargroove client and follow its setup and connection instructions. On Linux, choose the documented AppData path."
+    ]
+  },
+  "yachtdice": {
+    "description": "Combine dice rolls into scores and unlock new possibilities.",
+    "requirements": [
+      "A browser and the Yacht Dice Archipelago website."
+    ],
+    "steps": [
+      "Open Yacht Dice, choose Archipelago and enter the server and slot name. Alternatively, extract Website.zip from releases and open index.html locally. Solo play lets you try it without a multiworld."
+    ]
+  },
+  "yoshisisland": {
+    "description": "Carry Baby Mario through levels full of egg throws and collectibles.",
+    "requirements": [
+      "English Yoshi's Island ROM version 1.0, Archipelago and an SNI emulator supported by the guide."
+    ],
+    "steps": [
+      "Provide the original ROM for generation/patching and apply your slot patch. Start the ROM in a supported emulator and connect SNI and the SNES client. RetroArch and FXPak Pro are not supported according to the current guide."
+    ]
+  },
+  "yugioh06": {
+    "description": "Build decks and duel using the card game's rules.",
+    "requirements": [
+      "US or European Yu-Gi-Oh! Ultimate Masters 2006 ROM, BizHawk and Archipelago."
+    ],
+    "steps": [
+      "Apply your slot patch to the matching original ROM with Archipelago. Start the GBA ROM in BizHawk and connect the game-specific client using the Lua connector and server."
+    ]
+  },
+  "zillion": {
+    "description": "Infiltrate a base, collect equipment and rescue team members.",
+    "requirements": [
+      "UE Master System Zillion ROM, RetroArch and Archipelago."
+    ],
+    "steps": [
+      "Apply your slot patch to your ROM. Set up RetroArch with SMS Plus GX or Genesis Plus GX and enable Network Commands. Start the ROM and connect the Zillion client."
+    ]
+  },
+  "shapez": {
+    "description": "Automate cutting, colouring and combining geometric shapes.",
+    "requirements": [
+      "Installable PC version of shapez and shapezipelago mod."
+    ],
+    "steps": [
+      "Download the mod file from mod.io. In the game, open MODS → OPEN MODS FOLDER and place the JavaScript mod file there. Enable the mod and connect through it. The browser demo does not replace this integration."
+    ]
+  }
+}

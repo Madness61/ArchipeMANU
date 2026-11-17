@@ -304,6 +304,76 @@ class LiveIntegrationTests(unittest.TestCase):
             address = db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (self.bid,), one=True)
             self.assertEqual((address["host"], address["port"]), ("manual.example", 12345))
 
+    def test_port_rotation_preserves_endpoint_identity_and_invalid_ports_keep_last_good_address(self):
+        self.seed()
+        live_store.refresh(self.live_id,self.now)
+        with self.app.app_context():
+            initial=db.query('SELECT * FROM hosted_rooms WHERE build_id=?',(self.bid,),one=True)
+            db.execute('UPDATE hosted_rooms SET confirmed=1 WHERE id=?',(initial['id'],))
+        self.payloads['room_status']['last_port']=43123
+        live_store.refresh(self.live_id,self.now+61)
+        with self.app.app_context():
+            updated=db.query('SELECT * FROM hosted_rooms WHERE build_id=?',(self.bid,),one=True)
+            self.assertEqual((updated['id'],updated['port'],updated['confirmed']),(initial['id'],43123,0))
+            self.assertEqual(db.query('SELECT COUNT(*) AS n FROM hosted_rooms',one=True)['n'],1)
+        for offset,port in enumerate((0,None,-1,65536,'50000',True),start=2):
+            self.payloads['room_status']['last_port']=port
+            live_store.refresh(self.live_id,self.now+61*offset)
+            with self.app.app_context():
+                self.assertEqual(db.query('SELECT port FROM hosted_rooms WHERE id=?',(initial['id'],),one=True)['port'],43123)
+
+    def test_port_discovery_continues_when_tracker_is_unavailable_without_bypassing_cache(self):
+        self.seed()
+        original=live_api.fetch.side_effect
+        def fetch(endpoint,identifier):
+            if endpoint=='static_tracker':
+                self.calls.append((endpoint,identifier))
+                raise live_api.APIError('Tracker unavailable','unavailable',300)
+            return original(endpoint,identifier)
+        with patch.object(live_api,'fetch',side_effect=fetch):
+            self.assertFalse(live_store.refresh(self.live_id,self.now))
+            self.payloads['room_status']['last_port']=43124
+            self.assertFalse(live_store.refresh(self.live_id,self.now+30))
+            self.assertFalse(live_store.refresh(self.live_id,self.now+61))
+        with self.app.app_context():
+            self.assertEqual(db.query('SELECT port FROM hosted_rooms WHERE build_id=?',(self.bid,),one=True)['port'],43124)
+        self.assertEqual(len([c for c in self.calls if c[0]=='room_status']),2)
+        self.assertEqual(len([c for c in self.calls if c[0]=='static_tracker']),1)
+
+    def test_saved_official_room_defaults_to_auto_port_but_manual_and_self_hosting_stay_manual(self):
+        self.seed()
+        url=f'/sessions/{self.sid}/builds/{self.bid}/hosting'
+        form=dict(room_url=ROOM_URL,host='archipelago.gg',port='12345',confirmed='1')
+        self.assertEqual(self.post(url,form).status_code,302)
+        with self.app.app_context():
+            self.assertTrue(live_store.current(self.bid)['auto_host'])
+        live_store.refresh(self.live_id,self.now)
+        with self.app.app_context():
+            self.assertEqual(db.query('SELECT port FROM hosted_rooms ORDER BY id DESC LIMIT 1',one=True)['port'],38281)
+        for override in (dict(manual_port='1'),dict(host='manual.example'),dict(room_url='')):
+            self.assertEqual(self.post(url,{**form,**override}).status_code,302)
+            with self.app.app_context():
+                self.assertFalse(live_store.current(self.bid)['auto_host'])
+            self.payloads['room_status']['last_port']=43125
+            live_store.refresh(self.live_id,self.now+122)
+            with self.app.app_context():
+                address=db.query('SELECT * FROM hosted_rooms ORDER BY id DESC LIMIT 1',one=True)
+                self.assertEqual((address['host'],address['port']),(override.get('host','archipelago.gg'),12345))
+
+    def test_port_update_does_not_run_after_room_is_completed_during_request(self):
+        self.seed()
+        original=live_api.fetch.side_effect
+        def fetch(endpoint,identifier):
+            result=original(endpoint,identifier)
+            if endpoint=='room_status':
+                with self.app.app_context():
+                    db.execute("UPDATE seed_builds SET completed_at='done' WHERE id=?",(self.bid,))
+            return result
+        with patch.object(live_api,'fetch',side_effect=fetch):
+            self.assertFalse(live_store.refresh(self.live_id,self.now))
+        with self.app.app_context():
+            self.assertIsNone(db.query('SELECT * FROM hosted_rooms WHERE build_id=?',(self.bid,),one=True))
+
     def test_history_sampling_and_seed_delete_cascade(self):
         self.seed()
         live_store.refresh(self.live_id, self.now)

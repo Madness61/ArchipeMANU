@@ -7,14 +7,45 @@
   const kind = document.getElementById('console-kind');
   const search = document.getElementById('console-search');
   const older = document.getElementById('console-older');
-  let cursor = 0, first = 0, generation = 0, fetching = false, catalogVersion = 0;
+  let cursor = 0, first = 0, generation = 0, fetching = false, sending=false, catalogVersion = 0, endpointId, authLost=false;
   const ids = new Set();
-  const labels = {connecting:'Verbindung wird aufgebaut',authenticating:'Slot wird angemeldet',connected:'Mit Archipelago verbunden',disconnected:'Nicht verbunden',error:'Verbindung fehlgeschlagen'};
-  const fail = (text) => { error.textContent = text; error.hidden = !text; };
+  const labels = window.HUB_UI.consoleStates;
+  const fail = (text) => { if(error.textContent!==text)error.textContent = text; error.hidden = !text; };
+  let lastHubContact=null,hubReachable=null,lastData=null;
+  const dateText=seconds=>seconds?new Date(seconds*1000).toLocaleString(window.HUB_I18N.locale):window.HUB_I18N.t('noch keiner');
+  function diagnostics(data=lastData){
+    const box=document.getElementById('console-diagnostics');if(!box)return;
+    const fragment=document.createDocumentFragment();
+    const line=(label,value)=>{const row=document.createElement('div'),name=document.createElement('strong'),detail=document.createElement('span');name.textContent=label;detail.textContent=value;row.append(name,detail);fragment.append(row);};
+    line(window.HUB_I18N.t('ArchipeMANU-Backend'),hubReachable===false?window.HUB_I18N.t('Nicht erreichbar'):hubReachable?window.HUB_I18N.t('Erreichbar'):window.HUB_I18N.t('Wird geprüft'));
+    line(window.HUB_I18N.t('Letzter erfolgreicher Kontakt'),dateText(lastHubContact));
+    if(data){
+      const web=data.webhost;
+      if(web){
+        line(window.HUB_I18N.t('Archipelago WebHost-API'),web.state==='not_linked'?window.HUB_I18N.t('Kein Raum verknüpft'):web.error|| (!web.last_success?window.HUB_I18N.t('Noch keine Daten'):web.stale?window.HUB_I18N.t('Veralteter Datenstand'):window.HUB_I18N.t('Aktueller Datenstand')));
+        line(window.HUB_I18N.t('Letzter erfolgreicher API-Abruf'),dateText(web.last_success));
+        line(window.HUB_I18N.t('Nächste API-Aktualisierung'),web.next_update?dateText(web.next_update):window.HUB_I18N.t('Keine Aktualisierung geplant'));
+        const cacheLabels={fresh:window.HUB_I18N.t('Im Cache'),due:window.HUB_I18N.t('Aktualisierung fällig'),updating:window.HUB_I18N.t('Abruf läuft'),error:window.HUB_I18N.t('Abruf fehlgeschlagen')};
+        line(window.HUB_I18N.t('API-Cache'),web.endpoints.length?web.endpoints.map(e=>e.endpoint+': '+cacheLabels[e.state]).join(' · '):window.HUB_I18N.t('Noch keine Daten'));
+      }
+      line(window.HUB_I18N.t('Archipelago Live-Konsole'),labels[data.state]||data.state);
+      line(window.HUB_I18N.t('Letzter Konsolenkontakt'),dateText(data.last_contact));
+      line(window.HUB_I18N.t('Nächster Reconnect-Versuch'),data.next_retry_at?dateText(data.next_retry_at):window.HUB_I18N.t('Keiner geplant'));
+      if(data.recording?.enabled)line(window.HUB_I18N.t('Rundenaufzeichnung'),window.HUB_UI.consoleLabel(data.recording.console_state));
+      line(window.HUB_I18N.t('Lokaler Spielclient'),window.HUB_I18N.t('Unbekannt · keine zuverlässige technische Prüfung'));
+    }
+    box.replaceChildren(fragment);
+  }
   async function api(path, form) {
-    const response = await fetch(root.dataset.base + path, form ? {method:'POST',body:form,headers:{'X-CSRF-Token':root.dataset.csrf},cache:'no-store'} : {cache:'no-store'});
-    const data = await response.json().catch(() => ({error:response.status === 429 ? 'Zu viele Anfragen. Bitte kurz warten.' : 'Die Anfrage konnte nicht verarbeitet werden. Bitte gegebenenfalls erneut anmelden.'}));
-    if (!response.ok) throw new Error(data.error || 'Die Anfrage ist fehlgeschlagen.');
+    let response;
+    try{response = await fetch(root.dataset.base + path, form ? {method:'POST',body:form,headers:{'X-CSRF-Token':root.dataset.csrf},cache:'no-store'} : {cache:'no-store'});}
+    catch(error){hubReachable=false;diagnostics();throw new Error(window.HUB_I18N.t('Der Hub ist nicht erreichbar. Der letzte Datenstand bleibt sichtbar.'));}
+    hubReachable=true;
+    if(response.ok)lastHubContact=Date.now()/1000;
+    diagnostics();
+    const data = await response.json().catch(() => ({error:response.status === 429 ? window.HUB_I18N.t('Zu viele Anfragen. Bitte kurz warten.') : window.HUB_I18N.t('Die Anfrage konnte nicht verarbeitet werden. Bitte gegebenenfalls erneut anmelden.')}));
+    if(response.status===401){authLost=true;window.HUB_AUTH_REQUIRED?.(data.login_url);}
+    if (!response.ok) throw new Error(data.error || window.HUB_I18N.t('Die Anfrage ist fehlgeschlagen.'));
     return data;
   }
   function append(entries, prepend=false) {
@@ -24,15 +55,33 @@
       ids.add(entry.id);
       const line = document.createElement('div');
       line.className = 'console-line console-' + entry.kind;
-      line.dataset.text = entry.text.toLocaleLowerCase('de');
+      if(entry.for_me)line.classList.add('console-for-me');
+      line.dataset.text = entry.text.toLocaleLowerCase(window.HUB_I18N.locale);
       const stamp = document.createElement('time');
       stamp.dateTime = new Date(entry.at * 1000).toISOString();
-      stamp.textContent = new Date(entry.at * 1000).toLocaleTimeString('de-DE');
-      stamp.title = 'Vom Hub aufgezeichnet: ' + new Date(entry.at * 1000).toLocaleString('de-DE');
+      stamp.textContent = new Date(entry.at * 1000).toLocaleTimeString(window.HUB_I18N.locale);
+      stamp.title = window.HUB_I18N.t('Vom Hub aufgezeichnet: ') + new Date(entry.at * 1000).toLocaleString(window.HUB_I18N.locale);
       const text = document.createElement('span');
-      text.textContent = entry.text;
+      if(entry.delivery){
+        const route=document.createElement('span');route.className='console-item-route';
+        const sender=document.createElement('strong'),recipient=document.createElement('strong'),item=document.createElement('strong');
+        sender.textContent=entry.delivery.sender.name;recipient.textContent=entry.delivery.recipient.name;item.textContent=entry.delivery.item;item.className='console-item-name';
+        for(const [node,name] of [[sender,entry.delivery.sender.name],[recipient,entry.delivery.recipient.name]]){node.classList.add('console-player-name');node.style.setProperty('--player',window.HUB_UI.playerColor(name));}
+        route.append(sender,document.createTextNode(' → '),recipient,document.createTextNode(': '),item);
+        const place=document.createElement('small');place.className='console-item-place';place.textContent=entry.delivery.location.name+' · '+entry.delivery.sender.game;
+        text.append(route,place);
+      }else text.textContent = entry.text;
+      if(entry.source==='received_items'){
+        const evidence=document.createElement('small');evidence.className='console-item-place';
+        evidence.textContent=window.HUB_I18N.t('Nachträglich bestätigt · Fundzeit unbekannt');
+        if(entry.receipt_index!=null)evidence.title=window.HUB_I18N.t('Empfangsreihenfolge für diesen Slot: {v0}',{v0:(entry.receipt_index+1).toLocaleString(window.HUB_I18N.locale)});
+        text.append(evidence);
+      }
+      if(entry.visibility==='personal'){
+        const privateLabel=document.createElement('small');privateLabel.className='console-private-label';privateLabel.textContent=window.HUB_I18N.t('Nur für dich');text.append(privateLabel);
+      }
       line.append(stamp,text);
-      line.hidden = !line.dataset.text.includes(search.value.toLocaleLowerCase('de'));
+      line.hidden = !line.dataset.text.includes(search.value.toLocaleLowerCase(window.HUB_I18N.locale));
       fragment.append(line);
     });
     const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 90;
@@ -48,16 +97,52 @@
       const position = previous && first ? '&before=' + first : cursor ? '&after=' + cursor : '';
       const data = await api('/data?kind=' + encodeURIComponent(kind.value) + position);
       if (requestGeneration !== generation) return;
-      const changedCatalog = catalogVersion !== data.catalog_version && cursor > 0;
+      lastData=data;
+      diagnostics(data);
+      if(data.recording){
+        const recording=data.recording,indicator=document.getElementById('console-recording-state');
+        const names={active:window.HUB_I18N.t('Aufzeichnung aktiv'),interrupted:window.HUB_I18N.t('Aufzeichnung unterbrochen'),not_started:window.HUB_I18N.t('Aufzeichnung nicht gestartet')};
+        if(indicator.textContent!==names[recording.state])indicator.textContent=names[recording.state];indicator.className='chip '+(recording.state==='active'?'ok':recording.state==='interrupted'?'warn':'');
+        const lastEvent=document.getElementById('console-last-event'),lastText=window.HUB_I18N.t('Letztes erfasstes Item: {v0}',{v0:dateText(recording.last_event)});
+        if(lastEvent.textContent!==lastText)lastEvent.textContent=lastText;
+        const recordError=document.getElementById('recording-error');if(recordError){recordError.textContent=recording.error;recordError.hidden=!recording.error;}
+        const recordForm=document.getElementById('recording-start');if(recordForm)recordForm.hidden=recording.enabled&&!['action_required','disconnected','not_started'].includes(recording.console_state);
+        const stop=document.getElementById('recording-stop');if(stop)stop.disabled=!recording.enabled;
+      }
+      const changedCatalog = (catalogVersion !== data.catalog_version || endpointId!==undefined && endpointId!==data.endpoint_id) && cursor > 0;
       catalogVersion = data.catalog_version;
+      endpointId=data.endpoint_id;
+      if(data.server){
+        const address=data.server.host+':'+data.server.port;
+        const serverRow=document.getElementById('console-server-row');
+        if(serverRow)serverRow.hidden=false;
+        const autoPort=document.getElementById('console-auto-port');
+        if(autoPort)autoPort.hidden=!data.server.auto_port;
+        for(const id of ['console-server-address','host-address']){const node=document.getElementById(id);if(node)node.textContent=address;}
+        for(const [id,value] of [['server-host',data.server.host],['server-port',data.server.port]]){const node=document.getElementById(id);if(node)node.textContent=String(value);}
+        if(data.server.auto_port)document.querySelectorAll('.hosting-fields input[name=port]').forEach(input=>{
+          if(input.value===input.defaultValue){input.value=String(data.server.port);input.defaultValue=input.value;}
+        });
+        document.querySelector('#console-connect button.primary')?.removeAttribute('disabled');
+      }
       if (changedCatalog) {
         cursor=0;first=0;ids.clear();
         log.querySelectorAll('.console-line').forEach(line=>line.remove());
         empty.hidden=false;return;
       }
       const state = document.getElementById('console-state');
-      state.textContent = (labels[data.state] || data.state) + (data.state === 'connected' && data.transport ? ' · ' + data.transport.toUpperCase() : '');
-      state.className = 'chip ' + (data.state === 'connected' ? 'ok' : data.state === 'error' ? 'err' : '');
+      const stateLabel=(labels[data.state] || data.state) + (data.state === 'connected' && data.transport ? ' · ' + data.transport.toUpperCase() : '');
+      if(state.textContent!==stateLabel)state.textContent=stateLabel;
+      state.className = 'chip ' + (data.state === 'connected' ? 'ok' : ['error','action_required'].includes(data.state) ? 'err' : '');
+      const connectLink=document.getElementById('console-connect-link');if(connectLink)connectLink.hidden=data.state==='connected';
+      const connectForm=document.getElementById('console-connect'),connectedSlot=document.getElementById('console-connected-slot');
+      if(connectForm){
+        connectForm.dataset.connected=String(data.state==='connected');
+        const slot=connectForm.elements.namedItem('slot');
+        if(data.slot&&!slot.dataset.dirty&&[...slot.options].some(o=>o.value===data.slot))slot.value=data.slot;
+      }
+      if(connectedSlot){connectedSlot.hidden=data.state!=='connected';connectedSlot.textContent=window.HUB_I18N.t('Verbunden als ')+(data.slot||window.HUB_I18N.t('dein Spielslot'));}
+      document.dispatchEvent(new CustomEvent('hub:console-state',{detail:data}));
       if (data.error) fail(data.error);
       else if (data.state === 'connected') fail('');
       append(data.events,previous);
@@ -83,8 +168,17 @@
     values.delete('password');
   });
   document.getElementById('console-disconnect')?.addEventListener('click',() => post('/disconnect',new FormData()));
+  document.getElementById('recording-start')?.addEventListener('submit',async event=>{
+    event.preventDefault();const form=event.currentTarget,values=new FormData(form),button=form.querySelector('button[type=submit]');
+    form.elements.password.value='';button.disabled=true;
+    try{await post('/recording/start',values);}finally{values.delete('password');button.disabled=false;}
+  });
+  document.getElementById('recording-stop')?.addEventListener('click',()=>post('/recording/stop',new FormData()));
+  document.getElementById('console-connect')?.elements.namedItem('slot')?.addEventListener('change',event=>event.target.dataset.dirty='1');
   document.getElementById('console-command')?.addEventListener('submit',async event => {
     event.preventDefault();
+    if(sending)return;
+    sending=true;
     const form = event.currentTarget;
     const values = new FormData(form);
     const connect = document.getElementById('console-connect');
@@ -97,7 +191,10 @@
         connect.querySelector('[name=password]').value = '';
       }
     }
-    if (await post('/command',values)) form.reset();
+    const original=values.get('text');
+    const submit=form.querySelector('[type=submit]');if(submit)submit.disabled=true;
+    try{if(await post('/command',values)){if(form.elements.namedItem('text').value===original){form.reset();try{sessionStorage.removeItem(draftKey);}catch{}}}}
+    finally{sending=false;if(submit)submit.disabled=false;}
     values.delete('password');
   });
   kind.addEventListener('change',() => {
@@ -107,9 +204,39 @@
     load();
   });
   search.addEventListener('input',() => log.querySelectorAll('.console-line').forEach(line => {
-    line.hidden=!line.dataset.text.includes(search.value.toLocaleLowerCase('de'));
+    line.hidden=!line.dataset.text.includes(search.value.toLocaleLowerCase(window.HUB_I18N.locale));
   }));
   older.addEventListener('click',() => load(true));
-  async function poll() { if (!document.hidden) await load(); setTimeout(poll,2000); }
+  // Commands are inserted into the composer. Selection never sends a request.
+  const composer=document.getElementById('console-message'),menu=document.getElementById('console-command-menu'),toggle=document.getElementById('console-command-toggle');
+  const draftKey='hub.console.draft.v1:'+root.dataset.user+':'+root.dataset.base;
+  if(composer){try{if(!composer.value)composer.value=sessionStorage.getItem(draftKey)||'';}catch{}composer.addEventListener('input',()=>{try{sessionStorage.setItem(draftKey,composer.value);}catch{}});}
+  const choices=menu?[...menu.querySelectorAll('[data-insert-command]')]:[];
+  const showCommands=open=>{if(!menu)return;menu.hidden=!open;toggle.setAttribute('aria-expanded',String(open));};
+  const filterCommands=()=>{
+    if(!composer)return;
+    const query=composer.value.trim().toLowerCase();
+    const isCommand=query.startsWith('/')||query.startsWith('!');
+    choices.forEach(button=>button.hidden=isCommand&&!button.dataset.insertCommand.trim().startsWith(query));
+    showCommands(isCommand&&!query.includes(' ')&&choices.some(b=>!b.hidden)&&!choices.some(b=>b.dataset.insertCommand.trim()===query));
+  };
+  composer?.addEventListener('input',filterCommands);
+  composer?.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){showCommands(false);return;}
+    if(event.key==='ArrowDown'&&menu&&!menu.hidden){event.preventDefault();choices.find(b=>!b.hidden)?.focus();}
+  });
+  toggle?.addEventListener('click',()=>{if(menu.hidden){choices.forEach(b=>b.hidden=false);showCommands(true);choices[0]?.focus();}else{showCommands(false);composer.focus();}});
+  choices.forEach(button=>{
+    button.addEventListener('click',()=>{composer.value=button.dataset.insertCommand;showCommands(false);composer.focus();composer.setSelectionRange(composer.value.length,composer.value.length);});
+    button.addEventListener('keydown',event=>{
+      if(event.key==='Escape'){event.preventDefault();showCommands(false);composer.focus();}
+      if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
+        event.preventDefault();const visible=choices.filter(b=>!b.hidden),i=visible.indexOf(button);
+        visible[event.key==='Home'?0:event.key==='End'?visible.length-1:(i+(event.key==='ArrowDown'?1:-1)+visible.length)%visible.length]?.focus();
+      }
+    });
+  });
+  document.getElementById('console-command')?.addEventListener('submit',()=>showCommands(false));
+  async function poll() { if (!authLost && !document.hidden && !root.closest('[data-round-panel]')?.hidden) await load(); setTimeout(poll,2000); }
   poll();
 })();

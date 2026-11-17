@@ -102,7 +102,7 @@ def effective_values(schema, *layers):
 def global_overrides_for(schema: dict, overrides: dict) -> dict:
     opts = options_by_key(schema)
     return {k: v for k, v in (overrides or {}).items()
-            if k in opts and opts[k]["kind"] == GLOBAL_OVERRIDE_KEYS.get(k)
+            if k in GLOBAL_OVERRIDE_KEYS and k in opts and opts[k]["kind"] == GLOBAL_OVERRIDE_KEYS[k]
             }
 
 

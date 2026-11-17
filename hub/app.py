@@ -12,9 +12,60 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, r
                    url_for)
 
 from . import ap_bridge, config, db, yamlgen, mvp, community, auth, live_store, live_routes, ap_console, console_routes, logic_routes
+from . import i18n, game_catalog
 
 app = Flask(__name__)
 app.teardown_appcontext(db.close)
+app.jinja_env.globals['_'] = i18n.t
+app.jinja_env.globals['http_error'] = i18n.http_error
+app.jinja_env.filters['localdate'] = i18n.format_date
+app.jinja_env.filters['localnumber'] = i18n.format_number
+app.jinja_env.filters['catalog_label'] = game_catalog.label
+
+from werkzeug.exceptions import HTTPException
+@app.errorhandler(HTTPException)
+def friendly_error(error):
+    if not hasattr(g,'user'):
+        g.user=None
+    if request.path.startswith('/api/') or request.accept_mimetypes.best=='application/json':
+        return jsonify(error=i18n.http_error(error)),error.code
+    return render_template('error.html',error=error),error.code
+
+@app.context_processor
+def interface_context():
+    prefs = i18n.preferences()
+    return dict(ui_prefs=prefs, ui_messages=i18n.MESSAGES if prefs['language']=='en' else {},ui_patterns=i18n.PATTERNS if prefs['language']=='en' else [])
+
+@app.after_request
+def localized_errors(response):
+    if response.is_json and i18n.language() == 'en':
+        payload = response.get_json(silent=True)
+        if isinstance(payload, dict):
+            for key in ('error', 'errors', 'message'):
+                if key in payload:
+                    payload[key] = i18n.error_messages(payload[key])
+            response.set_data(app.json.dumps(payload))
+    return response
+
+@app.route('/preferences', methods=['POST'])
+def save_preferences():
+    language, theme = request.form.get('language'), request.form.get('theme')
+    if language not in ('de','en') or theme not in ('dark','light','system'):
+        return jsonify(error=i18n.t('Ungültige Sprache oder Darstellung.')), 400
+    if g.user:
+        # Interface preferences never alter YAML values or invalidate readiness.
+        with db.transaction() as conn:
+            user=conn.execute('SELECT overrides FROM users WHERE id=?',(g.user['id'],)).fetchone()
+            if not user:
+                abort(401)
+            values=db.loads(user['overrides'])
+            values['_interface']=dict(language=language,theme=theme)
+            conn.execute('UPDATE users SET overrides=? WHERE id=?',(db.dumps(values),g.user['id']))
+    response=jsonify(language=language,theme=theme)
+    for key,value in (('ui_language',language),('ui_theme',theme)):
+        response.set_cookie(key,value,max_age=31536000,samesite='Lax',secure=app.config.get('SESSION_COOKIE_SECURE',False))
+    response.headers['Cache-Control']='no-store'
+    return response
 
 ITEM_LOC_GROUP = "Item & Location Options"
 
@@ -58,9 +109,16 @@ def login_required(view):
     @functools.wraps(view)
     def wrapped(*args, **kwargs):
         if g.user is None:
-            return redirect(url_for("login", next=request.full_path))
+            return auth.login_required_response()
         return view(*args, **kwargs)
     return wrapped
+
+
+@app.errorhandler(401)
+def missing_authentication(error):
+    if getattr(g, "user", None) is None:
+        return auth.login_required_response()
+    return error
 
 
 def admin_required(view):
@@ -175,7 +233,7 @@ def can_edit_template(row) -> bool:
 
 
 def template_info(template):
-    return {"ref": template["ref"], "name": template["name"], "source": template["source"],
+    return {"ref": template["ref"], "name": i18n.t(template["name"]) if template['ref']=='default' else template["name"], "source": template["source"],
             "description": template["description"], "summary": template["summary"],
             "is_default": template["is_default"], "compatible": not bool(template["errors"])}
 
@@ -210,10 +268,15 @@ def templates_for(schema: dict) -> list[dict]:
             result.append({"ref":"c:"+row["sha256"],"name":"Upload · "+row["display_name"],"source":"Upload",
                            "description":"Original-YAML bleibt in der Spielebibliothek herunterladbar.","values":{},"unavailable":True})
     for t in result:
+        generated_description = not t['ref'].startswith('t:')
         t["summary"] = yamlgen.summarize(schema, t["values"])
         if not t["description"]:
+            generated_description = True
             t["description"] = (f"{len(t['summary'])} Abweichungen vom Spiel-Standard. Die konkreten Werte stehen unten."
                                 if t["summary"] else "Diese Vorlage entspricht dem Spiel-Standard.")
+        if generated_description:
+            t['description']=i18n.t(t['description'])
+        t['source']=i18n.t(t['source'])
         t["is_default"] = t["ref"] == default_ref
         t["errors"] = yamlgen.validate_values(schema,t["values"])
         t["errors"].update(yamlgen.validate_requirements(schema,t.get("requires",{}),ap_bridge.index().get("ap_version","0.0.0")))
@@ -309,63 +372,38 @@ def game_hue(value):
 @app.route("/")
 @login_required
 def index():
-    sessions = db.query("""SELECT s.*,u.username AS host_name,
-        (SELECT COUNT(*) FROM lobby_members lm WHERE lm.session_id=s.id) AS member_count,
-        (SELECT COUNT(*) FROM entries e WHERE e.session_id=s.id) AS game_count,
-        (s.created_by=? OR EXISTS (SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.id AND lm.user_id=?)
-         OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?)) AS is_member
-        FROM sessions s LEFT JOIN users u ON u.id=s.created_by
-        WHERE s.locked=0 OR s.created_by=? OR EXISTS (
-            SELECT 1 FROM lobby_members lm WHERE lm.session_id=s.id AND lm.user_id=?)
-            OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?)
-        ORDER BY s.id DESC""", (g.user["id"],)*6)
-    own_ids = {s["id"] for s in sessions if s["is_member"]}
-    active = [dict(c) for c in mvp.active_connections() if c["session_id"] in own_ids]
-    active_ids = {c["session_id"] for c in active}
-    own_rooms = sorted([dict(s) for s in sessions if s["is_member"]],
-                       key=lambda s: (0 if s["id"] in active_ids else 2 if s["completed_at"] else 1, -s["id"]))[:6]
-    for room in own_rooms:
-        entries = session_entries(room["id"])
-        room["game_names"] = list(dict.fromkeys(e["game_name"] for e in entries))
-        member_ids = {r["user_id"] for r in db.query("SELECT user_id FROM lobby_members WHERE session_id=?", (room["id"],))} | {e["user_id"] for e in entries}
-        room["member_count"] = len(member_ids)
-        room["ready_count"] = sum(bool([e for e in entries if e["user_id"] == uid]) and all(
-            e["ready_valid"] and e["template_found"] for e in entries if e["user_id"] == uid) for uid in member_ids)
-        room["own_entry"] = next((e for e in entries if e["user_id"] == g.user["id"]), None)
-    focus = next((s for s in own_rooms if active and s["id"] == active[0]["session_id"]), None)
-    focus = focus or next((s for s in own_rooms if not s["completed_at"]), None)
-    focus_action = focus_url = None
-    focus_live = None
+    from . import rounds
+    focus, others = rounds.dashboard()
+    action, target, live = None, None, None
     if focus:
-        build = db.query("SELECT * FROM seed_builds WHERE session_id=? ORDER BY id DESC LIMIT 1", (focus["id"],), one=True)
-        connection = next((c for c in active if c["session_id"] == focus["id"]), None)
-        if connection:
-            linked = live_store.current(connection["build_id"])
-            focus_action = "Live-Dashboard öffnen" if linked else "Jetzt spielen"
-            focus_url = url_for("live.dashboard" if linked else "mvp.play_page", sid=focus["id"], build_id=connection["build_id"])
+        entries = session_entries(focus["id"])
+        member_ids = {r["user_id"] for r in db.query("SELECT user_id FROM lobby_members WHERE session_id=?",(focus["id"],))} | {e["user_id"] for e in entries}
+        focus["ready_count"] = sum(any(e["user_id"] == uid for e in entries) and all(
+            e["ready_valid"] and e["template_found"] for e in entries if e["user_id"] == uid) for uid in member_ids)
+        focus["member_count"] = len(member_ids)
+        own = next((e for e in entries if e["user_id"] == g.user["id"]), None)
+        build = focus["latest_build"]
+        anchor = "play"
+        if focus["phase"] == "completed":
+            action = "Rückblick öffnen"
+        elif focus["phase"] == "running":
+            linked = live_store.current(build["id"])
+            configured = db.query("SELECT 1 FROM hosted_rooms WHERE build_id=?",(build["id"],),one=True)
+            action = "Konsole öffnen" if configured and not db.loads(build["snapshot"]).get("race") else "Jetzt spielen"
+            anchor = "play"
             if linked and linked["latest_json"]:
-                focus_live = db.loads(linked["latest_json"])
-        elif build and build["status"] == "succeeded":
-            focus_action = "Jetzt spielen"
-            focus_url = url_for("mvp.play_page", sid=focus["id"], build_id=build["id"])
+                live = db.loads(linked["latest_json"])
+        elif build and build["status"] in ("queued","running"):
+            action = "Generierung ansehen"
+        elif own and own["ready_valid"]:
+            action = "Seed generieren" if can_manage_session(focus) and focus["ready_count"] == len(member_ids) else "Zur Runde"
+            anchor = "host-controls" if action == "Seed generieren" else "play"
         else:
-            own = focus["own_entry"]
-            focus_action = ("Generierung ansehen" if build and build["status"] in ("queued", "running")
-                            else "Zur Lobby" if focus["locked"] or (own and own["ready_valid"])
-                            else "Einstellungen prüfen" if own and (own["world_error"] or not own["template_found"])
-                            else "Bereit melden" if own else "Spiel auswählen")
-            focus_url = url_for("session_view", sid=focus["id"], _anchor="participants-section" if own else "game-selection")
-    recent = db.query("""SELECT b.id,b.session_id,b.created_at,s.name FROM seed_builds b JOIN sessions s ON s.id=b.session_id
-        WHERE b.status='succeeded' AND b.completed_at IS NOT NULL AND (s.created_by=?
-        OR EXISTS (SELECT 1 FROM lobby_members m WHERE m.session_id=s.id AND m.user_id=?)
-        OR EXISTS (SELECT 1 FROM entries e WHERE e.session_id=s.id AND e.user_id=?))
-        ORDER BY b.id DESC LIMIT 4""", (g.user["id"],)*3)
-    return render_template("index.html", open_rooms=[s for s in sessions if not s["locked"]][:6],
-                           own_rooms=own_rooms, focus=focus, focus_action=focus_action, focus_url=focus_url,
-                           focus_live=focus_live, own_active=active, recent_rounds=recent,
-                           games_total=len(community.all_games()),
-                           open_total=db.query("SELECT COUNT(*) AS n FROM sessions WHERE locked=0", one=True)["n"],
-                           players_total=db.query("SELECT COUNT(*) AS n FROM users", one=True)["n"])
+            action = "Bereit melden" if own else "Spiel auswählen"
+        target = url_for("session_view",sid=focus["id"],_anchor=anchor)
+    return render_template("overview.html",focus=focus,other_rounds=others,
+                           focus_action=action,focus_url=target,focus_live=live)
+
 
 
 @app.route("/games")
@@ -476,6 +514,20 @@ def api_names(slug):
 def world_status():
     # Group members need progress only; extraction logs remain admin-only.
     return jsonify(status=ap_bridge.extract_status().get("status","never"))
+
+
+@app.route("/api/games/<slug>/checks", methods=["GET", "POST"])
+@login_required
+def game_check_preview(slug):
+    from . import check_preview
+    get_schema(slug)
+    if request.method == "POST":
+        limited = auth.consume_attempt("standard-check-preview", str(g.user["id"]), 12)
+        if limited:
+            return limited
+    response = jsonify(check_preview.status(slug, start=request.method == "POST"))
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 # --- Templates ---------------------------------------------------------------------------------
@@ -677,7 +729,7 @@ def session_create():
 
 @app.route("/sessions/<int:sid>")
 @login_required
-def session_view(sid, selection=None):
+def session_view(sid, selection=None, build_id=None):
     from . import game_catalog
     row = get_session(sid)
     mvp._assert_access(row)
@@ -738,7 +790,17 @@ def session_view(sid, selection=None):
     all_ready = bool(entries) and not waiting
     step = 2 if selection else 4 if own_entry and own_entry["ready_valid"] else 3 if own_entry else 1
     host_user = db.query("SELECT username FROM users WHERE id=?", (row["created_by"],), one=True)
-    return render_template("session.html", s=row, entries=entries, games=games,
+    from . import rounds
+    explicit = build_id if build_id is not None else request.args.get("build", type=int)
+    chosen = rounds.selected_build(row, history, explicit)
+    play = mvp.play_context(sid, chosen["id"]) if chosen else {}
+    phase, phase_label = rounds.phase(row, chosen)
+    console_primary = bool(play and chosen["status"] == "succeeded" and play["hosted"]
+                           and not chosen["completed_at"] and not play["race"]
+                           and (is_member or can_manage_session(row)))
+    return render_template("round.html", round_phase=phase, phase_label=phase_label,
+                           console_primary=console_primary,console_commands=ap_console.COMMANDS,
+                           play=play, **play, s=row, entries=entries, games=games,
                            host_rom_requirements=game_catalog.host_rom_requirements(entries),
                            manage=can_manage_session(row), build_history=history,
                            host_name=host_user["username"] if host_user else "Nicht mehr vorhanden",
@@ -1122,6 +1184,8 @@ def admin_setup_account(uid):
 
 
 def create_app() -> Flask:
+    from . import recording
+    from . import progression, progression_routes
     config.ensure_dirs()
     db.init()
     auth.migrate()
@@ -1129,6 +1193,8 @@ def create_app() -> Flask:
     community.migrate()
     live_store.migrate()
     ap_console.migrate()
+    recording.migrate()
+    progression.migrate()
     if "mvp" not in app.blueprints:
         app.register_blueprint(mvp.bp)
     if "community" not in app.blueprints:
@@ -1141,6 +1207,9 @@ def create_app() -> Flask:
         app.register_blueprint(console_routes.bp)
     if "logic" not in app.blueprints:
         app.register_blueprint(logic_routes.bp)
+    if "progression" not in app.blueprints:
+        app.register_blueprint(progression_routes.bp)
+    app.jinja_env.globals['progression_enabled'] = True
     app.secret_key = config.secret_key()
     auth.configure(app)
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024

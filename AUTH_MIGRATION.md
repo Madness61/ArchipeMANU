@@ -1,5 +1,15 @@
 # Persönliche Konten: Analyse und Migrationsplan
 
+Ergänzung vom 10.11.2026: Fehlt eine gültige Anmeldung, führen geschützte
+HTML-Seiten zur Anmeldung mit Rückweg zur angeforderten Seite. API-Aufrufe
+antworten mit HTTP 401 und JSON (`authentication_required`, `login_url`) statt
+einer englischen HTML-Fehlerseite. Rückwege nach POST-Aktionen führen zu einer
+lesbaren Rundenseite; Aktionen werden nicht nach der Anmeldung wiederholt.
+Die Konsole zeigt einen Hinweis „Erneut anmelden“ und hält ihre automatische
+Abfrage an. Unversendeter Chattext wird nicht durch eine automatische Navigation
+verworfen. Passwortprüfung, Sitzungsdauer, Rollen, CSRF und Race-Schutz bleiben
+unverändert. Ungültige Zugangsdaten zeigen weiterhin das reguläre Loginformular.
+
 Stand: 7. November 2026. Individuelle Konten wurden auf
 `feature/individual-user-accounts` eingeführt; die vereinfachte offene
 Registrierung liegt auf `feature/simple-registration`.

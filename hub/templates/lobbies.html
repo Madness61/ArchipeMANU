@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% from "ui.html" import lobby_card with context %}
-{% block title %}Lobbys · {{ app_name }}{% endblock %}
+{% block title %}{{ _("Lobbys ·") }} {{ app_name }}{% endblock %}
 {% block content %}
-<div class="page-head"><div><p class="eyebrow">Deine Gruppe, deine Runde</p><h1>Lobbys</h1><p class="muted">Gemeinsam vorbereiten, unterschiedliche Spiele spielen. Tritt einer Runde bei oder werde selbst Host.</p></div><a class="btn" href="#new-lobby">Neue Lobby</a></div>
+<div class="page-head"><div><p class="eyebrow">{{ _("Deine Gruppe, deine Runde") }}</p><h1>{{ _("Lobbys") }}</h1><p class="muted">{{ _("Gemeinsam vorbereiten, unterschiedliche Spiele spielen. Tritt einer Runde bei oder werde selbst Host.") }}</p></div><a class="btn" href="#new-lobby">{{ _("Neue Lobby") }}</a></div>
 <form method="post" action="{{ url_for('session_create') }}" class="panel create-lobby" id="new-lobby">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-  <label>Neue Lobby<input name="name" placeholder="z. B. Freitags-Multiworld" maxlength="80" required></label>
-  <button class="primary">+ Lobby erstellen</button>
-  <span class="muted small">Als Ersteller bist du Host dieser Runde.</span>
+  <label>{{ _("Neue Lobby") }}<input name="name" placeholder="{{ _("z. B. Freitags-Multiworld") }}" maxlength="80" required></label>
+  <button class="primary">{{ _("+ Lobby erstellen") }}</button>
+  <span class="muted small">{{ _("Als Ersteller bist du Host dieser Runde.") }}</span>
 </form>
-<div class="section-head"><h2>Offene Lobbys</h2><span class="small muted">{{ rooms|rejectattr('locked')|list|length }} Runden offen</span></div>
+<div class="section-head"><h2>{{ _("Offene Lobbys") }}</h2><span class="small muted">{{ rooms|rejectattr('locked')|list|length }} {{ _("Runden offen") }}</span></div>
 {% set open_rooms = rooms|rejectattr('locked')|list %}
 {% if open_rooms %}<div class="grid">{% for s in open_rooms %}{{ lobby_card(s) }}{% endfor %}</div>
-{% else %}<div class="panel empty-state"><h3>Platz für einen neuen Spieleabend</h3><p>Es ist noch keine Lobby offen. Erstelle oben eine Runde – deine Freunde können ohne Spielauswahl beitreten.</p></div>{% endif %}
+{% else %}<div class="panel empty-state"><h3>{{ _("Platz für einen neuen Spieleabend") }}</h3><p>{{ _("Es ist noch keine Lobby offen. Erstelle oben eine Runde – deine Freunde können ohne Spielauswahl beitreten.") }}</p></div>{% endif %}
 {% set closed_rooms = rooms|selectattr('locked')|list %}
-{% if closed_rooms %}<details class="analysis-section"><summary>Geschlossene Runden ({{ closed_rooms|length }})</summary><div class="grid">{% for s in closed_rooms %}{{ lobby_card(s) }}{% endfor %}</div></details>{% endif %}
+{% if closed_rooms %}<details class="analysis-section"><summary>{{ _("Geschlossene Runden (") }}{{ closed_rooms|length }})</summary><div class="grid">{% for s in closed_rooms %}{{ lobby_card(s) }}{% endfor %}</div></details>{% endif %}
 {% endblock %}

@@ -190,7 +190,8 @@ def valid_yaml(data: bytes, game_name: str):
 @bp.route("/games/community/add", methods=["GET", "POST"])
 def game_add():
     if g.user is None:
-        return redirect(url_for("login", next=request.path))
+        from . import auth
+        return auth.login_required_response()
     if request.method == "GET":
         return render_template("community_add.html")
     archive = request.files.get("apworld")
