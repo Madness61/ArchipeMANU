@@ -23,6 +23,7 @@
       <h3>{{ _("Was bringt mich weiter?") }}</h3>
       {% if own %}<form id="progression-analyze" class="row"><label>{{ _("Dein Slot") }}<select name="slot">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label><button class="primary">{{ _("Möglichkeiten berechnen") }}</button></form>
       {% else %}<p>{{ _("Für eine persönliche Analyse brauchst du einen eigenen Spielslot.") }}</p>{% endif %}
+      {% if own %}<details><summary>{{ _("Optional: bestimmter Check oder Bereich") }}</summary><label>{{ _("Optional: bestimmter Check oder Bereich") }}<select id="progression-target" form="progression-analyze"><option value="">{{ _("Allgemeine Hilfe") }}</option></select></label></details>{% endif %}
       <p id="progression-analysis-state" role="status"></p><p id="progression-observed" class="small muted"></p>
       <p class="small muted">{{ _("Die Hilfe wertet die Spielregeln mit deinem gemeldeten Inventar aus. Sie liest keine lokalen Spielstände oder Story-Ereignisse. Erreichbar bedeutet in der APWorld-Logik möglich.") }}</p>
       <p class="small muted">{{ _("Sortiert nach zusätzlichen Checks, dann neuen Bereichen und Itemname. Viele Checks bedeuten nicht automatisch, dass ein Item für das Spielziel notwendig ist.") }}</p>

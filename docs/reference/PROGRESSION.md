@@ -12,6 +12,8 @@ Ergebnisse werden nach Anzahl neuer Checks absteigend, dann neuen Regionen abste
 
 Normale Aufträge importieren weder Paarlogik noch Ziel-/Notwendigkeitsanalyse. `progression/extensions/combinations.py` und `progression_recommendations.py` bewahren ausschließlich die deaktivierte Erweiterung mit Regressionen. Es gibt keine produktive Route für Kombinationen.
 
+Ein bestimmter Check oder Bereich kann weiterhin optional eingeklappt ausgewählt werden. Die Anzeige vergleicht ihn ausschließlich mit den bereits berechneten Mengen pro Einzelitem. Sie ändert weder Sortierung noch Prüf-Reihenfolge und benötigt keine weiteren AP-Regelaufrufe.
+
 ## Eigener Zielauftrag
 
 Nur `mode=goal` ruft `progression/goals.py` auf. Der eigene Button startet diesen Auftrag ausdrücklich; ein Tabwechsel/GET liest nur den vorhandenen Cache. Das aktuelle Inventar wird gegen das AP-Abschlussziel geprüft. Für Notwendigkeit werden erreichbare vollständige Itemketten einmal mit und einmal ohne ein konkretes platziertes Exemplar ausgewertet. Ein notwendiges Exemplar ist daher eine Aussage über genau diesen Seed und diese Kopie. Ersetzbare Einzelkopien können gemeinsam trotzdem nötig sein. Keine Gegenprobe bei nicht erreichbarem Vollziel wird als sicher notwendig ausgegeben.

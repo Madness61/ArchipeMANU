@@ -79,6 +79,20 @@ class SingleItemTests(unittest.TestCase):
         self.assertEqual(result['singles'], [])
         self.assertFalse(result['singles_complete'])
 
+    def test_optional_target_reuses_single_deltas_without_changing_ranking(self):
+        mw, live = fixture(gate=lambda s: s.has('A', 1))
+        for target in (dict(kind='location', id=2), dict(kind='region', name='Gate')):
+            result = self.evaluate(mw, live, target=target)
+            self.assertFalse(result['target_reachable'])
+            self.assertTrue(result['singles'][0]['target_reached'])
+            self.assertEqual(result['singles'][0]['items'][0]['name'], 'A')
+            self.assertEqual([r['items'][0]['name'] for r in result['singles']],
+                             [r['items'][0]['name'] for r in self.evaluate(mw, live)['singles']])
+        live.update(checked=[2], missing=[1, 3])
+        result = self.evaluate(mw, live, target=dict(kind='location', id=2))
+        self.assertTrue(result['target_reachable'])
+        self.assertTrue(all(r['target_reached'] for r in result['singles']))
+
     def test_current_engine_rejects_unverified_observations(self):
         for reason in ('item_links', 'incomplete_checks', 'unmatched_receipt', 'incomplete_start_inventory',
                        'unmatched_synthetic_item', 'identity'):

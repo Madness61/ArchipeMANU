@@ -88,6 +88,7 @@
     const box=node('article',null,'progression-item progression-recommendation');
     const item=row.items[0];
     box.append(node('h4',item.name),node('p','+'+row.new_checks.length+' '+t('zusätzliche Checks')+' · +'+row.new_regions.length+' '+t('neue Bereiche')));
+    if(row.target_gain)box.append(node('p',t('Der gewählte Bereich wird erreichbar'),'ok'));
     const placements=item.placements||[];
     if(placements.length)box.append(placement(placements[0]));
     else box.append(node('p',t('Kein verifizierter Fundort verfügbar.'),'muted small'));
@@ -109,7 +110,8 @@
     const seen=new Set();
     data.singles=(data.singles||[]).filter(row=>{
       if(row.items?.length!==1||row.items[0].count!==1||seen.has(row.items[0].name))return false;
-      seen.add(row.items[0].name);row.helpful=Boolean(row.new_checks.length||row.new_regions.length);return true;
+      seen.add(row.items[0].name);row.helpful=Boolean(row.new_checks.length||row.new_regions.length);
+      row.target_gain=Boolean(row.target_reached&&!data.target_reachable);return true;
     });
     data.singles.sort((a,b)=>b.new_checks.length-a.new_checks.length||b.new_regions.length-a.new_regions.length||
       a.items[0].name.toLowerCase().localeCompare(b.items[0].name.toLowerCase(),'en')||a.items[0].name.localeCompare(b.items[0].name,'en'));
@@ -144,6 +146,13 @@
     $('progression-helpful').replaceChildren();$('progression-reachable').replaceChildren();
     if(data.state!=='ready')return;
     data=normalize(data);analysisTargets=data.targets||[];
+    const target=$('progression-target');
+    if(target){
+      const selected=target.value,choices=[new Option(t('Allgemeine Hilfe'),'')];
+      analysisTargets.forEach(loc=>choices.push(new Option(loc.name,'location:'+loc.id)));
+      [...new Set(analysisTargets.map(loc=>loc.region))].forEach(name=>choices.push(new Option(name,'region:'+name)));
+      target.replaceChildren(...choices);target.value=selected||'';
+    }
     $('progression-support').textContent=data.singles_complete?t('Verifizierte Logikhilfe'):t('Teilweise Unterstützung');
     $('progression-helpful').append(node('p',(data.reachable||[]).length+' '+t('aktuell erreichbare, offene Checks')));
     $('progression-helpful').append(node('p',data.singles_tested+' '+t('von')+' '+data.candidates_total+' '+t('Progression-Itemarten untersucht'),'small progression-coverage'));
@@ -165,17 +174,25 @@
     if(!form)return;
     analysisBusy=true;clearTimeout(timer);fail('');
     const settings=Object.fromEntries(new FormData(form));settings.mode=mode;
+    const target=mode==='items'?$('progression-target')?.value||'':'';
+    if(target.startsWith('location:')){settings.target_kind='location';settings.target_id=target.slice(9);}
+    if(target.startsWith('region:')){settings.target_kind='region';settings.target_name=target.slice(7);}
     const selectedSlot=settings.slot;
     try{
       const data=await api('/analysis'+(start?'':'?'+new URLSearchParams(settings)),start?settings:null);
-      if(!revealed||form.elements.slot.value!==selectedSlot||(view==='goal'?'goal':'items')!==mode)return;
+      if(!revealed||form.elements.slot.value!==selectedSlot||(view==='goal'?'goal':'items')!==mode||
+         (mode==='items'&&target!==($('progression-target')?.value||'')))return;
       renderAnalysis(data,mode);
       if(data.state==='loading'&&root.open)timer=setTimeout(()=>analysis(false),1200);
     }catch(error){fail(error.message);}finally{analysisBusy=false;if(pendingAnalysis){const pending=pendingAnalysis;pendingAnalysis=null;analysis(pending.view===view&&pending.start);}}
   }
   ['progression-analyze','progression-goal-analyze'].forEach(id=>{
     $(id)?.addEventListener('submit',event=>{event.preventDefault();analysis(true);});
-    $(id)?.elements.slot.addEventListener('change',()=>analysis(false));
+    $(id)?.elements.slot.addEventListener('change',()=>{
+      if(id==='progression-analyze'&&$('progression-target'))$('progression-target').replaceChildren(new Option(t('Allgemeine Hilfe'),''));
+      analysis(false);
+    });
   });
+  $('progression-target')?.addEventListener('change',()=>analysis(false));
   if(root.dataset.standalone)open('finder');
 })();

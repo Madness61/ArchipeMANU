@@ -107,6 +107,15 @@ def test_global_finder_and_progression_fallback_languages_themes(actors,artifact
     expect(more).not_to_have_attribute('open','')
     more.locator('summary').first.click()
     expect(more).to_have_attribute('open','')
+    panel.locator('details:has(#progression-target) > summary').click()
+    with a.expect_response(lambda response: '/progression/analysis?' in response.url and 'target_id=10' in response.url) as selected:
+        panel.locator('#progression-target').select_option('location:10')
+    assert selected.value.request.method=='GET'
+    with a.expect_response(lambda response: response.request.method=='POST' and response.url.endswith('/progression/analysis')) as calculated:
+        panel.get_by_role('button',name='Calculate opportunities',exact=True).click()
+    assert 'target_kind=location' in calculated.value.request.post_data
+    assert 'target_id=10' in calculated.value.request.post_data
+    assert 'mode=items' in calculated.value.request.post_data
     panel.locator('#progression-close').click()
     # Consent revocation also blocks direct requests, independent of hidden UI.
     a.get_by_role('button',name='Find an item',exact=True).click()

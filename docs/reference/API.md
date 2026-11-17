@@ -162,7 +162,7 @@ Präfix: `/sessions/<sid>/builds/<build_id>/progression`. Alle Antworten privat/
 | `GET /analysis` | Eigener `slot`, `mode=items/goal`; liest Cache/Status, startet nichts |
 | `POST /analysis` | Dieselben Felder; startet ausdrücklich einen begrenzten, separat gecachten Auftrag |
 
-Alte `target_kind/target_id/target_name`-Parameter bleiben validiert und cache-kompatibel, lösen aber keine Paar-Kandidatensuche aus. Die normale Oberfläche benötigt diese technischen Zielparameter nicht.
+Die optionale eingeklappte Check-/Bereichsauswahl verwendet `target_kind/target_id/target_name`. Sie wird validiert und mit den bereits berechneten Check-/Regionsmengen verglichen (`target_reachable`, je Einzelitem `target_reached`). Sie startet keine zusätzliche Ziel-, Paar- oder Kandidatensuche und verändert die Sortierung nicht.
 
 Itemantworten nennen Empfänger, Finder/Welt, konkreten Check, Itemklasse, getrennten Check-/Empfangsstatus und jeweiligen Beobachtungszeitpunkt. Itemresultate enthalten `singles`, `singles_tested`, `candidates_total`, `singles_complete`, `reachable`, `regions`, `targets`; keine Paar-/Notwendigkeitsarbeit. Zielresultate enthalten separat `goal_reachable`, `necessity`, `necessity_total`, `necessity_complete`.
 
