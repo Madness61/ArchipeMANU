@@ -13,7 +13,7 @@ Windows mit Git, PowerShell und Python 3.11–3.13:
 .\setup.ps1 -ImportFrom "C:\ProgramData\Archipelago\custom_worlds"
 ```
 
-Setup installiert standardmäßig Archipelago 0.6.8 unter `%USERPROFILE%\.ap-yaml-hub`; `-ApVersion` bzw. `-ApHome` ändern dies. Das Setup kann wiederholt werden, verändert dabei aber die AP-Laufzeit; laufende Seeds/Generierungen vorher berücksichtigen. Start bindet standardmäßig `0.0.0.0:8080`; `-Public` bleibt kompatibel, `-Port` wählt einen anderen Port. Linux: vorhandene `setup.sh`/`start.sh` verwenden.
+Setup installiert standardmäßig Archipelago 0.6.8 unter `%USERPROFILE%\.ap-yaml-hub`; `-ApVersion` bzw. `-ApHome` ändern dies. Das Setup kann wiederholt werden, verändert dabei aber die AP-Laufzeit; laufende Seeds/Generierungen vorher berücksichtigen. Start bindet standardmäßig `0.0.0.0:8080`; `-Public` bleibt kompatibel, `-Port` wählt einen anderen Port. Die mitgelieferten Installationsskripte sind für Windows/PowerShell. Auf anderen Systemen sind AP-Umgebung und Pfade selbst einzurichten; der Python-Einstieg ist `python -m hub`.
 
 | Variable | Wirkung |
 | --- | --- |

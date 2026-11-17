@@ -86,11 +86,24 @@ assert not config.DATA.exists()
             result = subprocess.run([shell, '-NoProfile', '-Command', '& { '+script+' }', str(ROOT/name)], capture_output=True, timeout=30)
             self.assertEqual(result.returncode, 0, (name, result.stdout, result.stderr))
 
-    @unittest.skipUnless(shutil.which('bash'), 'Bash syntax checked where Bash is installed')
-    def test_shell_entrypoints_parse_without_execution(self):
-        for name in ('setup.sh', 'start.sh'):
-            result = subprocess.run(['bash', '-n', str(ROOT/name)], capture_output=True, timeout=20)
-            self.assertEqual(result.returncode, 0, (name, result.stderr))
+    def test_supported_entrypoints_preserve_commands_and_python_syntax(self):
+        # The supported wrappers are PowerShell scripts. Their syntax is parsed
+        # above on Windows; there are no Unix .sh wrappers in this repository.
+        for filename, command in (('setup.ps1', 'ModuleUpdate.py --yes --append'),
+                                  ('start.ps1', '-m hub'),
+                                  ('test-browser.ps1', '@("-m", "browser_tests")')):
+            source = (ROOT/filename).read_text(encoding='utf-8')
+            self.assertIn(command, source, filename)
+            self.assertIn('$PSScriptRoot', source, filename)
+        for filename in ('ap_runner.py', 'progression_worker.py', 'logic_worker.py', 'hub/__main__.py'):
+            source = (ROOT/filename).read_text(encoding='utf-8')
+            ast.parse(source, filename)
+            self.assertIn('if __name__', source, filename)
+
+    def test_browser_wrapper_links_to_the_current_setup_instructions(self):
+        source = (ROOT/'test-browser.ps1').read_text(encoding='utf-8')
+        self.assertIn('docs/DEVELOPMENT.md', source)
+        self.assertTrue((ROOT/'docs/DEVELOPMENT.md').is_file())
 
     def test_production_worker_never_imports_the_combination_extension(self):
         for path in [ROOT/'progression_worker.py', ROOT/'progression_model.py',
