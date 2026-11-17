@@ -109,6 +109,7 @@ def delete_account(uid, admin_id):
             high_water = max(high_water, int(old[0]))
         conn.execute("INSERT OR REPLACE INTO auth_settings(key,value) VALUES ('user_id_high_water',?)", (str(high_water),))
         # Shared content survives, but the deleted account no longer owns it.
+        conn.execute("UPDATE game_guides SET author_name=? WHERE author=? AND author_name=''", (user['username'],uid))
         for table, column in (("sessions", "created_by"), ("templates", "created_by"),
                               ("community_games", "created_by"), ("game_guides", "author"),
                               ("hosted_rooms", "entered_by")):

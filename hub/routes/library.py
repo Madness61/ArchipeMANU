@@ -6,6 +6,7 @@ from hub import game_catalog
 from hub.web import app
 from hub.services.selection import get_schema, capture_template, template_info, templates_for, open_sessions, user_values
 from hub.routes.security import login_required, admin_required
+from hub.services import guides
 
 ITEM_LOC_GROUP = "Item & Location Options"
 
@@ -48,7 +49,7 @@ def game_setup(slug):
         abort(404)
     return render_template("game_setup.html", item=item, game_info=item["catalog"],
                            support_label=game_catalog.SUPPORT_STATES[item["support_state"]],
-                           guide=db.query("SELECT * FROM game_guides WHERE slug=?", (slug,), one=True))
+                           guide=guides.get(slug))
 
 
 @app.route("/games/<slug>")
@@ -59,7 +60,7 @@ def game(slug):
     item = next((row for row in game_catalog.enrich(community.all_games()) if row["slug"] == slug), None)
     return render_template("game.html", schema=schema, item=item, templates=templates_for(schema), sessions=open_sessions(),
                            game_info=item["catalog"] if item else game_catalog.details(slug, schema["game"]),
-                           guide=db.query("SELECT * FROM game_guides WHERE slug=?",(slug,),one=True),
+                           guide=guides.get(slug),
                            preselect=request.args.get("session", type=int))
 
 

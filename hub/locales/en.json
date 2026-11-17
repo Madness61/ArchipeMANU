@@ -2069,5 +2069,6 @@
   "m1971": "These items may become important later or together with other items.",
   "m1972": "Sorted by additional checks, then new regions and item name. Many checks do not automatically mean an item is necessary for the game goal.",
   "m1973": "Analyze game goal explicitly",
-  "m1974": "This expensive analysis starts only through the button and is cached separately from single items."
+  "m1974": "This expensive analysis starts only through the button and is cached separately from single items.",
+  "m1975": "Last edited by"
 }

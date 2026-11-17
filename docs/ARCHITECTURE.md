@@ -10,6 +10,7 @@ ArchipeMANU verwendet Flask/Jinja, SQLite und Vanilla JavaScript. Ein Waitress-P
 | HTTP, Autorisierung, Formulare und Antworten | `hub/routes/`: security, overview, library, templates, accounts, lobbies, rounds, admin |
 | Konten und unveränderte zusätzliche Blueprints | `hub/auth.py`, `community.py`, `live_routes.py`, `console_routes.py`, `progression_routes.py` |
 | Presets, Originalvorlagen, Profile, YAML-Komposition | `hub/services/selection.py`, `hub/yamlgen.py` |
+| Gemeinsam bearbeitbare Installationsanleitungen und Bearbeiternachweis | `hub/services/guides.py` |
 | Bereitschaft, Runden, Snapshots, Generierungsjobs, Hostingdaten | `hub/services/rounds.py` |
 | Dauerhaftes Konsolenjournal und lesbare Ereignisse | `hub/services/console_journal.py` |
 | Globale Itemsuche und belegter Check-/Empfangsstatus | `hub/services/item_finder.py` |

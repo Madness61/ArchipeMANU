@@ -698,5 +698,13 @@
     "methods": [
       "POST"
     ]
+  },
+  {
+    "rule": "/games/<slug>/guide",
+    "endpoint": "mvp.guide_edit",
+    "methods": [
+      "GET",
+      "POST"
+    ]
   }
 ]

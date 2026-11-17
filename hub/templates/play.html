@@ -14,7 +14,8 @@
 <div class="slot-identity"><div><small>{{ _("Dein Spielername im Spiel-Client") }}</small><code id="slot-{{ loop.index }}">{{ slot.slot }}</code></div><button type="button" data-copy="#slot-{{ loop.index }}">{{ _("Kopieren") }} {{ icon('copy') }}</button></div>
 <details class="technical-options"><summary>{{ _("Technische Spieldaten") }}</summary><p class="muted small">{{ _("APWorld-Version:") }} {{ slot.game_version }}{% if slot.apworld_sha256 %} {{ _("· SHA-256:") }} {{ slot.apworld_sha256[:12] }}…{% endif %}</p></details>
 {% set guide = guides.get(slot.game) %}
-{% if guide and guide.steps %}
+{% if guide %}
+{% include "guide_author.html" %}
 <h4>{{ _("Installation") }}</h4><pre class="log">{{ guide.steps }}</pre>
 {% if guide.game_version %}<p>{{ _("Spielversion:") }} {{ guide.game_version }}</p>{% endif %}
 {% if guide.mod_url %}<p><a href="{{ guide.mod_url }}" target="_blank" rel="noopener noreferrer">{{ _("Mod-/Client-Download") }}</a></p>{% endif %}

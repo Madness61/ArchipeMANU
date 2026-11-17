@@ -6,6 +6,8 @@ Registrierung mit frei gewähltem Benutzernamen und nicht leerem Passwort, ohne 
 
 Die gemeinsame Bibliothek bietet Suche/Filter, Versionen, Metadaten, Einrichtungsanleitungen und Presets. Authentifizierte Spieler dürfen APWorlds hochladen; vertrauenswürdige Uploads werden automatisch aktiviert und eingelesen. Vorversionen bleiben archiviert. Benutzerdefinierter APWorld-Code läuft mit Hostrechten, ohne Sandbox. Import-/Versionsfehler werden angezeigt.
 
+Spielanleitungen können alle angemeldeten Mitglieder gemeinsam bearbeiten, auch für noch nicht geladene Spiele. Bei der Gruppenanleitung stehen der letzte Bearbeiter und das Änderungsdatum. Der Namensnachweis bleibt beim Löschen eines Kontos erhalten; bestehende Anleitungstexte werden bei der additiven Migration unverändert übernommen.
+
 ## Vorbereitung und Generierung
 
 Spieler treten einer offenen Lobby zunächst ohne Spiel bei. Danach Spiel und Preset wählen, Einstellungen prüfen/ändern und **Auswahl übernehmen**. Der Host kann erst generieren, wenn alle Teilnehmer gültige Einstellungen bestätigt haben und bereit sind. Änderungen heben die betroffene Bereitschaft auf.

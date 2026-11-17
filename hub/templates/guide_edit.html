@@ -1,17 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ _("Guide ·") }} {{ schema.game }}{% endblock %}
 {% block content %}
-<p><a href="{{ url_for('game', slug=schema.slug) }}">{{ _("← Zum Spiel") }}</a></p>
+<p><a href="{{ back_url }}">{{ _("← Zum Spiel") }}</a></p>
 <h1>{{ _("Installationsanleitung ·") }} {{ schema.game }}</h1>
+{% include "guide_author.html" %}
 <p class="muted">{{ _("Nur überprüfte Fakten eintragen. Nicht bestätigte Spiel-/Mod-Versionen als unbekannt kennzeichnen.") }}</p>
 <form class="panel stack" method="post">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
- <label>{{ _("Verifizierte APWorld-Version") }}<br><input name="verified_version" value="{{ guide.verified_version if guide else '' }}"></label>
- <label>{{ _("Erforderliche Spielversion") }}<br><input name="game_version" value="{{ guide.game_version if guide else '' }}"></label>
- <label>{{ _("Offizielle Quelle") }}<br><input name="source_url" type="url" value="{{ guide.source_url if guide else '' }}" style="width:100%"></label>
- <label>{{ _("Mod- oder Client-Download") }}<br><input name="mod_url" type="url" value="{{ guide.mod_url if guide else '' }}" style="width:100%"></label>
- <label>{{ _("Setup-Schritte (Text)") }}<br><textarea name="steps" rows="8">{{ guide.steps if guide else '' }}</textarea></label>
- <label>{{ _("Typische Fehler") }}<br><textarea name="trouble" rows="5">{{ guide.trouble if guide else '' }}</textarea></label>
+ <div><label for="guide-world-version">{{ _("Verifizierte APWorld-Version") }}</label><input id="guide-world-version" name="verified_version" maxlength="100" value="{{ guide.verified_version if guide else '' }}"></div>
+ <div><label for="guide-game-version">{{ _("Erforderliche Spielversion") }}</label><input id="guide-game-version" name="game_version" maxlength="100" value="{{ guide.game_version if guide else '' }}"></div>
+ <div><label for="guide-source">{{ _("Offizielle Quelle") }}</label><input id="guide-source" name="source_url" type="url" maxlength="450" value="{{ guide.source_url if guide else '' }}" style="width:100%"></div>
+ <div><label for="guide-mod">{{ _("Mod- oder Client-Download") }}</label><input id="guide-mod" name="mod_url" type="url" maxlength="450" value="{{ guide.mod_url if guide else '' }}" style="width:100%"></div>
+ <div><label for="guide-steps">{{ _("Setup-Schritte (Text)") }}</label><textarea id="guide-steps" name="steps" rows="8" maxlength="8000">{{ guide.steps if guide else '' }}</textarea></div>
+ <div><label for="guide-trouble">{{ _("Typische Fehler") }}</label><textarea id="guide-trouble" name="trouble" rows="5" maxlength="4000">{{ guide.trouble if guide else '' }}</textarea></div>
  <button class="primary">{{ _("Guide speichern") }}</button>
 </form>
 {% endblock %}

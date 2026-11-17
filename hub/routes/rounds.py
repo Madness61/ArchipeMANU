@@ -396,14 +396,19 @@ def play_page(sid, build_id):
     return session_view(sid, build_id=build_id)
 
 @bp.route('/admin/guides/<slug>', methods=['GET', 'POST'])
+@bp.route('/games/<slug>/guide', methods=['GET', 'POST'])
 def guide_edit(slug):
+    from hub import community
+    from hub.services import guides
     user = mvp._user()
-    if not user['is_admin']:
-        abort(403)
     schema = ap_bridge.schema(slug)
+    installed = bool(schema)
     if not schema:
-        abort(404)
-    old = db.query('SELECT * FROM game_guides WHERE slug=?', (slug,), one=True)
+        item = next((item for item in community.all_games() if item['slug']==slug),None)
+        if item is None:
+            abort(404)
+        schema = dict(slug=slug,game=item['name'])
+    old = guides.get(slug)
     if request.method == 'POST':
 
         def field(k, n):
@@ -411,9 +416,17 @@ def guide_edit(slug):
         url = field('source_url', 450)
         mod = field('mod_url', 450)
         for candidate in (url, mod):
-            if candidate and urlsplit(candidate).scheme not in ('https', 'http'):
-                abort(400, 'Nur vollständige HTTP(S)-Links verwenden.')
-        db.execute('INSERT INTO game_guides(slug,verified_version,game_version,mod_url,source_url,steps,trouble,updated_at,author)\n                      VALUES (?,?,?,?,?,?,?,?,?)\n                      ON CONFLICT(slug) DO UPDATE SET verified_version=excluded.verified_version,\n                        game_version=excluded.game_version,mod_url=excluded.mod_url,\n                        source_url=excluded.source_url,steps=excluded.steps,trouble=excluded.trouble,\n                        updated_at=excluded.updated_at,author=excluded.author', (slug, field('verified_version', 100), field('game_version', 100), mod, url, field('steps', 8000), field('trouble', 4000), mvp.utc_now(), user['id']))
+            if candidate:
+                try:
+                    parsed = urlsplit(candidate)
+                    valid = parsed.scheme in ('https', 'http') and bool(parsed.netloc)
+                except ValueError:
+                    valid = False
+                if not valid:
+                    abort(400, 'Nur vollständige HTTP(S)-Links verwenden.')
+        guides.save(slug,dict(verified_version=field('verified_version',100),game_version=field('game_version',100),
+                             mod_url=mod,source_url=url,steps=field('steps',8000),trouble=field('trouble',4000)),user,mvp.utc_now())
         flash('Guide gespeichert.', 'info')
-        return redirect(url_for('game', slug=slug))
-    return render_template('guide_edit.html', schema=schema, guide=old)
+        return redirect(url_for('game' if installed else 'game_setup', slug=slug))
+    return render_template('guide_edit.html', schema=schema, guide=old,
+                           back_url=url_for('game' if installed else 'game_setup',slug=slug))
