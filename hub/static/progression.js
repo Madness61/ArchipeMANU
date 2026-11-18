@@ -13,7 +13,7 @@
     busy:t('Archipelago wird gerade verwendet. Bitte die Analyse später erneut starten.'),
     historical_seed:t('Für diesen älteren Seed fehlen die Rekonstruktionsdaten. Die Itemsuche bleibt verfügbar.'),
     placements_missing:t('Für diesen Seed sind keine vollständigen, verifizierten Itemplatzierungen gespeichert.'),
-    inventory_missing:t('Ein vollständiger, aktueller Itemzustand fehlt. Verbinde deinen Slot in der Konsole oder warte auf den verknüpften Tracker.'),
+    inventory_missing:t('Ein vollständiger, aktueller Itemzustand fehlt. Nutze /received in der Konsole oder warte auf den verknüpften Tracker.'),
     runtime_changed:t('Die installierte Archipelago- oder APWorld-Version passt nicht zum Seed. Die Itemsuche bleibt verfügbar.'),
     yaml_changed:t('Die ursprünglichen Spieler-YAMLs fehlen oder stimmen nicht mehr mit dem Seed überein.'),
     reconstruction_mismatch:t('Die rekonstruierte Welt stimmt nicht vollständig mit dem erzeugten Seed überein. Es werden keine Logikergebnisse angezeigt.'),
@@ -31,7 +31,7 @@
     const response=await fetch(root.dataset.base+path,{cache:'no-store',...(body?{method:'POST',headers:{'X-CSRF-Token':root.dataset.csrf},body:new URLSearchParams(body)}:{})});
     const data=await response.json();
     if(response.status===401)window.HUB_AUTH_REQUIRED?.(data.login_url);
-    if(!response.ok)throw Error(data.error||t('Die Anfrage konnte nicht abgeschlossen werden.'));
+    if(!response.ok){const error=Error(data.error||t('Die Anfrage konnte nicht abgeschlossen werden.'));error.status=response.status;throw error;}
     return data;
   }
   function selectTab(value){
@@ -42,9 +42,12 @@
   }
   function consent(value){
     revealed=value;$('progression-consent').hidden=value;$('progression-content').hidden=!value;
+    if($('live-item-consent'))$('live-item-consent').hidden=value||!$('live-item-query').value.trim()||root.open;
+    if(!value&&$('live-item-output')){$('live-item-output').hidden=true;$('live-item-results').replaceChildren();}
     if(!value){clearTimeout(timer);$('progression-results').replaceChildren();$('progression-helpful').replaceChildren();$('progression-goals').replaceChildren();$('progression-reachable').replaceChildren();$('progression-spheres').replaceChildren();}
   }
   async function open(value){
+    if($('live-item-consent'))$('live-item-consent').hidden=true;
     fail('');if(!root.open)root.showModal();
     try{const state=await api('/state');$('progression-support').textContent=state.support==='partial'?t('Teilweise Unterstützung'):t('Basisunterstützung');consent(state.revealed);selectTab(value);}
     catch(error){fail(error.message);}
@@ -52,7 +55,7 @@
   document.querySelectorAll('[data-progression-open]').forEach(button=>button.addEventListener('click',()=>open(button.dataset.progressionOpen)));
   root.querySelectorAll('[data-progression-tab]').forEach(button=>button.addEventListener('click',()=>selectTab(button.dataset.progressionTab)));
   $('progression-close').addEventListener('click',()=>root.close());
-  root.addEventListener('close',()=>{clearTimeout(timer);sequence++;});
+  root.addEventListener('close',()=>{clearTimeout(timer);sequence++;consent(revealed);});
   $('progression-reveal').addEventListener('click',async()=>{try{const state=await api('/consent',{reveal:'1'});consent(state.revealed);selectTab(view);}catch(error){fail(error.message);}});
   $('progression-hide').addEventListener('click',async()=>{try{await api('/consent',{reveal:'0'});sequence++;consent(false);}catch(error){fail(error.message);}});
   function observation(at){return at?new Date(at*1000).toLocaleString(window.HUB_I18N.locale):t('Unbekannter Status');}
@@ -67,6 +70,51 @@
     if(row.check_at)card.append(node('p',t('Check-Stand')+': '+observation(row.check_at),'small muted'));
     if(row.receipt_at)card.append(node('p',t('Empfangsstand')+': '+observation(row.receipt_at),'small muted'));
     return card;
+  }
+  // Compact live search reuses the same evidence, consent and endpoint as the
+  // detailed finder. No progression worker is created by searching.
+  const inlineForm=$('live-item-search');
+  let inlinePage=1,inlineSequence=0,inlineTimer=null,inlineEvidence='',inlineBusy=false;
+  const inlineFail=text=>{if($('live-item-error')){$('live-item-error').textContent=text;$('live-item-error').hidden=!text;}};
+  async function inlineFind(){
+    if(!inlineForm)return;
+    const query=$('live-item-query').value.trim(),current=++inlineSequence;
+    if(!query){$('live-item-output').hidden=true;$('live-item-results').replaceChildren();return;}
+    inlineFail('');inlineBusy=true;
+    try{
+      const state=await api('/state');if(current!==inlineSequence)return;consent(state.revealed);
+      if(!revealed)return;
+      const data=await api('/items?'+new URLSearchParams({q:query,page:inlinePage,limit:5}));
+      if(current!==inlineSequence||!revealed)return;
+      $('live-item-results').replaceChildren(...data.rows.map(row=>{
+        const card=node('article',null,'live-item-result');card.append(node('h4',row.item),
+          node('p',t('Empfänger')+': '+row.recipient_player.name,'small'),
+          node('p',t('Fundort')+': '+row.location+' · '+row.finder_player.name+' ('+row.finder_player.game+')','small'),
+          node('p',t('Fundort-Check')+': '+labels[row.check_status],'small muted'),
+          node('p',t('Itemempfang')+': '+labels[row.receipt_status],'small muted'));
+        return card;
+      }));
+      $('live-item-output').hidden=false;
+      $('live-item-count').textContent=data.available?t('Gefundene Items')+': '+data.total:reasons.placements_missing;
+      $('live-item-previous').disabled=inlinePage<=1;$('live-item-next').disabled=inlinePage>=(data.pages||1);
+    }catch(error){if(current===inlineSequence){if(error.status===403)consent(false);inlineFail(error.message);}}
+    finally{if(current===inlineSequence)inlineBusy=false;}
+  }
+  if(inlineForm){
+    inlineForm.addEventListener('submit',event=>{event.preventDefault();clearTimeout(inlineTimer);inlinePage=1;inlineFind();});
+    $('live-item-query').addEventListener('input',()=>{clearTimeout(inlineTimer);inlineSequence++;inlineBusy=false;inlinePage=1;
+      if(!$('live-item-query').value.trim()){$('live-item-output').hidden=true;$('live-item-results').replaceChildren();}
+      else if(revealed)inlineTimer=setTimeout(inlineFind,350);
+    });
+    $('live-item-reveal').addEventListener('click',async()=>{try{const state=await api('/consent',{reveal:'1'});consent(state.revealed);inlinePage=1;inlineFind();}catch(error){inlineFail(error.message);}});
+    $('live-item-hide').addEventListener('click',async()=>{try{await api('/consent',{reveal:'0'});inlineSequence++;consent(false);}catch(error){inlineFail(error.message);}});
+    $('live-item-previous').addEventListener('click',()=>{inlinePage--;inlineFind();});
+    $('live-item-next').addEventListener('click',()=>{inlinePage++;inlineFind();});
+    document.addEventListener('hub:console-state',event=>{
+      const evidence=JSON.stringify([event.detail.recording?.last_event,event.detail.webhost?.last_success]);
+      if(evidence===inlineEvidence)return;inlineEvidence=evidence;
+      if(revealed&&!inlineBusy&&$('live-item-query').value.trim())inlineFind();
+    });
   }
   async function find(){
     const current=++sequence,params=new URLSearchParams(new FormData($('progression-search')));params.set('page',page);

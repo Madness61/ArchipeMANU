@@ -1,56 +1,55 @@
 <div id="ap-console" class="console-workspace" data-user="{{ g.user.id }}" data-base="{{ url_for('console.page',sid=room.id,build_id=build.id) }}" data-csrf="{{ csrf_token }}">
   <section class="panel console-main">
-    <div class="row spread"><div><p class="eyebrow">{{ _("Eure Runde live") }}</p><h2>{{ _("Itemprotokoll & Chat") }}</h2></div><div class="row"><span id="console-state" class="chip" role="status">{{ _("Nicht verbunden") }}</span>{% if own and not archived %}<a class="small" href="#console-connect" id="console-connect-link">{{ _("Slot verbinden") }}</a>{% endif %}</div></div>
-    <p class="small muted">{{ _("Live-Meldungen und bestätigte Empfänge bleiben gespeichert. Nachträglich bestätigte Empfänge sind gekennzeichnet; ihr ursprünglicher Fundzeitpunkt ist unbekannt.") }}</p>
-    {% if progression_enabled|default(false) %}<div class="row"><button type="button" data-progression-open="finder">{{ _("Item suchen") }}</button><button type="button" data-progression-open="next">{{ _("Was bringt mich weiter?") }}</button></div>{% endif %}
-    <div class="console-recording-status small" role="status"><span class="chip" id="console-recording-state">{{ _("Aufzeichnungsstatus wird geladen …") }}</span><span class="muted" id="console-last-event"></span></div>
-    <details class="console-diagnostics"><summary>{{ _("Verbindungsdiagnose") }}</summary><div id="console-diagnostics" class="small muted">{{ _("Textkonsole, WebHost-API und lokaler Spielclient sind getrennte Verbindungen.") }}</div></details>
+    <div class="row spread"><div><p class="eyebrow">{{ _("Eure Runde live") }}</p><h2>{{ _("Itemprotokoll & Chat") }}</h2></div><span id="console-state" class="chip" role="status">{{ _("Verbindung wird geprüft …") }}</span></div>
+    <p class="small muted">{{ _("Der Hub verbindet sich automatisch. Öffentliche Meldungen sehen alle; persönliche Antworten bleiben nur für dich sichtbar.") }}</p>
+    <p class="small muted" id="console-last-event"></p>
     <div class="row console-filters"><label>{{ _("Nachrichtenart") }}<select id="console-kind" aria-label="{{ _("Nachrichtenart") }}"><option value="all">{{ _("Alle") }}</option><option value="for_me">{{ _("Für mich") }}</option><option value="from_me">{{ _("Von mir") }}</option><option value="others">{{ _("Andere Spieler") }}</option><option value="items">{{ _("Item-Sendungen") }}</option><option value="chat">{{ _("Chat") }}</option><option value="system">{{ _("System & Antworten") }}</option><option value="sent">{{ _("Gesendete Befehle") }}</option></select></label><label>{{ _("In geladenen Nachrichten suchen") }}<input type="search" id="console-search" maxlength="100"></label><button id="console-older" type="button" class="small">{{ _("Frühere Nachrichten") }}</button></div>
-    <div id="console-log" class="console-log" role="log" aria-label="{{ _("Archipelago-Protokoll") }}" aria-live="polite"><p class="muted" id="console-empty">{{ _("Noch keine Nachrichten aufgezeichnet. Verbinde deinen Slot, um neue Item-Sendungen und Chat zu sehen.") }}</p></div>
+    <div id="console-log" class="console-log" role="log" aria-label="{{ _("Archipelago-Protokoll") }}" aria-live="polite"><p class="muted" id="console-empty">{{ _("Noch keine Meldungen vorhanden. Neue öffentliche Ereignisse erscheinen hier automatisch.") }}</p></div>
     <p id="console-error" class="err" role="alert" hidden></p>
     {% if own and not archived %}
     <form id="console-command" class="row console-command" method="post" action="{{ url_for('console.command',sid=room.id,build_id=build.id) }}">
-      <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="automatic" value="1">
+      {% if own|length > 1 %}<label>{{ _('Befehl für') }}<select name="slot" aria-label="{{ _('Befehl für') }}">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label>{% endif %}
       <label>{{ _("Nachricht oder Befehl") }}<input id="console-message" name="text" maxlength="500" placeholder="{{ _("Nachricht schreiben oder / für Befehle") }}" required autocomplete="off" aria-describedby="console-command-help"></label>
       <button type="button" id="console-command-toggle" aria-controls="console-command-menu" aria-expanded="false">{{ _("Befehl einfügen") }}</button><button class="primary" type="submit">{{ _("Senden") }}</button>
     </form>
     <div id="console-command-menu" class="console-command-menu" role="group" aria-label="{{ _("Befehl auswählen") }}" hidden>
-      {% for cmd,description in commands %}<button type="button" data-insert-command="{{ cmd.split(' ')[0] }}{{ ' ' if ' ' in cmd else '' }}"><code>{{ cmd }}</code><span>{{ _(description) }}</span></button>{% endfor %}
+      {% for cmd,description in commands if cmd.split(' ')[0] not in ['/connect','/disconnect'] %}<button type="button" data-insert-command="{{ cmd.split(' ')[0] }}{{ ' ' if ' ' in cmd else '' }}"><code>{{ cmd }}</code><span>{{ _(description) }}</span></button>{% endfor %}
     </div>
-    <p class="muted small" id="console-command-help">{{ _("Text sendet eine Chatnachricht. Mit „/“ oder „Befehl einfügen“ wählst du einen Befehl; erst „Senden“ führt ihn aus. Hinweise können Serverpunkte kosten. Persönliche Antworten sind nur für dich sichtbar.") }}</p>
-    {% elif archived %}<p class="small muted">{{ _("Abgeschlossene Runde · Das gespeicherte Protokoll bleibt lesbar.") }}</p>{% else %}<p class="small muted">{{ _("Du kannst gemeinsame Item-Sendungen lesen. Für Chat und Befehle brauchst du einen eigenen Spielslot.") }}</p>{% endif %}
+    <p class="muted small" id="console-command-help">{{ _("Du schreibst als") }} <strong>{{ own[0].slot }}</strong>. {{ _("Deine Befehlsverbindung wird bei Bedarf automatisch hergestellt. Hinweise können Serverpunkte kosten.") }}</p>
+    {% elif archived %}<p class="small muted">{{ _("Abgeschlossene Runde · Das gespeicherte Protokoll bleibt lesbar.") }}</p>{% else %}<p class="small muted">{{ _("Du liest als Zuschauer mit. Für Chat und persönliche Befehle brauchst du einen eigenen Spielslot.") }}</p>{% endif %}
   </section>
-  <aside class="console-sidebar" aria-label="{{ _("Verbindung und Konsolenhilfe") }}">
-    <section class="panel console-connection"><h3>{{ _("Mitspielen & mitschreiben") }}</h3>
-    <p class="small muted" id="console-server-row" {% if not endpoint %}hidden{% endif %}>{{ _("Server") }} <code id="console-server-address">{% if endpoint %}{{ endpoint.host }}:{{ endpoint.port }}{% endif %}</code></p>{% if not endpoint %}<p class="small muted">{{ _("Der Host muss zuerst Server und Port hinterlegen.") }}</p>{% endif %}
-    <p class="small muted" id="console-auto-port" hidden>{{ _("Port wird automatisch aktualisiert.") }}</p>
-    <p class="small" id="console-connected-slot" hidden></p>
-    {% if own and not archived %}
-    <form id="console-connect" class="stack" method="post" action="{{ url_for('console.connect',sid=room.id,build_id=build.id) }}">
-      <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-      <label>{{ _("Dein Slot") }}<select name="slot" aria-label="{{ _("Dein Slot") }}">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label>
-      <label>{{ _("Raumpasswort (optional)") }}<input type="password" name="password" maxlength="1024" autocomplete="off"></label>
-      <label>{{ _("Verbindungsart") }}<select name="transport" aria-label="{{ _("Verbindungsart") }}"><option value="auto">{{ _("Automatisch (empfohlen)") }}</option><option value="wss">{{ _("WSS (verschlüsselt)") }}</option><option value="ws">{{ _("WS (unverschlüsselt)") }}</option></select></label>
-      <button class="primary" {% if not endpoint %}disabled{% endif %}>{{ _("Mit Archipelago verbinden") }}</button><button id="console-disconnect" type="button">{{ _("Verbindung trennen") }}</button>
-    </form>{% endif %}
-    <p class="small muted">{{ _("Diese Textverbindung liest Servermeldungen und ermöglicht Chat. Deinen Spielclient verbindest du separat. Ein Raumpasswort bleibt nur im Arbeitsspeicher der Verbindung.") }}</p>
-    {% if g.user and (g.user.is_admin or room.created_by==g.user.id) and not archived %}
-    <details class="recording-manager"><summary>{{ _("Rundenaufzeichnung · Host") }}</summary>
-      <p class="small muted">{{ _("Ein eigener TextOnly-Leser erfasst Itemmeldungen auch ohne offene Webseite und nach deiner Abmeldung. Er verwendet ausschließlich deinen eigenen Slot und sendet weder Chat noch Spielaktionen. Passwörter werden nicht gespeichert; bei geschützten Räumen musst du sie nach einem Hub-Neustart erneut eingeben.") }}</p>
-      <p class="small err" id="recording-error" role="status" hidden></p>
-      {% if own %}<form class="stack" id="recording-start" method="post" action="{{ url_for('console.recording_start',sid=room.id,build_id=build.id) }}">
-        <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-        <label>{{ _("Mein Slot für die Aufzeichnung") }}<select name="slot" aria-label="{{ _("Mein Slot für die Aufzeichnung") }}">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label>
-        <label>{{ _("Raumpasswort für die Aufzeichnung (optional)") }}<input name="password" type="password" autocomplete="off" maxlength="1024"></label>
-        <label>{{ _("Verbindungsart für die Aufzeichnung") }}<select name="transport" aria-label="{{ _("Verbindungsart für die Aufzeichnung") }}"><option value="auto">{{ _("Automatisch (empfohlen)") }}</option><option value="wss">WSS</option><option value="ws">WS</option></select></label>
-        <label class="recording-consent"><input type="checkbox" name="consent" value="1" required> {{ _("Ich erlaube die dauerhafte Aufzeichnung über meinen eigenen Slot.") }}</label>
-        <button class="primary" type="submit">{{ _("Aufzeichnung starten / neu verbinden") }}</button>
-      </form>{% else %}<p class="small muted">{{ _("Zum Aufzeichnen benötigt der Host einen eigenen Spielslot in diesem Seed. Fremde Slots werden nicht verbunden.") }}</p>{% endif %}
-      <button type="button" id="recording-stop" disabled>{{ _("Aufzeichnung beenden") }}</button>
-    </details>
-    {% endif %}
-    {% if console_embedded|default(false) %}<div class="stack"><a href="#prepare-games">{{ _("Mein Spiel, Dateien & Verbindung") }}</a><a href="#progress">{{ _("Fortschritt & offene Checks") }}</a><a href="#completion">{{ _("Spielabschluss bestätigen") }}</a></div>{% endif %}
+  <aside class="console-sidebar" aria-label="{{ _('Itemsuche und Rundeninformationen') }}">
+    {% if progression_enabled|default(false) %}
+    <section class="panel live-item-finder" id="live-item-finder" aria-labelledby="live-finder-title">
+      <h3 id="live-finder-title">{{ _('Item suchen') }}</h3><p class="small muted">{{ _('In allen Welten dieser Multiworld suchen.') }}</p>
+      <form id="live-item-search" class="row"><label for="live-item-query">{{ _('Item, Spieler oder Fundort') }}</label><input id="live-item-query" name="q" type="search" maxlength="100" placeholder="{{ _('Itemname eingeben …') }}" required><button class="primary">{{ _('Suchen') }}</button></form>
+      <p id="live-item-error" class="err small" role="alert" hidden></p>
+      <div id="live-item-consent" hidden><p class="small muted">{{ _('Die Suche verrät konkrete Item-Fundorte für den gesamten Seed.') }}</p><button type="button" id="live-item-reveal">{{ _('Fundort-Spoiler bewusst freigeben') }}</button></div>
+      <div id="live-item-output" hidden><p id="live-item-count" class="small muted" role="status"></p><div id="live-item-results"></div><div class="row"><button type="button" id="live-item-previous">{{ _('Zurück') }}</button><button type="button" id="live-item-next">{{ _('Weiter') }}</button><button type="button" id="live-item-hide" class="small">{{ _('Spoiler wieder sperren') }}</button></div></div>
+      <div class="technical-options row"><button type="button" data-progression-open="next">{{ _('Was bringt mich weiter?') }}</button><button type="button" class="small" data-progression-open="finder">{{ _('Erweiterte Suche') }}</button></div>
     </section>
-    <section class="panel console-help"><h3>{{ _("Direkt im Chat") }}</h3><p class="small muted"><code>/received</code> {{ _("zeigt empfangene Items,") }} <code>/missing</code> {{ _("offene Checks und") }} <code>/hint Itemname</code> {{ _("fragt einen Hinweis an. Der Server entscheidet über Verfügbarkeit, Kosten und Berechtigungen.") }}</p><p class="small muted">{{ _("Item-Sendungen sind gemeinsam sichtbar. Chat und Befehlsantworten werden in deinem persönlichen Konsolenverlauf gespeichert; andere verbundene Spielclients erhalten Chat über Archipelago.") }}</p></section>
+    {% endif %}
+    <section class="panel console-connection"><h3>{{ _('Gemeinsame Serververbindung') }}</h3>
+      <p class="small" id="console-server-row" {% if not endpoint %}hidden{% endif %}>{{ _('Server') }} <code id="console-server-address">{% if endpoint %}{{ endpoint.host }}:{{ endpoint.port }}{% endif %}</code></p>
+      {% if not endpoint %}<p class="small muted">{{ _('Der Host muss zuerst Server und Port hinterlegen.') }}</p>{% endif %}
+      <p class="small muted" id="console-auto-port" hidden>{{ _('Port wird automatisch aktualisiert.') }}</p>
+      <p class="small muted">{{ _('Mitlesen braucht keine Slot-Auswahl. Deinen Spielclient verbindest du weiterhin separat.') }}</p>
+      <details id="console-player-list"><summary>{{ _('Spieler und Benutzerkonten') }}</summary><ul id="console-players" class="console-players"></ul></details>
+      <details class="console-diagnostics"><summary>{{ _('Verbindungsdiagnose') }}</summary><div id="console-diagnostics" class="small muted"></div></details>
+      {% if g.user and (g.user.is_admin or room.created_by==g.user.id) and not archived %}
+      <details class="recording-manager" id="console-room-settings"><summary>{{ _('Raumverbindung verwalten · Host') }}</summary>
+        <p class="small muted">{{ _('Nur bei geschützten Räumen nötig: Das Raumpasswort gilt gemeinsam für den Leser und autorisierte Spielerbefehle. Es bleibt im Arbeitsspeicher und muss nach einem Hub-Neustart erneut hinterlegt werden.') }}</p>
+        <p class="small err" id="recording-error" role="status" hidden></p>
+        <form class="stack" id="recording-start" method="post" action="{{ url_for('console.recording_start',sid=room.id,build_id=build.id) }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="automatic" value="1">
+          <label>{{ _('Raumpasswort (optional)') }}<input name="password" type="password" autocomplete="off" maxlength="1024"></label>
+          <label>{{ _('Verbindungsart') }}<select name="transport" aria-label="{{ _('Verbindungsart') }}"><option value="auto">{{ _('Automatisch (empfohlen)') }}</option><option value="wss">WSS</option><option value="ws">WS</option></select></label>
+          <button class="primary" type="submit">{{ _('Raumverbindung aktualisieren') }}</button>
+        </form>
+      </details>
+      {% endif %}
+      {% if console_embedded|default(false) %}<div class="stack technical-options"><a href="#prepare-games">{{ _('Mein Spiel, Dateien & Verbindung') }}</a><a href="#progress">{{ _('Fortschritt & offene Checks') }}</a><a href="#completion">{{ _('Spielabschluss bestätigen') }}</a></div>{% endif %}
+    </section>
   </aside>
 </div>

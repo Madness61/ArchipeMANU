@@ -7,8 +7,10 @@ class FakeAP:
     def __init__(self, game="Test World", names=("Host", "Friend"), seed="CONSOLE_TEST", password=""):
         self.game, self.names, self.seed, self.password = game, names, seed, password
         self.packets, self.clients = [], []
+        self.commands = []
         self.history = {1:[[501,1001,2,1]],2:[]}
         self.emit_live = True
+        self.suppress_empty_receipts = False
         self.lock = threading.RLock()
         self.package_requested = threading.Event()
         self.package_gate = threading.Event()
@@ -74,10 +76,12 @@ class FakeAP:
                         slot = self.names.index(name)+1
                         players = [{"team":0,"slot":i,"alias":n,"name":n,"class":"NetworkPlayer"}
                                    for i,n in enumerate(self.names,1)]
-                        self.send(wire,[{"cmd":"Connected","team":0,"slot":slot,"players":players,
+                        reply=[{"cmd":"Connected","team":0,"slot":slot,"players":players,
                             "slot_info":{str(i):{"name":n,"game":self.game,"type":1,"class":"NetworkSlot"}
-                                         for i,n in enumerate(self.names,1)},"missing_locations":[1001,1002],"checked_locations":[1000]},
-                            {"cmd":"ReceivedItems","index":0,"items":self.history.get(slot,[])}])
+                                         for i,n in enumerate(self.names,1)},"missing_locations":[1001,1002],"checked_locations":[1000]}]
+                        if self.history.get(slot) or not self.suppress_empty_receipts:
+                            reply.append({"cmd":"ReceivedItems","index":0,"items":self.history.get(slot,[])})
+                        self.send(wire,reply)
                         with self.lock:
                             self.clients.append(wire)
                         self.broadcast_item()
@@ -89,12 +93,20 @@ class FakeAP:
                             "location_name_to_id":{"Town":1000,"Old Fortress - Chest":1001,"Deep Cave - Boss":1002}}}}}])
                     elif cmd == "Say":
                         text = packet["text"]
+                        self.commands.append((name,text))
                         if text.startswith("!hint"):
                             self.send(wire,[{"cmd":"PrintJSON","type":"Hint","data":[{"text":f"Privater Hinweis für {name}: Deep Cave - Boss <script>never_execute()</script>"}]}])
                         else:
-                            self.send(wire,[{"cmd":"PrintJSON","type":"Chat","data":[{"text":f"{name}: {text}"}]}])
+                            chat=[{"cmd":"PrintJSON","type":"Chat","team":0,"slot":slot,"message":text,
+                                   "data":[{"text":str(slot),"type":"player_id"},{"text":f": {text}"}]}]
+                            with self.lock:
+                                recipients=list(self.clients)
+                            for recipient in recipients:
+                                try:self.send(recipient,chat)
+                                except Exception:pass
                     elif cmd == "Sync":
-                        self.send(wire,[{"cmd":"ReceivedItems","index":0,"items":self.history.get(slot,[])}])
+                        if self.history.get(slot) or not self.suppress_empty_receipts:
+                            self.send(wire,[{"cmd":"ReceivedItems","index":0,"items":self.history.get(slot,[])}])
         except Exception:
             pass
         finally:

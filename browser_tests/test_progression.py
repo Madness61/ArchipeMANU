@@ -16,11 +16,11 @@ def test_global_finder_and_progression_fallback_languages_themes(actors,artifact
     host.get_by_label('Port',exact=True).fill('38281')
     host.get_by_role('button',name='Verbindung speichern',exact=True).click()
     a.locator('#console-message').fill('Konsole bleibt bedienbar')
-    a.get_by_role('button',name='Item suchen',exact=True).click()
+    a.get_by_role('button',name='Erweiterte Suche',exact=True).click()
     panel=a.locator('#progression-panel')
     expect(panel).to_be_visible()
     expect(panel.locator('#progression-results')).not_to_contain_text('Chest')
-    a.get_by_role('button',name='Fundort-Spoiler bewusst freigeben',exact=True).click()
+    panel.get_by_role('button',name='Fundort-Spoiler bewusst freigeben',exact=True).click()
     expect(panel.locator('#progression-results .progression-item')).to_have_count(4)
     panel.get_by_label('Im gesamten Seed suchen',exact=True).fill('Key')
     panel.get_by_role('button',name='Suchen',exact=True).click()
@@ -37,8 +37,8 @@ def test_global_finder_and_progression_fallback_languages_themes(actors,artifact
     panel.get_by_role('button',name='Schließen',exact=True).click()
     expect(a.locator('#console-message')).to_have_value('Konsole bleibt bedienbar')
     b.goto(a.url)
-    b.get_by_role('button',name='Item suchen',exact=True).click()
-    expect(b.get_by_role('button',name='Fundort-Spoiler bewusst freigeben',exact=True)).to_be_visible()
+    b.get_by_role('button',name='Erweiterte Suche',exact=True).click()
+    expect(b.locator('#progression-panel').get_by_role('button',name='Fundort-Spoiler bewusst freigeben',exact=True)).to_be_visible()
     b.get_by_role('button',name='Schließen',exact=True).click()
 
     # Rendering fixture only: CI does not run APWorld code. Actual reconstruction,
@@ -118,7 +118,7 @@ def test_global_finder_and_progression_fallback_languages_themes(actors,artifact
     assert 'mode=items' in calculated.value.request.post_data
     panel.locator('#progression-close').click()
     # Consent revocation also blocks direct requests, independent of hidden UI.
-    a.get_by_role('button',name='Find an item',exact=True).click()
-    a.get_by_role('button',name='Hide spoilers again',exact=True).click()
+    a.get_by_role('button',name='Advanced search',exact=True).click()
+    panel.get_by_role('button',name='Hide spoilers again',exact=True).click()
     expect(panel.locator('#progression-content')).to_be_hidden()
     assert a.request.get(panel.get_attribute('data-base')+'/items').status==403

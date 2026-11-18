@@ -2,11 +2,176 @@
 import json
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 import test_ap_console as fixtures
 import test_live_dashboard as live_fixtures
 from hub import ap_console, db, live_api, live_store, recording
+
+
+class SharedRoomTests(unittest.TestCase):
+    """Automatic reader and independently authorized writers, on real local sockets."""
+    setUp,tearDown,post=fixtures.ConsoleTests.setUp,fixtures.ConsoleTests.tearDown,fixtures.ConsoleTests.post
+    wait_for,state=fixtures.ConsoleTests.wait_for,fixtures.ConsoleTests.state
+
+    def room(self, **kwargs):
+        with self.app.app_context():
+            build=db.query('SELECT * FROM seed_builds WHERE id=?',(self.bid,),one=True)
+            endpoint=db.query('SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1',(self.bid,),one=True)
+            return recording.ensure(build,endpoint,transport='ws',**kwargs)
+
+    def test_automatic_room_has_one_reader_for_many_visitors_and_public_chat(self):
+        reader=self.room()
+        self.wait_for(lambda:reader.state=='connected' and reader.catalog_ready)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            readers=list(pool.map(lambda _:self.room(),range(16)))
+        self.assertTrue(all(value is reader for value in readers))
+        self.assertEqual(len([p for p in self.server.packets if p['cmd']=='Connect']),1)
+        packet=dict(cmd='PrintJSON',type='Chat',team=0,slot=2,message='Hello everyone',
+                    data=[dict(type='player_id',text='2'),dict(text=': Hello everyone')])
+        self.server.send(self.server.clients[0],[packet,dict(cmd='PrintJSON',type='Hint',data=[dict(text='PRIVATE')]),
+                                                  dict(cmd='Print',text='PRIVATE PRINT')])
+        self.wait_for(lambda:any('Hello everyone' in row['text'] for row in self.state()['events']))
+        first=[row for row in self.state()['events'] if row['visibility']=='team']
+        other=[row for row in self.state(self.friend)['events'] if row['visibility']=='team']
+        common=lambda rows:[(row['id'],row['kind'],row['text'],row['at'],row.get('delivery')) for row in rows]
+        self.assertEqual(common(first),common(other))
+        self.assertFalse(any('PRIVATE' in row['text'] for row in first))
+        with self.assertRaises(ValueError):reader.handle_command('!hint Key')
+        self.assertFalse(any(p['cmd']=='Say' for p in self.server.packets))
+
+    def test_commands_automatically_use_own_slots_and_replies_stay_private(self):
+        self.server.suppress_empty_receipts=True  # Real AP omits empty initial/Sync packets.
+        reader=self.room();self.wait_for(lambda:reader.state=='connected')
+        for client in (self.client,self.friend):
+            self.assertEqual(self.post(self.url+'/command',dict(text='/hint Progression Key'),client=client).status_code,202)
+        self.wait_for(lambda:len(self.server.commands)==2)
+        self.assertCountEqual(self.server.commands,[('Host','!hint Progression Key'),('Friend','!hint Progression Key')])
+        self.wait_for(lambda:any('Privater Hinweis für Host' in row['text'] for row in self.state()['events']))
+        self.wait_for(lambda:any('Privater Hinweis für Friend' in row['text'] for row in self.state(self.friend)['events']))
+        for client,name,other in ((self.client,'Host','Friend'),(self.friend,'Friend','Host')):
+            rows=self.state(client)['events']
+            reply=next(row for row in rows if f'Privater Hinweis für {name}' in row['text'])
+            self.assertEqual(reply['actor']['slot'],name)
+            self.assertFalse(any(f'Privater Hinweis für {other}' in row['text'] for row in rows))
+        self.assertEqual(self.post(self.url+'/command',dict(text='Hello room')).status_code,202)
+        self.wait_for(lambda:any('Hello room' in row['text'] for row in self.state(self.friend)['events']))
+        for client in (self.client,self.friend):
+            chat=[row for row in self.state(client)['events'] if row['kind']=='chat' and 'Hello room' in row['text']]
+            self.assertEqual(len(chat),1)
+            self.assertEqual(chat[0]['visibility'],'team')
+        self.assertFalse(any(row['kind']=='sent' and 'Hello room' in row['text'] for row in self.state()['events']))
+        self.assertEqual(len([p for p in self.server.packets if p['cmd']=='Connect']),3)
+        self.assertTrue(recording.worker(self.bid) is reader)
+
+    def test_automatic_commands_reject_foreign_slots_and_spectator_writes(self):
+        reader=self.room();self.wait_for(lambda:reader.state=='connected')
+        self.assertEqual(self.post(self.url+'/command',dict(text='/hint Key',slot='Friend')).status_code,403)
+        self.assertEqual(self.client.post(self.url+'/command',data=dict(text='/hint Key')).status_code,403)
+        spectator=self.app.test_client();self.post('/login',dict(username='Spectator'),client=spectator)
+        with self.app.app_context():
+            uid=db.query("SELECT id FROM users WHERE username='Spectator'",one=True)['id']
+            db.execute('INSERT INTO lobby_members(session_id,user_id) VALUES (?,?)',(self.sid,uid))
+        self.assertEqual(spectator.get(self.url+'/data').status_code,200)
+        self.assertEqual(self.post(self.url+'/command',dict(text='/hint Key',slot='Host'),client=spectator).status_code,403)
+        self.assertEqual(self.post(self.url+'/recording/start',dict(automatic='1'),client=spectator).status_code,403)
+        self.assertFalse(self.server.commands)
+
+    def test_password_is_supplied_once_by_host_and_reused_for_writers(self):
+        self.server.password='One room secret'
+        first=self.room();self.wait_for(lambda:first.state=='action_required')
+        response=self.post(self.url+'/recording/start',dict(automatic='1',password=self.server.password,transport='ws'))
+        self.assertEqual(response.status_code,202)
+        reader=recording.worker(self.bid);self.wait_for(lambda:reader.state=='connected')
+        self.assertEqual(self.post(self.url+'/command',dict(text='/hint Key'),client=self.friend).status_code,202)
+        self.wait_for(lambda:('Friend','!hint Key') in self.server.commands)
+        with self.app.app_context():
+            stored=json.dumps(dict(db.query('SELECT * FROM console_recordings',one=True)))
+            stored+=' '.join(row['payload'] for row in db.query('SELECT payload FROM console_events'))
+        self.assertNotIn(self.server.password,stored)
+        ap_console.stop_all()
+        with self.app.app_context():
+            db.execute('UPDATE console_recordings SET lease_until=0')
+        recording.resume_due(automatic=True)
+        self.assertEqual(self.state()['recording']['console_state'],'action_required')
+        self.assertEqual(self.post(self.url+'/command',dict(text='/hint Key'),client=self.friend).status_code,409)
+
+    def test_host_without_game_can_manage_reader_but_cannot_impersonate_player(self):
+        self.server.names=('Friend',);self.server.history={1:[]};self.server.emit_live=False
+        with self.app.app_context():
+            snapshot=db.loads(db.query('SELECT snapshot FROM seed_builds',one=True)['snapshot'])
+            snapshot['slots']=snapshot['slots'][1:]
+            db.execute('UPDATE seed_builds SET snapshot=?',(db.dumps(snapshot),))
+        reader=self.room();self.wait_for(lambda:reader.state=='connected')
+        self.assertEqual(reader.slot_name,'Friend')
+        self.assertEqual(self.post(self.url+'/recording/start',dict(automatic='1',transport='ws')).status_code,202)
+        self.assertEqual(self.post(self.url+'/command',dict(text='/hint Key')).status_code,403)
+
+    def test_restart_retains_uuid_history_and_cross_process_lease(self):
+        reader=self.room();self.wait_for(lambda:reader.state=='connected' and reader.items_synced)
+        self.wait_for(lambda:bool(self.state(query='?kind=items')['events']))
+        original=self.state(query='?kind=items')['events'][0]['id']
+        ap_console.stop_all()
+        with self.app.app_context():
+            db.execute("UPDATE console_recordings SET lease_owner='other-worker',lease_until=?",(time.time()+60,))
+        before=len(self.server.packets);recording.resume_due(automatic=True)
+        self.assertEqual(len(self.server.packets),before)
+        self.assertIsNone(recording.worker(self.bid))
+        with self.app.app_context():db.execute('UPDATE console_recordings SET lease_until=0')
+        recording.resume_due(automatic=True)
+        restored=recording.worker(self.bid);self.wait_for(lambda:restored.state=='connected')
+        self.assertEqual(restored.uuid,reader.uuid)
+        self.assertEqual(self.state(query='?kind=items')['events'][0]['id'],original)
+        self.assertFalse(self.server.commands)
+
+    def test_wrong_seed_and_race_never_authorize_commands(self):
+        self.server.seed='OTHER_SEED'
+        reader=self.room();self.wait_for(lambda:reader.state=='action_required')
+        self.assertFalse(any(p['cmd']=='Connect' for p in self.server.packets))
+        with self.app.app_context():
+            snapshot=db.loads(db.query('SELECT snapshot FROM seed_builds',one=True)['snapshot']);snapshot['race']=True
+            db.execute('UPDATE seed_builds SET snapshot=?',(db.dumps(snapshot),))
+        self.assertIsNone(self.room())
+        self.assertEqual(self.post(self.url+'/command',dict(text='/hint Key')).status_code,403)
+        self.assertFalse(self.server.commands)
+
+    def test_explicit_pause_of_automatic_reader_is_respected(self):
+        reader=self.room();self.wait_for(lambda:reader.state=='connected')
+        self.assertEqual(self.post(self.url+'/recording/stop',{}).status_code,200)
+        self.wait_for(lambda:not reader.thread.is_alive())
+        recording.resume_due(automatic=True)
+        self.assertFalse(self.state()['recording']['enabled'])
+        self.assertEqual(len([packet for packet in self.server.packets if packet['cmd']=='Connect']),1)
+
+    def test_room_change_never_passes_previous_password_to_new_endpoint(self):
+        from browser_tests.fake_ap import FakeAP
+        self.server.password='Only for original room'
+        reader=self.room(password=self.server.password);self.wait_for(lambda:reader.state=='connected')
+        with FakeAP() as other:
+            with self.app.app_context():
+                db.execute("INSERT INTO hosted_rooms(build_id,host,port,entered_by,created_at) VALUES (?,'127.0.0.1',?,1,'later')",
+                           (self.bid,other.port))
+            self.assertEqual(self.post(self.url+'/command',dict(text='/hint Key')).status_code,202)
+            self.wait_for(lambda:bool(other.commands))
+            hello=next(packet for packet in other.packets if packet['cmd']=='Connect')
+            self.assertIsNone(hello['password'])
+            self.assertEqual(other.commands,[('Host','!hint Key')])
+
+    def test_additive_migration_keeps_legacy_recording_policy_and_journal(self):
+        with self.app.app_context():
+            build=db.query('SELECT * FROM seed_builds',one=True);endpoint=db.query('SELECT * FROM hosted_rooms',one=True)
+            current=recording.enable(build,endpoint,1,'Host',transport='ws')
+        self.wait_for(lambda:current.state=='connected');ap_console.stop_all()
+        with self.app.app_context():
+            db.execute('ALTER TABLE console_recordings DROP COLUMN automatic')
+            before=dict(db.query('SELECT * FROM console_recordings',one=True))
+            events=db.query('SELECT COUNT(*) AS n FROM console_events',one=True)['n']
+            recording.migrate();recording.migrate()
+            after=dict(db.query('SELECT * FROM console_recordings',one=True))
+            self.assertEqual(after.pop('automatic'),0)
+            self.assertEqual(before,after)
+            self.assertEqual(db.query('SELECT COUNT(*) AS n FROM console_events',one=True)['n'],events)
 
 
 class RecordingTests(unittest.TestCase):

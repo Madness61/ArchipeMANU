@@ -84,8 +84,9 @@
     if(!root.dataset.console||personalBusy)return;personalBusy=true;
     try{
       const data=await api(root.dataset.console+'/data?kind=all');
+      const shared=data.room_connection||data;
       if($('round-item-events'))$('round-item-events').replaceChildren(...data.events.slice(-8).reverse().map(e=>el('li',e.text,'small')));
-      if($('round-personal-status'))$('round-personal-status').textContent=data.error || (data.state==='connected'?window.HUB_I18N.t('Textkonsole verbunden. Lokaler Spielclient: unbekannt.'):window.HUB_I18N.t('Textkonsole: ')+window.HUB_UI.consoleLabel(data.state)+'. '+window.HUB_I18N.t('Verbindung und Befehle findest du in der Konsole.'));
+      if($('round-personal-status'))$('round-personal-status').textContent=shared.error || (shared.state==='connected'?window.HUB_I18N.t('Textkonsole verbunden. Lokaler Spielclient: unbekannt.'):window.HUB_I18N.t('Textkonsole: ')+window.HUB_UI.consoleLabel(shared.state)+'. '+window.HUB_I18N.t('Verbindung und Befehle findest du in der Konsole.'));
     }catch(error){if($('round-personal-status'))$('round-personal-status').textContent=error.message;}
     finally{personalBusy=false;}
   }

@@ -9,6 +9,72 @@ from .fixtures import GAME
 from .test_players import area, generated, register, upload_world, create_lobby, join_lobby, select_game, mark_ready
 
 
+def configure_room(page, password=''):
+    settings=page.locator('#console-room-settings')
+    if settings.get_attribute('open') is None:
+        settings.locator('summary').click()
+    page.get_by_label('Raumpasswort (optional)',exact=True).fill(password)
+    page.get_by_label('Verbindungsart',exact=True).select_option('ws')
+    page.get_by_role('button',name='Raumverbindung aktualisieren',exact=True).click()
+    expect(page.locator('#console-state')).to_have_text('Mit Archipelago verbunden · WS',timeout=20000)
+
+
+def test_shared_reader_inline_finder_and_spectator(actors,artifact_dir):
+    from .test_players import login
+    from .test_redesign import capture
+    a,b,viewer=actors.alice,actors.bob,actors.admin
+    with FakeAP(game=GAME,names=('Alice','Bob'),seed='BROWSER_TEST') as server:
+        register(a,'Alice');register(b,'Bob');upload_world(a)
+        create_lobby(a,'Ein gemeinsamer Verlauf');join_lobby(b,'Ein gemeinsamer Verlauf')
+        select_game(a);select_game(b);mark_ready(a,'Alice');mark_ready(b,'Bob')
+        a.reload();a.get_by_role('button',name='Seed generieren',exact=True).click()
+        host=generated(a)
+        host.get_by_label('Serveradresse',exact=True).fill('127.0.0.1')
+        host.get_by_label('Port',exact=True).fill(str(server.port))
+        host.get_by_role('button',name='Verbindung speichern',exact=True).click()
+        expect(a.locator('#console-state')).to_contain_text('Mit Archipelago verbunden',timeout=20000)
+        url=a.url;base=a.locator('#ap-console').get_attribute('data-base')
+        b.goto(url);login(viewer,'TestAdmin');viewer.goto(url)
+        for page in (a,b,viewer):
+            expect(page.locator('#console-log')).to_contain_text('Progression Key')
+            expect(page.locator('#console-connect')).to_have_count(0)
+        assert len(server.clients)==1
+        expect(viewer.locator('#console-command')).to_have_count(0)
+        blocked=viewer.evaluate("""async base=>{const response=await fetch(base+'/command',{method:'POST',headers:{'X-CSRF-Token':document.getElementById('ap-console').dataset.csrf},body:new URLSearchParams({text:'/hint Key',slot:'Alice',automatic:'1'})});return response.status;}""",base)
+        assert blocked==403
+        for page in (a,b):
+            page.get_by_label('Nachricht oder Befehl',exact=True).fill('/hint Key')
+            page.get_by_role('button',name='Senden',exact=True).click()
+        expect(a.locator('#console-log')).to_contain_text('Privater Hinweis für Alice')
+        expect(b.locator('#console-log')).to_contain_text('Privater Hinweis für Bob')
+        expect(b.locator('#console-log')).not_to_contain_text('Privater Hinweis für Alice')
+        expect(viewer.locator('#console-log')).not_to_contain_text('Privater Hinweis')
+        assert sorted(server.commands)==[('Alice','!hint Key'),('Bob','!hint Key')]
+        assert len(server.clients)==3
+        a.get_by_label('Nachricht oder Befehl',exact=True).fill('Hallo Bob, gemeinsam lesen!')
+        a.get_by_role('button',name='Senden',exact=True).click()
+        for page in (a,b,viewer):
+            expect(page.locator('#console-log')).to_contain_text('Hallo Bob, gemeinsam lesen!')
+            expect(page.locator('.console-chat')).to_have_count(1)
+        b.locator('#console-log .console-player-name').first.click()
+        expect(b.locator('#console-player-list')).to_have_attribute('open','')
+        expect(b.locator('#console-players')).to_contain_text('Alice')
+        finder=a.locator('#live-item-finder')
+        finder.get_by_label('Item, Spieler oder Fundort',exact=True).fill('Key')
+        finder.get_by_role('button',name='Suchen',exact=True).click()
+        expect(finder.locator('#live-item-results')).not_to_contain_text('Chest')
+        finder.get_by_role('button',name='Fundort-Spoiler bewusst freigeben',exact=True).click()
+        expect(finder.locator('.live-item-result')).to_have_count(2)
+        expect(finder.locator('#live-item-results')).to_contain_text('Bob')
+        expect(finder.locator('#live-item-results')).to_contain_text('Chest')
+        expect(a.locator('#progression-panel')).not_to_be_visible()
+        expect(a.locator('#console-log')).to_contain_text('Hallo Bob, gemeinsam lesen!')
+        capture(a,artifact_dir,'shared-console-inline-search')
+        finder.get_by_role('button',name='Spoiler wieder sperren',exact=True).click()
+        expect(finder.locator('.live-item-result')).to_have_count(0)
+        assert all(packet['cmd'] not in ('LocationChecks','LocationScouts','StatusUpdate') for packet in server.packets)
+
+
 def test_console_items_commands_private_hints_and_mobile(actors, artifact_dir):
     alice,bob = actors.alice,actors.bob
     with FakeAP(game=GAME,names=("Alice","Bob"),seed="BROWSER_TEST",password="Test room") as server:
@@ -27,21 +93,15 @@ def test_console_items_commands_private_hints_and_mobile(actors, artifact_dir):
         expect(alice.get_by_role("heading",level=1)).to_have_text("Unsere Konsolenrunde")
         expect(alice.locator('#ap-console')).to_be_visible()
         expect(alice.locator('[data-round-view="play"]')).to_have_text('Konsole')
-        assert not server.packets  # Viewing the primary console never connects or sends by itself.
-        expect(alice.get_by_label("Verbindungsart",exact=True)).to_have_value("auto")
-        # This inert localhost fixture intentionally offers unencrypted WS only.
-        alice.get_by_label("Verbindungsart",exact=True).select_option("ws")
-        alice.get_by_role("button",name="Mit Archipelago verbinden",exact=True).click()
         expect(alice.locator("#console-error")).to_contain_text("Raumpasswort",timeout=15000)
-        alice.get_by_label("Raumpasswort (optional)",exact=True).fill("Test room")
-        alice.get_by_role("button",name="Mit Archipelago verbinden",exact=True).click()
+        configure_room(alice,'Test room')
         expect(alice.locator("#console-state")).to_have_text("Mit Archipelago verbunden · WS",timeout=15000)
         expect(alice.locator("#console-error")).to_be_hidden()
         expect(alice.locator("#console-log")).to_contain_text("Bob → Alice: Progression Key",timeout=15000)
         expect(alice.locator("#console-log")).to_contain_text("Old Fortress - Chest")
         console_url = alice.url
         bob.goto(console_url)
-        expect(bob.get_by_label("Dein Slot",exact=True)).to_have_value("Bob")
+        expect(bob.locator('#console-connect')).to_have_count(0)
         expect(bob.locator("#console-log")).to_contain_text("Bob → Alice: Progression Key")
         alice.get_by_role('button',name='Befehl einfügen',exact=True).click()
         alice.locator('[data-insert-command="/hint "]').click()
@@ -82,8 +142,8 @@ def test_console_items_commands_private_hints_and_mobile(actors, artifact_dir):
         expect(alice.get_by_role('heading',level=1)).to_have_text('Konsole · Unsere Konsolenrunde')
         expect(alice.locator('#ap-console')).to_have_count(1)
         expect(alice.locator('#console-log')).to_contain_text('Progression Key')
-        alice.get_by_role("button",name="Verbindung trennen",exact=True).click()
-        expect(alice.locator("#console-state")).to_have_text("Nicht verbunden",timeout=10000)
+        expect(bob.locator('#console-state')).to_have_text('Mit Archipelago verbunden · WS')
+        expect(bob.locator('#console-log')).to_contain_text('Alice: Hallo zusammen!')
         assert any(p.get("cmd")=="Say" and p.get("text")=="!hint Progression Key" for p in server.packets)
         assert all(p["cmd"] not in ("LocationChecks","StatusUpdate","LocationScouts") for p in server.packets)
 
@@ -107,9 +167,7 @@ def test_official_room_port_rotation_updates_console_and_copy_address_without_re
         build.get_by_label('Port',exact=True).fill(str(first.port))
         expect(build.get_by_label('Port manuell festlegen (keine automatische Aktualisierung)',exact=True)).not_to_be_checked()
         build.get_by_role('button',name='Verbindung speichern',exact=True).click()
-        alice.get_by_label('Verbindungsart',exact=True).select_option('ws')
-        alice.get_by_label('Raumpasswort (optional)',exact=True).fill('Test room')
-        alice.get_by_role('button',name='Mit Archipelago verbinden',exact=True).click()
+        configure_room(alice,'Test room')
         expect(alice.locator('#console-state')).to_have_text('Mit Archipelago verbunden · WS')
         expect(alice.locator('.console-items')).to_have_count(1)
         alice.get_by_label('Nachricht oder Befehl',exact=True).fill('Entwurf bleibt beim Portwechsel')

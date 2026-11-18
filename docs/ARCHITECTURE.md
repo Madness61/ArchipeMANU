@@ -1,6 +1,6 @@
 # Architektur
 
-ArchipeMANU verwendet Flask/Jinja, SQLite und Vanilla JavaScript. Ein Waitress-Prozess hält die ausdrücklich gestarteten Textverbindungen und begrenzte Hintergrundjobs. Archipelago läuft für Extraktion, Generierung und Progression in getrennten Python-Prozessen. Es gibt keine neue Datenbankmigration für diese Umstrukturierung.
+ArchipeMANU verwendet Flask/Jinja, SQLite und Vanilla JavaScript. Ein Waitress-Prozess hält je Runde einen automatisch verwalteten Leser und bei Bedarf getrennte autorisierte Befehlsverbindungen sowie begrenzte Hintergrundjobs. Archipelago läuft für Extraktion, Generierung und Progression in getrennten Python-Prozessen. Die gemeinsame Konsole ergänzt `console_recordings` additiv um die Kennzeichnung `automatic`; bestehende Historie bleibt unverändert.
 
 ## Zuständigkeiten
 
@@ -18,7 +18,7 @@ ArchipeMANU verwendet Flask/Jinja, SQLite und Vanilla JavaScript. Ein Waitress-P
 | APWorld-Installationszugriff, Extraktion, Generierung | `hub/integrations/archipelago.py`, `hub/apworld_library.py` |
 | Archipelago-WebSocket-Protokoll und Wiederverbindung | `hub/integrations/console.py`, `console_commands.py` |
 | WebHost-HTTP-API, Cache und Fortschrittsmessung | `hub/live_api.py`, `live_store.py`, `live_metrics.py` |
-| Rundenaufzeichnung und Lease | `hub/recording.py` |
+| Gemeinsamer Raumleser, Wiederaufnahme und SQLite-Lease | `hub/recording.py` |
 | Einzelitem-Regeln / ausdrückliche Spielzielanalyse | `progression/engine.py`, `inventory.py`, `goals.py` |
 | Darstellung | `hub/templates/`, `hub/static/`, `hub/locales/` |
 
@@ -30,7 +30,9 @@ ArchipeMANU verwendet Flask/Jinja, SQLite und Vanilla JavaScript. Ein Waitress-P
 
 **Generierung:** Host-Route → `rounds.begin_build` → geprüfte Teilnehmer/YAMLs → unveränderlicher Build → Hintergrundjob → Archipelago-Integration → `ap_runner.py`. Ergebnisse und Original-YAMLs werden unter dem jeweiligen Seed archiviert. Ein globaler AP-Lock verhindert gleichzeitige Installation/Extraktion/Generierung/Rekonstruktion.
 
-**Live:** Browser → Konsole-Route → authentifizierter TextOnly-Client. Strukturierte Item-Sendungen gelangen in das Journal. WebHost-Fortschritt verwendet einen unabhängigen Cache. Empfangslisten beweisen Empfänge, kein vollständiges vergangenes Weltlog. Private Nachrichten bleiben privat.
+**Live lesen:** gespeicherter Host/Seed → vorhandener Aufzeichnungs-Supervisor → genau ein geleaster, ausschließlich lesender TextOnly-Client → öffentliches Ereignisjournal → alle berechtigten Browser. Raum-/Seed-/Spielerliste werden vor der Anmeldung beziehungsweise vor Befehlen geprüft. Nur ausdrücklich öffentliche Protokolltypen werden geteilt; untypisierte Meldungen und Hinweise des Service-Slots werden nicht veröffentlicht.
+
+**Live schreiben:** angemeldeter Benutzer → eingefrorene eigene Seed-Slots → getrennte persönliche TextOnly-Verbindung bei Bedarf. Die Raum-Zugangsdaten werden nur serverseitig und nur innerhalb derselben gespeicherten Verbindung wiederverwendet. Private Antworten tragen Benutzer- und Slotzuordnung und sind nur für diesen Benutzer abrufbar. WebHost-Fortschritt bleibt ein unabhängiger Cache. Die kompakte und erweiterte Itemsuche verwenden denselben Finder, dieselbe Spoilerfreigabe und nachweisbare Statusdaten. Empfangslisten beweisen Empfänge, kein vollständiges vergangenes Weltlog.
 
 **Progression:** ausdrücklicher POST → eigener Slot und Spoiler/Race-Prüfung → beobachtetes Inventar/Checks → überprüfte Seed-Evidenz → Cache/Warteschlange → `progression_worker.py` → Original-APWorld rekonstruieren → Einzelitem- oder Zielmodus. GET startet keine Berechnung. Beide Modi besitzen getrennte Cache-Schlüssel. Details: [Progression](reference/PROGRESSION.md).
 

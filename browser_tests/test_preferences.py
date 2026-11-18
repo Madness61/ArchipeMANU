@@ -24,8 +24,6 @@ def test_language_theme_draft_filters_and_responsive_views(actors,artifact_dir):
         host.get_by_label('Serveradresse',exact=True).fill('127.0.0.1')
         host.get_by_label('Port',exact=True).fill(str(server.port))
         host.get_by_role('button',name='Verbindung speichern',exact=True).click()
-        a.get_by_label('Verbindungsart',exact=True).select_option('ws')
-        a.get_by_role('button',name='Mit Archipelago verbinden',exact=True).click()
         expect(a.locator('#console-log')).to_contain_text('Progression Key',timeout=20000)
         a.locator('#console-message').fill('Mein ungesendeter Entwurf')
         a.set_viewport_size(dict(width=1440,height=1000))

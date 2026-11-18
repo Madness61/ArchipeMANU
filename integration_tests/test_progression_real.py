@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import tempfile
 import time
@@ -29,8 +30,9 @@ class RealProgressionTests(unittest.TestCase):
         for p in AP_SOURCE.iterdir():
             if p.is_file() and (p.suffix in ('.py','.json') or p.name=='requirements.txt'):
                 shutil.copy2(p,cls.source/p.name)
-        for folder in ('worlds','data','rule_builder'):
-            shutil.copytree(AP_SOURCE/folder,cls.source/folder,ignore=shutil.ignore_patterns('__pycache__','test','tests','*.pyc'))
+        for folder in ('worlds','data','rule_builder','apmw'):
+            if (AP_SOURCE/folder).is_dir():
+                shutil.copytree(AP_SOURCE/folder,cls.source/folder,ignore=shutil.ignore_patterns('__pycache__','test','tests','*.pyc'))
         (cls.source/'custom_worlds').mkdir()
         cls.custom=AP_SOURCE/'custom_worlds'/'pseudoregalia.apworld'
         if cls.custom.is_file():
@@ -195,3 +197,80 @@ class RealProgressionTests(unittest.TestCase):
         data=json.loads(process.stdout)
         (self.artifacts/'ds3-recommendations.json').write_text(json.dumps(data,indent=2),encoding='utf-8')
         self.assertEqual(len(data),2)
+
+    def test_05_shared_console_with_real_archipelago_multiserver(self):
+        """Real AP seed/server, one reader and two automatically mapped writers."""
+        from hub import config,db,ap_bridge,ap_console,recording
+        from hub.app import create_app
+        from werkzeug.security import generate_password_hash
+        root=self.root/'console-protocol';root.mkdir()
+        players=root/'players';players.mkdir();output=root/'output';output.mkdir()
+        for name in ('NativeA','NativeB'):
+            (players/(name+'.yaml')).write_text(f'name: {name}\ngame: ChecksFinder\nChecksFinder: {{}}\n',encoding='utf-8')
+        env={k:v for k,v in os.environ.items() if not k.startswith(('HUB_','AP_'))}
+        env.update(PYTHONUTF8='1',PYTHONIOENCODING='utf-8')
+        generated=subprocess.run([str(AP_PYTHON),str(PROJECT/'ap_runner.py'),'generate','--players',str(players),
+                                  '--out',str(output),'--seed','20261118','--spoiler','0'],cwd=self.source,
+                                 env=env,capture_output=True,timeout=180)
+        (self.artifacts/'console-generation.log').write_bytes(generated.stdout+generated.stderr)
+        self.assertEqual(generated.returncode,0,generated.stderr[-2000:])
+        seed=next(output.glob('AP_*.zip'))
+        with socket.socket() as reservation:
+            reservation.bind(('127.0.0.1',0));port=reservation.getsockname()[1]
+        data=root/'hub-data'
+        overrides=dict(DATA=data,DB_PATH=data/'hub.db',SESSIONS=data/'sessions',SCHEMAS=data/'schemas',
+                       APWORLDS=data/'apworlds',AP_SOURCE=self.source,AP_PYTHON=AP_PYTHON)
+        with (self.artifacts/'console-native-server.log').open('wb') as log:
+            server=subprocess.Popen([str(AP_PYTHON),str(self.source/'MultiServer.py'),str(seed),'--host','127.0.0.1',
+                                     '--port',str(port),'--disable_save'],cwd=self.source,env=env,
+                                    stdin=subprocess.PIPE,stdout=log,stderr=subprocess.STDOUT)
+            try:
+                with patch.multiple(config,**overrides),patch.object(ap_bridge,'start_extract'):
+                    app=create_app();app.config.update(TESTING=True)
+                    with app.app_context():
+                        for name in ('SiteA','SiteB'):
+                            db.execute('INSERT INTO users(username,slot_name,password_hash) VALUES (?,?,?)',
+                                       (name,name,generate_password_hash('p')))
+                        sid=db.execute("INSERT INTO sessions(name,created_by,locked) VALUES ('Native console',1,1)")
+                        db.execute('INSERT INTO lobby_members(session_id,user_id) VALUES (?,2)',(sid,))
+                        snapshot=dict(slots=[dict(slot='NativeA',game='checksFinder',game_name='ChecksFinder',player_id=1),
+                                             dict(slot='NativeB',game='checksFinder',game_name='ChecksFinder',player_id=2)])
+                        bid=db.execute("INSERT INTO seed_builds(session_id,status,snapshot,created_at,seed_name) VALUES (?,'succeeded',?,'today',?)",
+                                       (sid,db.dumps(snapshot),seed.stem))
+                        db.execute("INSERT INTO hosted_rooms(build_id,host,port,entered_by,created_at) VALUES (?,'127.0.0.1',?,1,'today')",(bid,port))
+                        reader=recording.ensure(db.query('SELECT * FROM seed_builds',one=True),db.query('SELECT * FROM hosted_rooms',one=True),transport='ws')
+                    def wait(predicate):
+                        deadline=time.monotonic()+30
+                        while time.monotonic()<deadline:
+                            if predicate():return
+                            self.assertIsNone(server.poll(),'Native AP server stopped unexpectedly')
+                            time.sleep(.05)
+                        self.fail('Native AP protocol timed out: '+reader.state+' '+reader.error)
+                    wait(lambda:reader.state=='connected' and reader.catalog_ready)
+                    clients=[app.test_client(),app.test_client()]
+                    def post(client,path,body):
+                        client.get('/login')
+                        with client.session_transaction() as session:csrf=session['_csrf']
+                        return client.post(path,data=dict(_csrf=csrf,**body))
+                    base=f'/sessions/{sid}/builds/{bid}/console'
+                    for client,account,slot in zip(clients,('SiteA','SiteB'),('NativeA','NativeB')):
+                        self.assertEqual(post(client,'/login',dict(username=account,password='p')).status_code,302)
+                        self.assertEqual(post(client,base+'/command',dict(text='/hint',automatic='1')).status_code,202)
+                        wait(lambda:any(row.get('packet_type')=='CommandResult' and row['actor']['slot']==slot
+                                        for row in client.get(base+'/data').json['events']))
+                    own=[{row['id'] for row in client.get(base+'/data').json['events'] if row['visibility']=='personal'} for client in clients]
+                    self.assertFalse(own[0]&own[1])
+                    self.assertEqual(post(clients[1],base+'/command',dict(text='native shared chat',automatic='1')).status_code,202)
+                    wait(lambda:any('native shared chat' in row['text'] for row in clients[0].get(base+'/data').json['events']))
+                    for client in clients:
+                        chat=[row for row in client.get(base+'/data').json['events'] if 'native shared chat' in row['text'] and row['kind']=='chat']
+                        self.assertEqual(len(chat),1);self.assertEqual(chat[0]['visibility'],'team')
+                    self.assertEqual(sum(value.thread.is_alive() for value in ap_console._clients.values()),3)
+                    with self.assertRaises(ValueError):reader.handle_command('forbidden')
+                    self.report.append(dict(game='ChecksFinder x2',protocol='real MultiServer',readers=1,authorized_writers=2,private_replies=True))
+            finally:
+                ap_console.stop_all()
+                server.terminate()
+                try:server.wait(5)
+                except subprocess.TimeoutExpired:server.kill();server.wait(5)
+                if server.stdin:server.stdin.close()

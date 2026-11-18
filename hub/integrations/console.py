@@ -26,6 +26,7 @@ RETRY_BASE = 2
 RETRY_MAX = 60
 GUARD_SECONDS = 5
 PING_SECONDS = 25
+PUBLIC_TYPES = frozenset(('Chat','ServerChat','Join','Part','TagsChanged','Goal','Countdown','Release','Collect','ItemCheat'))
 _clients = {}
 _lock = threading.RLock()
 _wire_logger = logging.getLogger("hub.ap_console.wire")
@@ -131,12 +132,17 @@ class Client:
         self.players, self.received, self.missing, self.checked = {}, [], set(), set()
         self.slot_data = None
         self.request_slot_data = True
+        self.managed = False
+        self.catalog_ready = False
+        self.sync_pending = False
         self.items_synced = False
         self.last_seen = time.monotonic()
         self.thread = threading.Thread(target=self.run, daemon=True, name=f"ap-console-{self.build_id}-{user_id}")
 
     def note(self, text, kind="system", origin="hub", values=None):
-        payload = dict(text=text,origin=origin)
+        if self.managed and kind=='system' and origin=='hub' and text.startswith('Als '):
+            return  # Automatic authentication is not a second user-facing step.
+        payload = dict(text=text,origin=origin,actor_slot=self.slot_name)
         if values is not None:
             payload['values']=values
         record(self.path, self.build_id, self.user_id, kind, payload, hosted_id=self.endpoint["id"])
@@ -215,6 +221,8 @@ class Client:
         try:
             while not self.stop.is_set() and self.valid():
                 self.items_synced = False
+                self.catalog_ready = False
+                self.sync_pending = False
                 self.received, self.players, self.slot_data = [], {}, None
                 try:
                     self.sync_port()
@@ -321,6 +329,8 @@ class Client:
             if self.state != "connected" and now - started > 20:
                 raise TimeoutError("handshake timeout")
             while self.state == "connected" and not self.outbox.empty():
+                if self.managed and not (self.items_synced and self.catalog_ready):
+                    break  # Local commands must not report a partial initial inventory.
                 if not self.valid():
                     return
                 if self.sync_port():
@@ -388,7 +398,13 @@ class Client:
             if self.interrupted_at:
                 self.note("Textverbindung wiederhergestellt. Empfangsliste und Checks werden synchronisiert. Belegte Empfänge werden ergänzt; ein vollständiger Verlauf lässt sich daraus nicht rekonstruieren.")
                 self.interrupted_at = None
-            self.wire.send(db.dumps([{"cmd": "GetDataPackage", "games": sorted({v["game"] for v in self.players.values() if v["type"] == 1})}]))
+            commands=[{"cmd":"GetDataPackage","games":sorted({v['game'] for v in self.players.values() if v['type']==1})}]
+            if self.managed:
+                # AP suppresses empty ReceivedItems, including for Sync. The
+                # following DataPackage response is an ordered server barrier.
+                self.sync_pending = True
+                commands.insert(0,dict(cmd='Sync'))
+            self.wire.send(db.dumps(commands))
             self.note(f"Als {self.slot_name} mit Archipelago verbunden. Der Spielclient bleibt unabhängig davon verbunden.")
         elif self.state != "connected":
             return
@@ -404,6 +420,11 @@ class Client:
                 with connection(self.path) as conn:
                     conn.execute("INSERT OR REPLACE INTO console_packages(build_id,game,items,locations,updated_at) VALUES (?,?,?,?,?)",
                                  (self.build_id, game, db.dumps(maps[0]), db.dumps(maps[1]), time.time()))
+            self.catalog_ready = self.catalog_ready or self.game in packet['data']['games']
+            if self.managed and self.sync_pending and self.catalog_ready:
+                self.items_synced = True
+                self.sync_pending = False
+                self.observe_progression()
         elif cmd == "ReceivedItems":
             index = integer(packet["index"])
             items = [network_item(item) for item in packet["items"]]
@@ -432,27 +453,33 @@ class Client:
                 item = network_item(packet["item"])
                 self.delivery(item, integer(packet['receiving']), 'live')
             else:
-                parts = []
-                remaining = 12000
-                for part in packet.get("data", [])[:200]:
-                    if remaining <= 0:
-                        break
-                    text, kind = str(part.get("text", ""))[:min(2000,remaining)], part.get("type")
-                    remaining -= len(text)
-                    if kind == "player_id":
-                        player = self.players.get(integer(text))
-                        parts.append({'text':player['name']} if player else {'fallback_player':integer(text)})
-                    elif kind in ("item_id", "location_id"):
-                        player = self.players.get(integer(part.get("player", self.slot)), {})
-                        parts.append({"game": player.get("game", ""), "kind": "items" if kind == "item_id" else "locations", "id": integer(text)})
-                    else:
-                        parts.append({"text": text})
+                if self.managed and packet.get('type') in PUBLIC_TYPES:
+                    return  # The sole room reader journals public events once.
+                parts = self.message_parts(packet)
                 # Hints and command replies stay private; only structured ItemSend is shared.
                 record(self.path, self.build_id, self.user_id,
-                       "chat" if packet.get("type") == "Chat" else "system", {"parts": parts},
+                       "chat" if packet.get("type") == "Chat" else "system", {"parts": parts, "actor_slot": self.slot_name,
+                       "message_type":str(packet.get('type',''))[:64]},
                        hosted_id=self.endpoint["id"])
         elif cmd in ("Print", "InvalidPacket"):
             self.note(str(packet.get("text", "Servermeldung"))[:12000], origin='server')
+
+    def message_parts(self, packet):
+        parts, remaining = [], 12000
+        for part in packet.get('data', [])[:200]:
+            if remaining <= 0:
+                break
+            text, kind = str(part.get('text', ''))[:min(2000, remaining)], part.get('type')
+            remaining -= len(text)
+            if kind == 'player_id':
+                player = self.players.get(integer(text))
+                parts.append(dict(text=player['name'],player_slot=player['name']) if player else dict(fallback_player=integer(text)))
+            elif kind in ('item_id','location_id'):
+                player = self.players.get(integer(part.get('player',self.slot)),{})
+                parts.append(dict(game=player.get('game',''),kind='items' if kind=='item_id' else 'locations',id=integer(text)))
+            else:
+                parts.append(dict(text=text))
+        return parts
 
     def observe_progression(self):
         try:
@@ -506,14 +533,15 @@ class Client:
                 lines = sorted(packages.get(self.game, {}).get("items" if command == "/items" else "locations", {}).values())
             lines = [line for line in lines if argument.casefold() in line.casefold()]
             record(self.path,self.build_id,self.user_id,'system',dict(origin='hub',
-                   text='{v0}: {v1} Treffer (Serverstand; keine Prüfung des lokalen Spielstands).',
+                   text='{v0}: {v1} Treffer (Serverstand; keine Prüfung des lokalen Spielstands).',actor_slot=self.slot_name,
                    values=dict(v0=command,v1=len(lines)),number_values=['v1'],lines=lines[:200],truncated=len(lines)>200),
                    hosted_id=self.endpoint['id'])
         else:
             if command in ("/hint", "/hint_location", "/status", "/players"):
                 text = "!" + command[1:] + (" " + argument if argument else "")
             self.wire.send(db.dumps([{"cmd": "Say", "text": text}]))
-            self.note('An Archipelago gesendet: {v0}', 'sent', values=dict(v0=text))
+            if not self.managed or text.startswith('!'):
+                self.note('An Archipelago gesendet: {v0}', 'sent', values=dict(v0=text))
 
     def close(self):
         self.stop.set()
@@ -535,9 +563,15 @@ def current(build_id, user_id, token_hash):
     return None
 
 
-def start(build, user_id, token_hash, endpoint, slot, password="", secure=None):
-    client = Client(config.DB_PATH.resolve(), build, user_id, token_hash, dict(endpoint), slot, password, secure)
-    return launch(client, key(build['id'],user_id))
+def start(build, user_id, token_hash, endpoint, slot, password="", secure=None, *, managed=False):
+    with _lock:
+        if managed:
+            old = _clients.get(key(build['id'],user_id))
+            if old and old.managed and old.token_hash==token_hash and old.slot_name==slot and old.endpoint['id']==endpoint['id'] and old.secure==secure and old.thread.is_alive() and not old.stop.is_set() and old.state in ('connecting','authenticating','connected','reconnecting','temporarily_unavailable'):
+                return old
+        client = Client(config.DB_PATH.resolve(), build, user_id, token_hash, dict(endpoint), slot, password, secure)
+        client.managed = managed
+        return launch(client, key(build['id'],user_id))
 
 
 def launch(client, identity):

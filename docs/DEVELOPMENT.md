@@ -28,7 +28,7 @@ $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $PWD ".playwright-browsers"
 .\.venv-browser\Scripts\python.exe -m scripts.ui_checks
 ```
 
-Die echte Integrationssuite benötigt einen vorhandenen AP-Checkout und dessen Python-Umgebung (`AP_SOURCE`, `AP_PYTHON`); sie kopiert Quellen und benötigte APWorlds in temporäre Ordner. Fehlende Voraussetzungen werden als Skip sichtbar. Sie prüft ChecksFinder, Meritous, vorhandene Custom-Pseudoregalia und echte DS3-Regeln. Kein Netzwerkraum und keine produktive Datenbank werden benutzt.
+Die echte Integrationssuite benötigt einen vorhandenen AP-Checkout und dessen Python-Umgebung (`AP_SOURCE`, `AP_PYTHON`); sie kopiert Quellen einschließlich des nativen Serverpakets und benötigte APWorlds in temporäre Ordner. Fehlende Voraussetzungen werden als Skip sichtbar. Sie prüft ChecksFinder, Meritous, vorhandene Custom-Pseudoregalia und echte DS3-Regeln. Zusätzlich erzeugt sie einen Seed für zwei ChecksFinder-Slots und startet einen echten lokalen AP-MultiServer: gemeinsamer Leser, automatisch zugeordnete Befehle, private Antworten, leere Inventare und gemeinsame Chats. Kein externer Netzwerkraum und keine produktive Datenbank werden benutzt.
 
 Zum Zuschauen: `.\test-browser.ps1 -Headed -SlowMo 700`; gezielt mit `-Filter progression`. Alternativ `python -m browser_tests` unter Linux/macOS nach `python -m playwright install --with-deps chromium`. In einem Worktree kann `PLAYWRIGHT_BROWSERS_PATH` auf den bereits installierten Browsercache zeigen.
 

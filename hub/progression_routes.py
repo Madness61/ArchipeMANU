@@ -64,11 +64,12 @@ def items(sid,build_id):
         abort(400)
     try:
         page = int(request.args.get('page','1'))
-        if page<1:
+        limit = int(request.args.get('limit','50'))
+        if page<1 or not 1<=limit<=50:
             raise ValueError()
     except ValueError:
         abort(400)
-    return jsonify(progression.find(build,own,request.args.get('q','')[:100],category,owner,status,page))
+    return jsonify(progression.find(build,own,request.args.get('q','')[:100],category,owner,status,page,limit=limit))
 
 
 def own_slot(own):
