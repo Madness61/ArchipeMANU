@@ -49,7 +49,7 @@ Passwörter liegen als gesalzene scrypt-Hashes vor. Sitzungen und Einrichtungsco
 3. `main` aktualisieren, Abhängigkeiten bei Bedarf installieren, Hub starten.
 4. Anmeldung, Runde, vorhandene Downloads und APWorld-Versionen prüfen. Vor einer Wiederherstellung den aktuellen Stand zusätzlich sichern und Originale/Archive konsistent zusammen restaurieren.
 
-Dieses Refactoring benötigt keine zusätzliche Migration und verändert keine bestehenden Seed-Einstellungen. Code im Arbeitsverzeichnis eines laufenden Servers nur bei kontrolliertem Update ersetzen: alte Python-Prozesse laden Templates und Module sonst möglicherweise aus verschiedenen Ständen. Das Mergen eines PR ist noch kein Neustart eines laufenden Hub-Prozesses.
+Migrationen laufen additiv beim Start; die gemeinsame Konsole ergänzt lediglich die Kennzeichnung `automatic` an vorhandenen Aufzeichnungsdatensätzen. Bestehende Seed-Einstellungen bleiben erhalten. Code im Arbeitsverzeichnis eines laufenden Servers nur bei kontrolliertem Update ersetzen: alte Python-Prozesse laden Templates und Module sonst möglicherweise aus verschiedenen Ständen. Das Mergen eines PR ist noch kein Neustart eines laufenden Hub-Prozesses.
 
 ## Fehlerbehebung
 
@@ -58,7 +58,7 @@ Dieses Refactoring benötigt keine zusätzliche Migration und verändert keine b
 - **ROM fehlt:** benötigte eigene Originaldatei gemäß Spielanleitung in der AP-Konfiguration hinterlegen. Der Hub lädt keine ROMs herunter.
 - **Generierung fehlt:** alle beigetretenen Teilnehmer müssen ein gültiges Spiel samt Einstellungen besitzen und bereit sein. Versions-/Vorlagenwechsel erfordern erneute Bestätigung.
 - **Textverbindung unterbrochen:** tatsächlichen Raum/Port, WS/WSS und Raumpasswort prüfen; Diagnose trennt WebHost-API und Socket. Nur API-bestätigte Portwechsel desselben Raums werden automatisch übernommen. `/hint` wird vom Server autorisiert und ggf. berechnet.
-- **Nach Hub-Neustart:** persönliche Textverbindung erneut starten; bei passwortgeschützter Aufzeichnung Passwort erneut eingeben. Historie bleibt erhalten. Der Hub startet oder stoppt den externen AP-Spielserver nicht.
+- **Nach Hub-Neustart:** Der gemeinsame Leser startet nach Ablauf einer eventuell noch bestehenden Prozess-Lease automatisch wieder. Persönliche Befehlsverbindungen entstehen beim nächsten Befehl. Nur bei geschützten Räumen hinterlegt der Host unter „Raumverbindung verwalten · Host“ das gemeinsame Raumpasswort erneut; Passwörter werden nicht gespeichert. Historie bleibt erhalten. Der Hub startet oder stoppt den externen AP-Spielserver nicht.
 - **Progression nicht verfügbar:** passende unveränderte APWorld-/AP-Version, Original-YAMLs, Rekonstruktionsnachweis und frisches vollständiges Inventar erforderlich. Alte Seeds und Item-Link-Gruppen liefern keine dynamischen Behauptungen; die verifizierte Itemsuche bleibt nutzbar.
 
 [API/Befehle](reference/API.md), [Progression-Limits](reference/PROGRESSION.md), [Tests](DEVELOPMENT.md).

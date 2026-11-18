@@ -57,6 +57,16 @@ class FinderTests(unittest.TestCase):
             self.assertEqual(self.friend.get(self.url+'/items').status_code,403)
             submit.assert_not_called()
 
+    def test_compact_search_pagination_is_bounded_and_spoiler_gated(self):
+        self.assertEqual(self.client.get(self.url+'/items?limit=2').status_code,403)
+        self.grant()
+        first=self.client.get(self.url+'/items?limit=2').json
+        second=self.client.get(self.url+'/items?limit=2&page=2').json
+        self.assertEqual((first['total'],first['pages'],len(first['rows'])),(6,3,2))
+        self.assertFalse({row['id'] for row in first['rows']} & {row['id'] for row in second['rows']})
+        for value in ('-1','0','51','abc'):
+            self.assertEqual(self.client.get(self.url+'/items?limit='+value).status_code,400)
+
     def test_observed_checks_and_exact_receipts_are_distinct_and_copies_stay_separate(self):
         now=time.time()
         with self.app.app_context():

@@ -6,6 +6,7 @@ from .fake_ap import FakeAP
 from .fixtures import GAME
 from .test_players import generated,register,upload_world,create_lobby,join_lobby,select_game,mark_ready
 from .test_preferences import set_preference
+from .test_console import configure_room
 
 
 def test_host_recording_without_open_pages_and_independent_diagnostics(actors,live_server,artifact_dir):
@@ -21,14 +22,9 @@ def test_host_recording_without_open_pages_and_independent_diagnostics(actors,li
         host.get_by_label('Port',exact=True).fill(str(server.port))
         host.get_by_role('button',name='Verbindung speichern',exact=True).click()
         round_url=alice.url
-        alice.get_by_text('Rundenaufzeichnung · Host',exact=True).click()
-        alice.get_by_label('Raumpasswort für die Aufzeichnung (optional)',exact=True).fill('Only in memory')
-        alice.get_by_label('Verbindungsart für die Aufzeichnung',exact=True).select_option('ws')
-        alice.get_by_label('Ich erlaube die dauerhafte Aufzeichnung über meinen eigenen Slot.',exact=True).check()
-        alice.get_by_role('button',name='Aufzeichnung starten / neu verbinden',exact=True).click()
-        expect(alice.locator('#console-recording-state')).to_have_text('Aufzeichnung aktiv')
-        expect(alice.locator('#console-state')).to_have_text('Nicht verbunden')
-        expect(alice.locator('#recording-start')).to_be_hidden()
+        configure_room(alice,'Only in memory')
+        expect(alice.locator('#console-state')).to_have_text('Mit Archipelago verbunden · WS')
+        expect(alice.locator('#console-connect')).to_have_count(0)
         expect(alice.locator('#console-log')).to_contain_text('Fundzeit unbekannt')
         # No round page is open while the dedicated recording receives this item.
         alice.goto('about:blank');bob.goto('about:blank')
@@ -38,10 +34,7 @@ def test_host_recording_without_open_pages_and_independent_diagnostics(actors,li
         expect(bob.locator('#console-log')).to_contain_text('Alice → Bob: Potion')
         expect(bob.locator('.console-items')).to_have_count(2)
         expect(bob.locator('.recording-manager')).to_have_count(0)
-        expect(bob.locator('#console-recording-state')).to_have_text('Aufzeichnung aktiv')
-        bob.get_by_label('Verbindungsart',exact=True).select_option('ws')
-        bob.get_by_label('Raumpasswort (optional)',exact=True).fill('Only in memory')
-        bob.get_by_role('button',name='Mit Archipelago verbinden',exact=True).click()
+        expect(bob.locator('#console-connect')).to_have_count(0)
         expect(bob.locator('#console-state')).to_have_text('Mit Archipelago verbunden · WS')
         set_preference(bob,'language','en')
         expect(bob.locator('#console-state')).to_have_text('Connected to Archipelago · WS')
@@ -51,7 +44,7 @@ def test_host_recording_without_open_pages_and_independent_diagnostics(actors,li
         pending.replace(live_server.root/'live-stage.json')
         expect(bob.locator('#console-diagnostics')).to_contain_text('temporarily',timeout=20000)
         expect(bob.locator('#console-state')).to_have_text('Connected to Archipelago · WS')
-        expect(bob.locator('#console-recording-state')).to_have_text('Recording active')
+        expect(bob.locator('#console-state')).to_have_text('Connected to Archipelago · WS')
         expect(bob.locator('#console-diagnostics')).to_contain_text('Unknown')
         expect(bob.locator('#console-diagnostics')).to_contain_text('Next API update')
         for mode in ('dark','light'):
@@ -67,7 +60,7 @@ def test_host_recording_without_open_pages_and_independent_diagnostics(actors,li
         expect(bob.locator('#console-state')).to_have_text('Connected to Archipelago · WS')
         bob.unroute('**/console/data*')
         expect(bob.locator('#console-diagnostics')).to_contain_text('Reachable',timeout=10000)
-        assert sum(p['cmd']=='Connect' for p in server.packets)==2
+        assert len(server.clients)==1
         assert not any(p['cmd'] in ('Say','LocationChecks','StatusUpdate') for p in server.packets)
         pending.write_text(json.dumps(dict(offset=122,advance=True,unknown_goal=True)),encoding='utf-8')
         pending.replace(live_server.root/'live-stage.json')
@@ -80,11 +73,10 @@ def test_host_recording_without_open_pages_and_independent_diagnostics(actors,li
         expect(bob.locator('#round-personal-status')).to_contain_text('Local game client: unknown')
         expect(bob.locator('#round-live-status')).not_to_contain_text('Datenstand')
         alice.goto(round_url)
-        alice.get_by_text('Rundenaufzeichnung · Host',exact=True).click()
-        alice.get_by_role('button',name='Aufzeichnung beenden',exact=True).click()
-        expect(alice.locator('#recording-start')).to_be_visible()
-        # Bob's independent text connection still captures events after the opt-in ends.
-        expect(bob.locator('#console-recording-state')).to_have_text('Recording active')
+        configure_room(alice,'Only in memory')
+        # Host reconfiguration replaces the reader; visitors do not add connections.
+        expect(bob.locator('#console-state')).to_have_text('Connected to Archipelago · WS')
+        assert len(server.clients)==1
 
 
 
@@ -100,18 +92,14 @@ def test_recording_resumes_after_real_isolated_hub_process_restart(actors,live_s
         host.get_by_label('Port',exact=True).fill(str(server.port))
         host.get_by_role('button',name='Verbindung speichern',exact=True).click()
         round_url=alice.url
-        alice.get_by_text('Rundenaufzeichnung · Host',exact=True).click()
-        alice.get_by_label('Verbindungsart für die Aufzeichnung',exact=True).select_option('ws')
-        alice.get_by_label('Ich erlaube die dauerhafte Aufzeichnung über meinen eigenen Slot.',exact=True).check()
-        alice.get_by_role('button',name='Aufzeichnung starten / neu verbinden',exact=True).click()
-        expect(alice.locator('#console-recording-state')).to_have_text('Aufzeichnung aktiv')
+        expect(alice.locator('#console-state')).to_have_text('Mit Archipelago verbunden · WS',timeout=20000)
         expect(alice.locator('.console-items')).to_have_count(1)
         alice.goto('about:blank');bob.goto('about:blank')
         server.history[1].append([502,1002,2,0])
         server.emit_live=False
         live_server.restart()
         bob.goto(round_url)
-        expect(bob.locator('#console-recording-state')).to_have_text('Aufzeichnung aktiv',timeout=35000)
+        expect(bob.locator('#console-state')).to_have_text('Mit Archipelago verbunden · WS',timeout=35000)
         expect(bob.locator('.console-items')).to_have_count(2)
         expect(bob.locator('#console-log')).to_contain_text('Bob → Alice: Potion')
         expect(bob.locator('#console-log')).to_contain_text('Nachträglich bestätigt · Fundzeit unbekannt')

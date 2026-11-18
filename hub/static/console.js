@@ -10,6 +10,30 @@
   let cursor = 0, first = 0, generation = 0, fetching = false, sending=false, catalogVersion = 0, endpointId, authLost=false;
   const ids = new Set();
   const labels = window.HUB_UI.consoleStates;
+  let players=new Map(),playerPattern=null,playerSignature='';
+  function playerNode(name){
+    const player=players.get(name),link=document.createElement(player?'a':'strong');
+    link.textContent=name;link.className='console-player-name';link.style.setProperty('--player',window.HUB_UI.playerColor(name));
+    if(player){link.href='#'+player.anchor;link.dataset.userId=player.user_id;link.title=player.username;
+      link.addEventListener('click',()=>{document.getElementById('console-player-list').open=true;});}
+    return link;
+  }
+  function identify(values=[]){
+    const signature=JSON.stringify(values);if(signature===playerSignature)return;playerSignature=signature;
+    players=new Map(values.map(p=>[p.slot,p]));
+    const names=[...players.keys()].sort((a,b)=>b.length-a.length).map(name=>name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+    playerPattern=names.length?new RegExp('(?<![\\p{L}\\p{N}_])('+names.join('|')+')(?![\\p{L}\\p{N}_])','gu'):null;
+    const list=document.getElementById('console-players');
+    if(list)list.replaceChildren(...values.map(p=>{const row=document.createElement('li');row.id=p.anchor;
+      const name=document.createElement('strong'),account=document.createElement('small');name.textContent=p.slot;
+      account.textContent=p.username+' · '+p.game;row.append(name,account);return row;}));
+  }
+  function messageText(target,content){
+    if(!playerPattern){target.textContent=content;return;}
+    let offset=0;
+    for(const match of content.matchAll(playerPattern)){target.append(document.createTextNode(content.slice(offset,match.index)),playerNode(match[0]));offset=match.index+match[0].length;}
+    target.append(document.createTextNode(content.slice(offset)));
+  }
   const fail = (text) => { if(error.textContent!==text)error.textContent = text; error.hidden = !text; };
   let lastHubContact=null,hubReachable=null,lastData=null;
   const dateText=seconds=>seconds?new Date(seconds*1000).toLocaleString(window.HUB_I18N.locale):window.HUB_I18N.t('noch keiner');
@@ -28,9 +52,10 @@
         const cacheLabels={fresh:window.HUB_I18N.t('Im Cache'),due:window.HUB_I18N.t('Aktualisierung fällig'),updating:window.HUB_I18N.t('Abruf läuft'),error:window.HUB_I18N.t('Abruf fehlgeschlagen')};
         line(window.HUB_I18N.t('API-Cache'),web.endpoints.length?web.endpoints.map(e=>e.endpoint+': '+cacheLabels[e.state]).join(' · '):window.HUB_I18N.t('Noch keine Daten'));
       }
-      line(window.HUB_I18N.t('Archipelago Live-Konsole'),labels[data.state]||data.state);
-      line(window.HUB_I18N.t('Letzter Konsolenkontakt'),dateText(data.last_contact));
-      line(window.HUB_I18N.t('Nächster Reconnect-Versuch'),data.next_retry_at?dateText(data.next_retry_at):window.HUB_I18N.t('Keiner geplant'));
+      const room=data.room_connection||data;
+      line(window.HUB_I18N.t('Archipelago Live-Konsole'),labels[room.state]||room.state);
+      line(window.HUB_I18N.t('Letzter Konsolenkontakt'),dateText(room.last_contact));
+      line(window.HUB_I18N.t('Nächster Reconnect-Versuch'),room.next_retry_at?dateText(room.next_retry_at):window.HUB_I18N.t('Keiner geplant'));
       if(data.recording?.enabled)line(window.HUB_I18N.t('Rundenaufzeichnung'),window.HUB_UI.consoleLabel(data.recording.console_state));
       line(window.HUB_I18N.t('Lokaler Spielclient'),window.HUB_I18N.t('Unbekannt · keine zuverlässige technische Prüfung'));
     }
@@ -64,13 +89,12 @@
       const text = document.createElement('span');
       if(entry.delivery){
         const route=document.createElement('span');route.className='console-item-route';
-        const sender=document.createElement('strong'),recipient=document.createElement('strong'),item=document.createElement('strong');
-        sender.textContent=entry.delivery.sender.name;recipient.textContent=entry.delivery.recipient.name;item.textContent=entry.delivery.item;item.className='console-item-name';
-        for(const [node,name] of [[sender,entry.delivery.sender.name],[recipient,entry.delivery.recipient.name]]){node.classList.add('console-player-name');node.style.setProperty('--player',window.HUB_UI.playerColor(name));}
+        const sender=playerNode(entry.delivery.sender.name),recipient=playerNode(entry.delivery.recipient.name),item=document.createElement('strong');
+        item.textContent=entry.delivery.item;item.className='console-item-name';
         route.append(sender,document.createTextNode(' → '),recipient,document.createTextNode(': '),item);
         const place=document.createElement('small');place.className='console-item-place';place.textContent=entry.delivery.location.name+' · '+entry.delivery.sender.game;
         text.append(route,place);
-      }else text.textContent = entry.text;
+      }else messageText(text,entry.text);
       if(entry.source==='received_items'){
         const evidence=document.createElement('small');evidence.className='console-item-place';
         evidence.textContent=window.HUB_I18N.t('Nachträglich bestätigt · Fundzeit unbekannt');
@@ -78,7 +102,7 @@
         text.append(evidence);
       }
       if(entry.visibility==='personal'){
-        const privateLabel=document.createElement('small');privateLabel.className='console-private-label';privateLabel.textContent=window.HUB_I18N.t('Nur für dich');text.append(privateLabel);
+        const privateLabel=document.createElement('small');privateLabel.className='console-private-label';privateLabel.textContent=window.HUB_I18N.t('Nur für dich')+(entry.actor?' · '+entry.actor.slot:'');text.append(privateLabel);
       }
       line.append(stamp,text);
       line.hidden = !line.dataset.text.includes(search.value.toLocaleLowerCase(window.HUB_I18N.locale));
@@ -100,14 +124,10 @@
       lastData=data;
       diagnostics(data);
       if(data.recording){
-        const recording=data.recording,indicator=document.getElementById('console-recording-state');
-        const names={active:window.HUB_I18N.t('Aufzeichnung aktiv'),interrupted:window.HUB_I18N.t('Aufzeichnung unterbrochen'),not_started:window.HUB_I18N.t('Aufzeichnung nicht gestartet')};
-        if(indicator.textContent!==names[recording.state])indicator.textContent=names[recording.state];indicator.className='chip '+(recording.state==='active'?'ok':recording.state==='interrupted'?'warn':'');
+        const recording=data.recording;
         const lastEvent=document.getElementById('console-last-event'),lastText=window.HUB_I18N.t('Letztes erfasstes Item: {v0}',{v0:dateText(recording.last_event)});
         if(lastEvent.textContent!==lastText)lastEvent.textContent=lastText;
         const recordError=document.getElementById('recording-error');if(recordError){recordError.textContent=recording.error;recordError.hidden=!recording.error;}
-        const recordForm=document.getElementById('recording-start');if(recordForm)recordForm.hidden=recording.enabled&&!['action_required','disconnected','not_started'].includes(recording.console_state);
-        const stop=document.getElementById('recording-stop');if(stop)stop.disabled=!recording.enabled;
       }
       const changedCatalog = (catalogVersion !== data.catalog_version || endpointId!==undefined && endpointId!==data.endpoint_id) && cursor > 0;
       catalogVersion = data.catalog_version;
@@ -123,7 +143,6 @@
         if(data.server.auto_port)document.querySelectorAll('.hosting-fields input[name=port]').forEach(input=>{
           if(input.value===input.defaultValue){input.value=String(data.server.port);input.defaultValue=input.value;}
         });
-        document.querySelector('#console-connect button.primary')?.removeAttribute('disabled');
       }
       if (changedCatalog) {
         cursor=0;first=0;ids.clear();
@@ -131,20 +150,14 @@
         empty.hidden=false;return;
       }
       const state = document.getElementById('console-state');
-      const stateLabel=(labels[data.state] || data.state) + (data.state === 'connected' && data.transport ? ' · ' + data.transport.toUpperCase() : '');
+      const shared=data.room_connection||data;
+      identify(data.players);
+      const stateLabel=(labels[shared.state] || shared.state) + (shared.state === 'connected' && shared.transport ? ' · ' + shared.transport.toUpperCase() : '');
       if(state.textContent!==stateLabel)state.textContent=stateLabel;
-      state.className = 'chip ' + (data.state === 'connected' ? 'ok' : ['error','action_required'].includes(data.state) ? 'err' : '');
-      const connectLink=document.getElementById('console-connect-link');if(connectLink)connectLink.hidden=data.state==='connected';
-      const connectForm=document.getElementById('console-connect'),connectedSlot=document.getElementById('console-connected-slot');
-      if(connectForm){
-        connectForm.dataset.connected=String(data.state==='connected');
-        const slot=connectForm.elements.namedItem('slot');
-        if(data.slot&&!slot.dataset.dirty&&[...slot.options].some(o=>o.value===data.slot))slot.value=data.slot;
-      }
-      if(connectedSlot){connectedSlot.hidden=data.state!=='connected';connectedSlot.textContent=window.HUB_I18N.t('Verbunden als ')+(data.slot||window.HUB_I18N.t('dein Spielslot'));}
+      state.className = 'chip ' + (shared.state === 'connected' ? 'ok' : ['error','action_required'].includes(shared.state) ? 'err' : '');
       document.dispatchEvent(new CustomEvent('hub:console-state',{detail:data}));
-      if (data.error) fail(data.error);
-      else if (data.state === 'connected') fail('');
+      if (shared.error || data.error) fail(shared.error || data.error);
+      else if (shared.state === 'connected') fail('');
       append(data.events,previous);
       if (data.events.length) {
         first = first ? Math.min(first,data.events[0].id) : data.events[0].id;
@@ -159,41 +172,21 @@
     try { await api(path,form); await load(); return true; }
     catch(e) { fail(e.message); return false; }
   }
-  document.getElementById('console-connect')?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const values = new FormData(form);
-    form.querySelector('[name=password]').value = '';
-    await post('/connect',values);
-    values.delete('password');
-  });
-  document.getElementById('console-disconnect')?.addEventListener('click',() => post('/disconnect',new FormData()));
   document.getElementById('recording-start')?.addEventListener('submit',async event=>{
     event.preventDefault();const form=event.currentTarget,values=new FormData(form),button=form.querySelector('button[type=submit]');
     form.elements.password.value='';button.disabled=true;
+    const indicator=document.getElementById('console-state');indicator.textContent=labels.connecting;indicator.className='chip warn';
     try{await post('/recording/start',values);}finally{values.delete('password');button.disabled=false;}
   });
-  document.getElementById('recording-stop')?.addEventListener('click',()=>post('/recording/stop',new FormData()));
-  document.getElementById('console-connect')?.elements.namedItem('slot')?.addEventListener('change',event=>event.target.dataset.dirty='1');
   document.getElementById('console-command')?.addEventListener('submit',async event => {
     event.preventDefault();
     if(sending)return;
     sending=true;
     const form = event.currentTarget;
     const values = new FormData(form);
-    const connect = document.getElementById('console-connect');
-    if (connect) {
-      const settings = new FormData(connect);
-      values.set('slot',settings.get('slot'));
-      values.set('transport',settings.get('transport'));
-      if (values.get('text') === '/connect') {
-        values.set('password',settings.get('password'));
-        connect.querySelector('[name=password]').value = '';
-      }
-    }
     const original=values.get('text');
     const submit=form.querySelector('[type=submit]');if(submit)submit.disabled=true;
-    try{if(await post('/command',values)){if(form.elements.namedItem('text').value===original){form.reset();try{sessionStorage.removeItem(draftKey);}catch{}}}}
+    try{if(await post('/command',values)){if(form.elements.namedItem('text').value===original){form.elements.namedItem('text').value='';try{sessionStorage.removeItem(draftKey);}catch{}}}}
     finally{sending=false;if(submit)submit.disabled=false;}
     values.delete('password');
   });

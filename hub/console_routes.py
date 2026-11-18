@@ -5,6 +5,7 @@ from flask import Blueprint, abort, current_app, g, jsonify, render_template, re
 from werkzeug.exceptions import HTTPException
 
 from . import ap_console, auth, config, db, live_routes, live_store, i18n, recording, connection_diagnostics
+from .services.console_journal import identities
 
 bp = Blueprint("console", __name__)
 PREFIX = "/sessions/<int:sid>/builds/<int:build_id>/console"
@@ -34,13 +35,13 @@ def client(build_id):
     return ap_console.current(build_id, g.user["id"], auth.digest(session["auth_token"]))
 
 
-def start(build, own, form):
+def start(build, own, form, managed=False, endpoint=None):
     if not own:
         abort(403, "Nur Spieler mit eigenem Slot können die Textkonsole verbinden.")
-    slot = form.get("slot") or (own[0]["slot"] if len(own) == 1 else "")
+    slot = form.get("slot") or (own[0]["slot"] if managed or len(own) == 1 else "")
     if slot not in {s["slot"] for s in own}:
         abort(403, "Du kannst dich nur mit deinem eigenen Spielslot verbinden.")
-    endpoint = db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (build["id"],), one=True)
+    endpoint = endpoint or db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (build["id"],), one=True)
     if not endpoint:
         abort(409, "Der Host muss zuerst Serveradresse und Port für diesen Seed speichern.")
     transport = form.get("transport", "auto")
@@ -50,15 +51,33 @@ def start(build, own, form):
     if len(password) > 1024:
         abort(400, "Das Raumpasswort ist zu lang.")
     current = client(build["id"])
-    if current and current.state in ("connecting", "authenticating", "connected", "reconnecting", "temporarily_unavailable"):
+    if not managed and current and current.state in ("connecting", "authenticating", "connected", "reconnecting", "temporarily_unavailable"):
         if current.slot_name == slot and current.endpoint["id"] == endpoint["id"]:
             return current
         abort(409, "Bitte zuerst die bestehende Textverbindung trennen.")
     try:
         return ap_console.start(build, g.user["id"], auth.digest(session["auth_token"]), endpoint,
-                                slot, password, {"auto": None, "ws": False, "wss": True}[transport])
+                                slot, password, {"auto": None, "ws": False, "wss": True}[transport],managed=managed)
     except ValueError as exc:
         abort(409, str(exc))
+
+
+def automatic_client(build, own, slot=''):
+    """Resolve identity and credentials server-side, scoped to one frozen endpoint."""
+    if not own or (slot and slot not in {value['slot'] for value in own}):
+        abort(403,'Du kannst dich nur mit deinem eigenen Spielslot verbinden.')
+    endpoint=db.query('SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1',(build['id'],),one=True)
+    if not endpoint:
+        abort(409,'Der Host muss zuerst Serveradresse und Port für diesen Seed speichern.')
+    reader=recording.worker(build['id'])
+    if reader and reader.endpoint['id']!=endpoint['id']:
+        reader=None
+    row=db.query('SELECT password_required,transport FROM console_recordings WHERE build_id=? AND hosted_id=?',
+                 (build['id'],endpoint['id']),one=True)
+    if row and row['password_required'] and (not reader or not reader.password):
+        abort(409,'Der Host muss das Raumpasswort für die gemeinsame Liveansicht hinterlegen.')
+    form=dict(slot=slot,transport=row['transport'] if row else 'auto',password=reader.password if reader and reader.password else '')
+    return start(build,own,form,managed=True,endpoint=endpoint)
 
 
 def state(value):
@@ -96,17 +115,25 @@ def data(sid, build_id):
     # must trigger a reload next time, rather than permanently caching raw IDs.
     catalog_version = db.query("SELECT COALESCE(MAX(updated_at),0) AS version FROM console_packages WHERE build_id=?", (build_id,), one=True)["version"]
     endpoint = db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1",(build_id,),one=True)
+    if not current_app.testing and endpoint and not build['completed_at']:
+        recording.ensure(build,endpoint)
     linked = live_store.current(build_id)
     if linked:
         live_routes.collector()
-    rows = ap_console.events(build_id, g.user["id"], after, kind, before)
+    players = identities(build_id)
+    rows = ap_console.events(build_id, g.user["id"], after, kind, before,players=players)
     if not current_app.testing:
         recording.start_supervisor()
-    return jsonify(**state(client(build_id)), events=rows, cursor=rows[-1]["id"] if rows else after,
+    shared = recording.status(build_id,endpoint)
+    reader = recording.worker(build_id)
+    room_state = state(reader)
+    if not reader:
+        room_state.update(state=shared['console_state'] if shared['enabled'] else 'disconnected',error=shared['error'])
+    return jsonify(**state(client(build_id)), room_connection=room_state, players=players, events=rows, cursor=rows[-1]["id"] if rows else after,
                    catalog_version=catalog_version, endpoint_id=endpoint["id"] if endpoint else None,
                    server=dict(host=endpoint["host"], port=endpoint["port"], room_url=endpoint["room_url"],
                                auto_port=bool(linked and linked["auto_host"] and not build['completed_at'])) if endpoint else None,
-                   recording=recording.status(build_id,endpoint),webhost=connection_diagnostics.webhost(build),
+                   recording=shared,webhost=connection_diagnostics.webhost(build),
                    limit=100, journal_limit=None)
 
 
@@ -115,6 +142,23 @@ def recording_start(sid, build_id):
     room, build, own = access(sid,build_id,mutate=True)
     if not live_routes.mvp._manager(room):
         abort(403)
+    if request.form.get('automatic')=='1':
+        endpoint = db.query('SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1',(build_id,),one=True)
+        if not endpoint:
+            abort(409,'Der Host muss zuerst Serveradresse und Port für diesen Seed speichern.')
+        transport,password = request.form.get('transport','auto'),request.form.get('password','')
+        if transport not in ('auto','ws','wss') or len(password)>1024:
+            abort(400,'Ungültige Verbindungseinstellungen für die Rundenaufzeichnung.')
+        limited=auth.consume_attempt('console-connect',str(g.user['id']),30)
+        if limited:
+            return limited
+        try:
+            recording.ensure(build,endpoint,password,transport,force=True)
+        except ValueError as exc:
+            abort(409,str(exc))
+        if not current_app.testing:
+            recording.start_supervisor()
+        return jsonify(recording=recording.status(build_id,endpoint)),202
     if request.form.get('consent')!='1':
         abort(400,'Bitte die Aufzeichnung über deinen eigenen Slot ausdrücklich bestätigen.')
     slot = request.form.get('slot','')
@@ -205,7 +249,12 @@ def command(sid, build_id):
         return jsonify(state="disconnected")
     else:
         current = client(build_id)
-        if not current or current.state != "connected":
+        automatic = request.form.get('automatic')=='1' or recording.status(build_id,None)['automatic']
+        if automatic:
+            current=automatic_client(build,own,request.form.get('slot',''))
+        if not current or (current.state != "connected" and not (automatic and current.state in ('connecting','authenticating'))):
+            if automatic:
+                abort(409,'Deine Befehlsverbindung ist noch nicht bereit. Bitte kurz warten und erneut senden.')
             abort(409, "Verbinde zuerst deinen eigenen Slot mit Archipelago.")
         if text.startswith("/"):
             text = verb + text[len(verb):]

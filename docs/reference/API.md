@@ -6,12 +6,13 @@ Konsole als Hauptansicht laufender Runden; unveränderte Befehle und Endpunkte.
 
 1. Eine laufende Runde unter **Meine Runden** öffnen. Die erste Ansicht ist **Konsole**.
 2. Der Host hinterlegt den tatsächlichen Archipelago-Spielserver und Port.
-3. In der Konsole den eigenen Slot wählen und gegebenenfalls das
-   **Raumpasswort** eingeben. Das ist nicht das persönliche Benutzerpasswort.
-4. **Mit Archipelago verbinden** drücken. **Automatisch** versucht zuerst
-   verschlüsseltes WSS (auch für archipelago.gg) und bei einem inkompatiblen
-   Transport unverschlüsseltes WS. Ungültige TLS-Zertifikate führen zum Abbruch.
-   Die gewählte Verbindung wird im Status angezeigt; WS/WSS bleiben manuell wählbar.
+3. Der gemeinsame Leser verbindet sich automatisch. Verlauf und öffentliche Meldungen
+   sind ohne persönliche AP-Anmeldung sichtbar. Nur bei geschützten Räumen hinterlegt
+   der Host das gemeinsame **Raumpasswort** in den optionalen Raumeinstellungen.
+4. Die Transporterkennung versucht zuerst WSS und bei einem inkompatiblen Transport WS.
+   Ungültige TLS-Zertifikate führen zum Abbruch. Der Host kann WS/WSS ausdrücklich wählen.
+   Persönliche Befehle werden bei Bedarf über den zugeordneten eigenen Seed-Slot gesendet;
+   nur bei mehreren eigenen Slots ist die optionale Befehls-Zielauswahl nötig.
 5. Item-Sendungen mit Finder, Empfänger, Item und konkretem Check lesen oder
    eine Nachricht schreiben. **Befehl einfügen** oder Tippen von `/` (auch `!`)
    öffnet passende Vorschläge. Auswahl füllt nur das Feld; erst **Senden** führt
@@ -64,9 +65,9 @@ Basis: `/sessions/{sid}/builds/{build_id}/console`.
 | `GET /data?before=ID` | Frühere Nachrichten, chronologisch sortiert |
 | `POST /connect` | Formularfelder `slot`, `password` optional, `transport` = `auto` (Standard), `ws` oder `wss` |
 | `POST /disconnect` | Eigene Textverbindung trennen |
-| `POST /command` | Formularfeld `text`; bei `/connect` optional auch Verbindungsfelder |
-| `POST /recording/start` | Nur Host/Admin mit eigenem Slot: `slot`, `transport`, optional `password`, ausdrücklich `consent=1` |
-| `POST /recording/stop` | Nur Host/Admin: dauerhafte Aufzeichnungsfreigabe beenden |
+| `POST /command` | `text`; im automatischen Modus eigener Slot serverseitig ermittelt, optional `slot` bei mehreren eigenen Slots; `automatic=1` ausdrücklich möglich |
+| `POST /recording/start` | Host/Admin: `automatic=1`, `transport`, optional `password` aktualisieren den gemeinsamen Leser; kein eigener Slot nötig. Alte Aufrufe mit eigenem `slot` und `consent=1` bleiben gültig |
+| `POST /recording/stop` | Host/Admin: gemeinsamen Leser ausdrücklich pausieren; über die Raumeinstellungen wieder aktivierbar |
 
 Ohne Cursor werden die letzten 100 sichtbaren Nachrichten geladen. `after`
 und `before` dürfen nicht zusammen gesetzt werden. `kind` erlaubt `all`,
@@ -77,6 +78,12 @@ Header `X-CSRF-Token`. Die Serveradresse stammt ausschließlich aus dem vom Host
 gespeicherten Datensatz. `202` bestätigt die Annahme eines Befehls, nicht dessen
 Ausführung im Spiel. API-Fehler enthalten einen HTTP-Fehlerstatus und `error`.
 `GET /data` meldet zusätzlich `transport` (`ws`, `wss` oder vor dem Aufbau `null`).
+Die bisherigen Top-Level-Verbindungsfelder beschreiben aus Kompatibilitätsgründen
+die persönliche Verbindung; `room_connection` enthält den Status des gemeinsamen
+Lesers. `players` ordnet tatsächliche Slotnamen den Website-Konten zu. Persönliche
+Ereignisse enthalten bei bekannter Zuordnung `actor`; `packet_type` kennzeichnet
+typisierte persönliche Serverantworten. Öffentliche Ereignis-IDs sind für alle
+Besucher gleich, Markierungen `for_me`/`from_me` bleiben benutzerspezifisch.
 Die automatische Transporterkennung erfolgt vor der Slot-Anmeldung. Bei falschem
 Raumpasswort oder abgelehnter Slot-Anmeldung wird kein anderer Transport versucht.
 
@@ -101,10 +108,13 @@ die unveränderte API-Seitengröße ist weiterhin 100.
   `items_handling=7`, `slot_data=true`, unterstützte Protokollversion 0.6.8.
   Eigene Slotdaten persönlicher Verbindungen bleiben im Arbeitsspeicher und
   werden nicht im gemeinsamen Protokoll veröffentlicht. Es gibt keine aktive
-  Universal-Logikberechnung. Der optionale Recorder fordert keine Slotdaten an.
+  Universal-Logikberechnung. Der gemeinsame Leser fordert keine Slotdaten an.
   Kein APWorld-Import im Webprozess und kein Shellzugriff über Befehle.
 - Vor Befehlen werden Seedname, Spielerslots, Spiele und der eigene Slot geprüft.
   Lokale Seeds verwenden Team 0. Abweichende Räume werden abgelehnt.
+- Automatische persönliche Verbindungen synchronisieren vor dem ersten Befehl
+  Inventar und Datenkatalog. Da AP leere `ReceivedItems` unterdrückt, dient die
+  nach `Sync` angeforderte Katalogantwort als geordnete Synchronisierungsgrenze.
 - Gemeinsame Sendungen stammen aus tatsächlichen `PrintJSON/ItemSend`-Paketen
   oder eindeutig belegten normalen `ReceivedItems` des angemeldeten Slots.
   Mehrere verbundene Spieler erzeugen für denselben Check keine Duplikate.
@@ -113,8 +123,11 @@ die unveränderte API-Seitengröße ist weiterhin 100.
   Startinventar und synthetische negative Locations erzeugen keine Sendungen.
   `/received` zeigt weiterhin die eigene vollständige Empfangsliste einschließlich
   Startinventar; `/missing` liefert offene Checks, keine Erreichbarkeitsberechnung.
-- Nur strukturierte Item-Sendungen sind gemeinsam sichtbar. Chat und Antworten,
-  insbesondere Hinweise, werden pro Benutzer gespeichert. Ein Wechsel der
+- Strukturierte Item-Sendungen sowie öffentliche Typen `Chat`, `ServerChat`, `Join`,
+  `Part`, `TagsChanged`, `Goal`, `Countdown`, `Release`, `Collect`, `ItemCheat` sind
+  gemeinsam sichtbar. Persönliche Hinweise und Befehlsantworten bleiben privat.
+  Nicht eindeutig öffentliche oder untypisierte Meldungen des Lesers werden nicht
+  geteilt; bestehende persönliche Nachrichten bleiben persönlich. Ein Wechsel der
   gespeicherten Serververbindung trennt den alten Verlauf von der aktuellen
   Ansicht. Im Race-Modus ist die Konsole gesperrt.
   Normale Chatnachrichten gehen weiterhin in den Archipelago-Raum und können
@@ -124,14 +137,15 @@ die unveränderte API-Seitengröße ist weiterhin 100.
 - Logout, abgelaufene Sitzung, entzogene Lobbyrechte, abgeschlossene Runde und
   geänderte Verknüpfung beenden die persönliche Verbindung. Transiente Ausfälle
   werden automatisch wiederholt; Browserinaktivität beendet sie nicht.
-- Die ausdrücklich aktivierte Host-Aufzeichnung läuft unabhängig von Browser und
-  Login über einen eigenen freigegebenen Slot weiter. SQLite-Leases schützen die
+- Der gemeinsame Leser läuft unabhängig von Browser und Login über einen verifizierten
+  Seed-Slot ausschließlich lesend weiter. SQLite-Leases schützen die
   Wiederaufnahme nach einem Hub-Neustart. Passwortgeschützte Räume erfordern dann
-  erneute Eingabe; Passwörter werden nicht gespeichert. Keine fremden Slots,
-  keine Chat-/Befehlsaufzeichnung durch den Recorder. Details und Grenzen:
+  erneute Eingabe durch den Host; Passwörter werden nicht gespeichert. Der Leser
+  führt keine Benutzerbefehle aus. Eigene Befehls-Slots stammen ausschließlich aus
+  dem eingefrorenen Seed-Snapshot. Details und Grenzen:
   [CONNECTION_RELIABILITY.md](../OPERATIONS.md).
-- Maximal 32 Verbindungen im einzelnen Waitress-Prozess. Nach einem Neustart
-  die persönliche Chatverbindung neu verbinden; das SQLite-Protokoll bleibt erhalten.
+- Höchstens 32 Verbindungen im einzelnen Waitress-Prozess. Persönliche Verbindungen
+  werden beim nächsten Befehl wieder aufgebaut; das SQLite-Protokoll bleibt erhalten.
   Recorder werden über gemeinsame SQLite-Leases koordiniert; der gesamte
   Mehrprozessbetrieb persönlicher Chatverbindungen ist nicht Teil dieser Abnahme.
 - Additive Tabellen: `console_events`, `console_packages`, `console_streams` und
@@ -158,7 +172,7 @@ Präfix: `/sessions/<sid>/builds/<build_id>/progression`. Alle Antworten privat/
 | --- | --- |
 | `GET /state` | Datenverfügbarkeit und persönliche Spoilerfreigabe |
 | `POST /consent` | `reveal=1/0`; persönliche Freigabe/Widerruf, mit CSRF |
-| `GET /items` | `q`, `category=all/progression/useful/filler/trap`, `owner=all/mine`, `status=all/checked/unchecked/unknown`, `page` |
+| `GET /items` | `q`, `category=all/progression/useful/filler/trap`, `owner=all/mine`, `status=all/checked/unchecked/unknown`, `page`, `limit=1..50` (Standard 50, Inline-Suche 5) |
 | `GET /analysis` | Eigener `slot`, `mode=items/goal`; liest Cache/Status, startet nichts |
 | `POST /analysis` | Dieselben Felder; startet ausdrücklich einen begrenzten, separat gecachten Auftrag |
 

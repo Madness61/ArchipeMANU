@@ -45,11 +45,10 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         expect(a.locator('#round-percent')).to_have_text('20 %')
         expect(a.locator('#round-chart svg')).to_be_visible()
         assert 'SECRET FUTURE LOCATION' not in a.content()
-        assert not server.packets
+        assert not any(p['cmd'] in ('Say','LocationChecks','LocationScouts','StatusUpdate') for p in server.packets)
         area(a,'Spielen')
-        a.get_by_label('Verbindungsart',exact=True).select_option('ws')
-        a.get_by_label('Raumpasswort (optional)',exact=True).fill('Room secret')
-        a.get_by_role('button',name='Mit Archipelago verbinden',exact=True).click()
+        from .test_console import configure_room
+        configure_room(a,'Room secret')
         expect(a.locator('#console-state')).to_contain_text('Mit Archipelago verbunden',timeout=20000)
         expect(a.locator('#console-log')).to_contain_text('Progression Key',timeout=15000)
         assert all(p['cmd'] not in ('LocationChecks','LocationScouts','StatusUpdate','Say') for p in server.packets)

@@ -80,7 +80,16 @@ def render_payload(payload, packages):
     return payload.get("text", "")
 
 
-def events(build_id, user_id, after=0, kind="all", before=0):
+def identities(build_id):
+    conn = db.get()
+    build = conn.execute('SELECT snapshot FROM seed_builds WHERE id=?',(build_id,)).fetchone()
+    users = {row['id']:row['username'] for row in conn.execute('SELECT id,username FROM users')}
+    return [dict(slot=slot['slot'],game=slot['game_name'],user_id=slot.get('player_id'),
+                 username=users.get(slot.get('player_id'),''),anchor=f'console-player-{index}')
+            for index,slot in enumerate(db.loads(build['snapshot']).get('slots',[]) if build else [])]
+
+
+def events(build_id, user_id, after=0, kind="all", before=0, *, players=None):
     conn = db.get()
     packages = catalog(conn, build_id)
     args = [build_id, user_id]
@@ -88,8 +97,8 @@ def events(build_id, user_id, after=0, kind="all", before=0):
     endpoint = conn.execute("SELECT id FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (build_id,)).fetchone()
     scope += " AND (hosted_id IS NULL OR hosted_id=?)"
     args.append(endpoint["id"] if endpoint else -1)
-    snapshot=conn.execute('SELECT snapshot FROM seed_builds WHERE id=?',(build_id,)).fetchone()
-    own=[s['slot'] for s in db.loads(snapshot['snapshot']).get('slots',[]) if s.get('player_id')==user_id] if snapshot else []
+    players = identities(build_id) if players is None else players
+    own=[player['slot'] for player in players if player['user_id']==user_id]
     if kind in ('for_me','from_me','others'):
         names=','.join('?' for _ in own) or 'NULL'
         scope += " AND kind='items' AND json_extract(payload,'$.type')='item'"
@@ -132,6 +141,11 @@ def events(build_id, user_id, after=0, kind="all", before=0):
                 text=i18n.t(first)+(separator+rest if separator else '')
         entry = dict(id=row["id"], kind=row["kind"], at=row["observed_at"], text=text,
                      visibility="team" if row["user_id"] is None else "personal")
+        if row['user_id'] is not None:
+            actor = next((p for p in players if p['user_id']==row['user_id'] and p['slot']==payload.get('actor_slot')),None)
+            entry['actor'] = actor
+        if payload.get('message_type'):
+            entry['packet_type']=payload['message_type']
         if payload.get("type") == "item":
             entry['source'] = payload.get('source', 'live')
             entry['receipt_index'] = payload.get('receipt_index')
