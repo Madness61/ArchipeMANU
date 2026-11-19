@@ -57,8 +57,8 @@ def test_shared_reader_inline_finder_and_spectator(actors,artifact_dir):
             expect(page.locator('#console-log')).to_contain_text('Hallo Bob, gemeinsam lesen!')
             expect(page.locator('.console-chat')).to_have_count(1)
         b.locator('#console-log .console-player-name').first.click()
-        expect(b.locator('#console-player-list')).to_have_attribute('open','')
-        expect(b.locator('#console-players')).to_contain_text('Alice')
+        expect(b.locator('#round-player-name')).to_have_text('Bob')
+        expect(b.locator('[data-round-view="players"]')).to_have_attribute('aria-current','page')
         finder=a.locator('#live-item-finder')
         finder.get_by_label('Item, Spieler oder Fundort',exact=True).fill('Key')
         finder.get_by_role('button',name='Suchen',exact=True).click()
@@ -96,7 +96,7 @@ def test_console_items_commands_private_hints_and_mobile(actors, artifact_dir):
         build.get_by_role("button",name="Verbindung speichern",exact=True).click()
         expect(alice.get_by_role("heading",level=1)).to_have_text("Unsere Konsolenrunde")
         expect(alice.locator('#ap-console')).to_be_visible()
-        expect(alice.locator('[data-round-view="play"]')).to_have_text('Konsole')
+        expect(alice.locator('[data-round-view="play"]')).to_have_text('Live')
         expect(alice.locator("#console-error")).to_contain_text("Raumpasswort",timeout=15000)
         configure_room(alice,'Test room')
         expect(alice.locator("#console-state")).to_have_text("Mit Archipelago verbunden · WS",timeout=15000)
@@ -190,6 +190,39 @@ def test_official_room_port_rotation_updates_console_and_copy_address_without_re
         alice.set_viewport_size(dict(width=390,height=844))
         assert alice.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
         alice.screenshot(path=str(artifact_dir/'automatic-port-mobile.png'),full_page=True)
+
+
+def test_opening_round_wakes_official_room_once_and_connects_to_new_port(actors, live_server, artifact_dir):
+    alice, bob = actors.alice, actors.bob
+    with FakeAP(game=GAME, names=('Alice', 'Bob'), seed='BROWSER_TEST') as server:
+        def publish(**stage):
+            pending = live_server.root / 'live-stage-pending.json'
+            pending.write_text(json.dumps(stage), encoding='utf-8')
+            pending.replace(live_server.root / 'live-stage.json')
+
+        publish(port=1, paused=True)
+        register(alice, 'Alice'); register(bob, 'Bob'); upload_world(alice)
+        create_lobby(alice, 'Automatischer Start'); join_lobby(bob, 'Automatischer Start')
+        select_game(alice); select_game(bob); mark_ready(alice, 'Alice'); mark_ready(bob, 'Bob')
+        alice.reload()
+        alice.get_by_role('button', name='Seed generieren', exact=True).click()
+        host = generated(alice)
+        host.get_by_label('Archipelago-Raum für Live-Statistiken', exact=True).fill(
+            'https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw')
+        host.get_by_role('button', name='Raum verbinden', exact=True).click()
+        bob.goto(alice.url)
+        for page in (alice, bob):
+            expect(page.locator('#console-state')).to_have_text('Archipelago-Server wird gestartet …', timeout=15000)
+        bob.screenshot(path=str(artifact_dir / 'room-starting.png'))
+        publish(port=server.port, local_ports=[server.port], offset=6)
+        for page in (alice, bob):
+            expect(page.locator('#console-state')).to_contain_text('Mit Archipelago verbunden', timeout=20000)
+            expect(page.locator('#console-log')).to_contain_text('Progression Key')
+            expect(page.locator('#console-server-address')).to_have_text(f'archipelago.gg:{server.port}')
+        calls = (live_server.root / 'live-api-calls.jsonl').read_text(encoding='utf-8').splitlines()
+        assert [json.loads(line)['identifier'] for line in calls if json.loads(line)['endpoint'] == 'wake'] == [
+            'AAECAwQFBgcICQoLDA0ODw']
+        assert len([packet for packet in server.packets if packet['cmd'] == 'Connect']) == 1
 
 
 def test_missing_login_shows_recovery_and_returns_to_round(actors,artifact_dir):

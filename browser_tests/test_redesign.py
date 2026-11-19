@@ -125,6 +125,7 @@ def test_dark_platform_navigation_options_and_responsive_pages(actors, live_serv
     area(alice,"Mehr")
     alice.get_by_label("Archipelago-Raum für Live-Statistiken", exact=True).fill("https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw")
     alice.get_by_role("button", name="Raum verbinden", exact=True).click()
+    area(alice, "Mehr")
     alice.get_by_role("link",name="Erweiterte Statistiken öffnen",exact=True).click()
     expect(alice.locator("#kpi-checks")).to_have_text("2", timeout=15000)
     expect(alice.locator("#live-overview-players .overview-player")).to_have_count(2)

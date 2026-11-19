@@ -39,7 +39,7 @@ class PortChanged(OSError):
     """An API-confirmed port rotation for the same explicitly connected room."""
 
 
-def open_socket(host, port, secure):
+def open_socket(host, port, secure, *, timeout=8):
     """Use only the saved endpoint; pin DNS and exclude metadata/link-local targets."""
     from websockets.sync.client import connect
     addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
@@ -53,14 +53,14 @@ def open_socket(host, port, secure):
     family, socktype, proto, _, address = addresses[0]
     raw = socket.socket(family, socktype, proto)
     try:
-        raw.settimeout(8)
+        raw.settimeout(timeout)
         raw.connect(address)
         # A supplied socket is not reset by websockets 13.x for plain WS.
         # Keep the TCP deadline separate from the lifetime of the reader thread.
         raw.settimeout(None)
         target = f"[{host}]" if ":" in host else host
         return connect(f"{'wss' if secure else 'ws'}://{target}:{port}", sock=raw,
-                       open_timeout=8, close_timeout=2, max_size=MAX_FRAME, compression="deflate", logger=_wire_logger)
+                       open_timeout=timeout, close_timeout=2, max_size=MAX_FRAME, compression="deflate", logger=_wire_logger)
     except Exception:
         raw.close()
         raise
@@ -77,6 +77,10 @@ def connect_transport(host, port, secure=None):
         raise
     except (ssl.SSLError, EOFError, ConnectionError, TimeoutError):
         return open_socket(host, port, False), "ws"
+
+
+def matches_seed(expected, actual):
+    return not expected or actual in (expected, expected.removeprefix('AP_'))
 
 
 def connection_error(exc):
@@ -371,7 +375,7 @@ class Client:
             if self.state != "authenticating":
                 raise ValueError("Unerwarteter erneuter Anmeldevorgang des Servers. Bitte erneut verbinden.")
             seed = str(packet.get("seed_name", ""))
-            if self.expected_seed and seed not in {self.expected_seed, self.expected_seed.removeprefix("AP_")}:
+            if not matches_seed(self.expected_seed, seed):
                 raise ValueError("Der Server gehört zu einem anderen Seed. Bitte die gespeicherte Verbindung prüfen.")
             self.wire.send(db.dumps([dict(cmd="Connect", password=self.password or None, game="", name=self.slot_name,
                                          uuid=self.uuid, version={"major":0,"minor":6,"build":8,"class":"Version"},

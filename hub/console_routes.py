@@ -93,6 +93,7 @@ def state(value):
 @bp.route(PREFIX)
 def page(sid, build_id):
     room, build, own = access(sid, build_id)
+    live_routes.open_room(build)
     endpoint = db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (build_id,), one=True)
     return render_template("console.html", room=room, build=build, own=own, endpoint=endpoint,
                            commands=ap_console.COMMANDS, archived=bool(build["completed_at"]))
@@ -129,7 +130,8 @@ def data(sid, build_id):
     room_state = state(reader)
     if not reader:
         room_state.update(state=shared['console_state'] if shared['enabled'] else 'disconnected',error=shared['error'])
-    response = jsonify(**state(client(build_id)), room_connection=room_state, players=players, events=rows, cursor=rows[-1]["id"] if rows else after,
+    response = jsonify(**state(client(build_id)), room_connection=room_state, room_start=live_routes.start_status(build),
+                   players=players, events=rows, cursor=rows[-1]["id"] if rows else after,
                    catalog_version=catalog_version, endpoint_id=endpoint["id"] if endpoint else None,
                    server=dict(host=endpoint["host"], port=endpoint["port"], room_url=endpoint["room_url"],
                                auto_port=bool(linked and linked["auto_host"] and not build['completed_at'])) if endpoint else None,

@@ -5,6 +5,7 @@ from playwright.sync_api import expect
 from .fake_ap import FakeAP
 from .fixtures import GAME
 from .test_players import area,generated,register,upload_world,create_lobby,join_lobby,mark_ready
+from .test_preferences import set_preference
 
 
 def test_round_center_standards_files_progress_connection_and_completion(actors,artifact_dir):
@@ -37,13 +38,14 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         assert download.value.suggested_filename=='Alice.aptest'
         a.get_by_role('link',name='Installationsanleitung öffnen',exact=True).click()
         expect(a.locator('#setup-1')).to_be_visible()
-        # Four in-page areas never trigger a document navigation.
+        # The three tabs switch content in place.
         navigations=[]
         a.on('request',lambda req:navigations.append(req.url) if req.is_navigation_request() else None)
-        area(a,'Fortschritt')
+        area(a,'Spieler & Items')
         expect(a.locator('#round-checks')).to_have_text('2 / 10',timeout=15000)
         expect(a.locator('#round-percent')).to_have_text('20 %')
-        expect(a.locator('#round-chart svg')).to_be_visible()
+        expect(a.locator('[data-round-view]')).to_have_text(['Live','Spieler & Items','Mehr'])
+        expect(a.locator('#round-chart, #round-events')).to_have_count(0)
         assert 'SECRET FUTURE LOCATION' not in a.content()
         assert not any(p['cmd'] in ('Say','LocationChecks','LocationScouts','StatusUpdate') for p in server.packets)
         area(a,'Spielen')
@@ -52,24 +54,48 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         expect(a.locator('#console-state')).to_contain_text('Mit Archipelago verbunden',timeout=20000)
         expect(a.locator('#console-log')).to_contain_text('Progression Key',timeout=15000)
         assert all(p['cmd'] not in ('LocationChecks','LocationScouts','StatusUpdate','Say') for p in server.packets)
-        area(a,'Fortschritt')
-        expect(a.locator('#round-next-checks')).to_have_count(0)
-        expect(a.locator('#round-go-mode')).to_have_count(0)
-        for label in ('Mitspieler','Mehr','Spielen','Fortschritt'):
+        for label in ('Spieler & Items','Mehr','Live','Spieler & Items'):
             area(a,label)
         assert not navigations
-        area(a,'Mitspieler')
-        expect(a.locator('.round-player')).to_have_count(2)
-        a.locator('.round-player').first.get_by_role('button',name='Statistik ansehen',exact=True).click()
-        expect(a.locator('.round-player-detail').first).to_contain_text('Empfangene Items: 1')
+        expect(a.locator('[data-round-player]')).to_have_count(2)
+        expect(a.locator('#round-player-name')).to_have_text('Alice')
+        expect(a.locator('#round-player-received')).to_contain_text('1')
+        expect(a.locator('#round-item-list')).to_contain_text('Key')
+        expect(a.locator('#round-item-list')).not_to_contain_text('Chest')
+        a.locator('[data-round-player="Bob"]').click()
+        expect(a.locator('#round-player-name')).to_have_text('Bob')
+        expect(a.locator('#round-player-analysis')).to_be_hidden()
+        a.get_by_label('Empfang',exact=True).select_option('not_received')
+        expect(a.locator('#round-item-list')).to_contain_text('Noch nicht erhalten')
+        a.locator('#round-item-spoilers').click()
+        a.locator('#round-item-list summary').click()
+        expect(a.locator('#round-item-list')).to_contain_text('Chest')
+        expect(a.locator('#round-item-list details')).to_contain_text('Alice')
         for width in (1440,768,390,2560):
             a.set_viewport_size(dict(width=width,height=1000))
-            for label in ('Spielen','Fortschritt','Mitspieler','Mehr'):
+            for label in ('Live','Spieler & Items','Mehr'):
                 area(a,label)
                 a.locator('#main-content').evaluate('n=>{n.focus({preventScroll:true});n.blur()}')
                 a.evaluate('window.scrollTo(0,0)')
                 assert a.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),(width,label)
                 a.screenshot(path=str(artifact_dir/f'round-{label}-{width}.png'),full_page=True)
+        a.set_viewport_size(dict(width=1440,height=1000))
+        area(a,'Spieler & Items')
+        a.locator('#round-item-spoilers').click()
+        expect(a.locator('#round-item-list details')).to_have_count(0)
+        set_preference(a, 'language', 'en')
+        expect(a.locator('[data-round-view="players"]')).to_have_text('Players & items')
+        expect(a.get_by_label('Receipt', exact=True)).to_be_visible()
+        set_preference(a, 'theme', 'light')
+        a.set_viewport_size(dict(width=390,height=900))
+        expect(a.locator('#round-item-list')).to_contain_text('Key')
+        expect(a.get_by_label('Receipt', exact=True)).to_have_css('background-color', 'rgb(248, 250, 255)')
+        expect(a.locator('[data-round-player="Bob"]')).to_have_css('background-color', 'rgb(229, 234, 245)')
+        assert a.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+        a.screenshot(path=str(artifact_dir/'players-and-items-light-en-390.png'),full_page=True)
+        a.set_viewport_size(dict(width=1440,height=1000))
+        set_preference(a, 'theme', 'system')
+        set_preference(a, 'language', 'de')
         a.goto('/')
         expect(a.locator('[data-round-id="1"]')).to_have_count(1)
         expect(a.locator('#main-navigation>a')).to_have_count(3)

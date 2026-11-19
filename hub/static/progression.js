@@ -44,10 +44,12 @@
     if(revealed){if(view==='finder')find();else analysis(false);}
   }
   function consent(value){
+    const changed=revealed!==value;
     revealed=value;$('progression-consent').hidden=value;$('progression-content').hidden=!value;
     if($('live-item-consent'))$('live-item-consent').hidden=value||!$('live-item-query').value.trim()||root.open;
     if(!value&&$('live-item-output')){$('live-item-output').hidden=true;$('live-item-results').replaceChildren();}
     if(!value){clearTimeout(timer);$('progression-results').replaceChildren();$('progression-helpful').replaceChildren();$('progression-goals').replaceChildren();$('progression-reachable').replaceChildren();$('progression-spheres').replaceChildren();}
+    if(changed)document.dispatchEvent(new Event('hub:progression-consent'));
   }
   async function open(value){
     if($('live-item-consent'))$('live-item-consent').hidden=true;
@@ -55,7 +57,19 @@
     try{const state=await api('/state');$('progression-support').textContent=state.support==='partial'?t('Teilweise Unterstützung'):t('Basisunterstützung');consent(state.revealed);selectTab(value);}
     catch(error){fail(error.message);}
   }
-  document.querySelectorAll('[data-progression-open]').forEach(button=>button.addEventListener('click',()=>open(button.dataset.progressionOpen)));
+  document.querySelectorAll('[data-progression-open]').forEach(button=>button.addEventListener('click',()=>{
+    if(button.hasAttribute('data-round-analysis')){
+      for(const id of ['progression-analyze','progression-goal-analyze']){
+        const select=$(id)?.elements.slot;
+        const selected=$('round-player-detail').dataset.slot;
+        if(select && select.value!==selected && [...select.options].some(option=>option.value===selected)){
+          select.value=selected;
+          if (id==='progression-analyze') $('progression-target')?.replaceChildren(new Option(t('Allgemeine Hilfe'),''));
+        }
+      }
+    }
+    open(button.dataset.progressionOpen);
+  }));
   root.querySelectorAll('[data-progression-tab]').forEach(button=>button.addEventListener('click',()=>selectTab(button.dataset.progressionTab)));
   $('progression-close').addEventListener('click',()=>root.close());
   root.addEventListener('close',()=>{clearTimeout(timer);sequence++;consent(revealed);});
@@ -124,6 +138,119 @@
       if(evidence===inlineEvidence)return;inlineEvidence=evidence;
       if(revealed&&!inlineBusy&&$('live-item-query').value.trim())inlineFind();
     });
+  }
+  const playerForm = $('round-item-filters');
+  if (playerForm) {
+    const panel = $('round-player-items');
+    const sheet = $('round-player-detail');
+    const results = $('round-item-list');
+    const message = $('round-item-result-status');
+    const spoiler = $('round-item-spoilers');
+    const pagination = $('round-item-pagination');
+    const previous = $('round-item-previous');
+    const next = $('round-item-next');
+    const receiptLabels = {
+      received: t('Bestätigt erhalten'), not_received: t('Noch nicht erhalten'), unknown: t('Empfang unbekannt')
+    };
+    let playerPage = 1, requestNumber = 0, lastVersion, loading = false;
+    let requestedSlot = '';
+    const visible = () => !panel.closest('[data-round-panel]').hidden;
+
+    function itemRow(group, expanded) {
+      const row = node('li', null, 'round-item');
+      row.dataset.item = group.name;
+      const heading = node('div', null, 'row spread');
+      heading.append(node('strong', group.name + (group.total > 1 ? ' × ' + group.total : '')));
+      const counts = node('div', null, 'row round-item-counts');
+      for (const [status, label] of Object.entries(receiptLabels)) {
+        if (group[status]) counts.append(node('span', group[status] + ' ' + label, 'chip ' + (status === 'received' ? 'ok' : '')));
+      }
+      heading.append(counts);
+      row.append(heading);
+      if (group.copies?.length) {
+        const locations = node('details');
+        locations.open = expanded;
+        locations.append(node('summary', t('Fundorte')));
+        const copies = node('ul');
+        for (const copy of group.copies) {
+          const item = node('li');
+          const status = inlineStatus[copy.check_status] + ' · ' + receiptLabels[copy.status];
+          item.append(node('strong', copy.location), node('small', copy.finder + ' · ' + copy.game + ' · ' + status));
+          copies.append(item);
+        }
+        locations.append(copies);
+        row.append(locations);
+      }
+      return row;
+    }
+
+    async function loadPlayerItems(reset = false) {
+      if (!visible() || !sheet.dataset.slot) return;
+      const slot = sheet.dataset.slot;
+      if (reset || slot !== requestedSlot) {
+        playerPage = 1;
+        results.replaceChildren();
+        pagination.hidden = true;
+        message.textContent = t('Progression-Items werden geladen …');
+      }
+      requestedSlot = slot;
+      const request = ++requestNumber;
+      const params = new URLSearchParams(new FormData(playerForm));
+      params.set('recipient', slot);
+      params.set('page', playerPage);
+      params.set('limit', '12');
+      loading = true;
+      try {
+        const data = await api('/items?' + params);
+        if (request !== requestNumber) return;
+        if (revealed !== data.revealed) {
+          consent(data.revealed);
+          return;
+        }
+        const expanded = new Set([...results.querySelectorAll('details[open]')].map(detail => detail.closest('li').dataset.item));
+        results.replaceChildren(...data.rows.map(group => itemRow(group, expanded.has(group.name))));
+        playerPage = data.page;
+        message.textContent = !data.available ? reasons.placements_missing
+          : data.total ? t('{v0} Treffer', {v0: data.total.toLocaleString(window.HUB_I18N.locale)})
+          : t('Keine passenden Progression-Items.');
+        spoiler.hidden = !data.available;
+        spoiler.textContent = revealed ? t('Spoiler wieder sperren') : t('Fundort-Spoiler bewusst freigeben');
+        pagination.hidden = data.pages <= 1;
+        previous.disabled = playerPage <= 1;
+        next.disabled = playerPage >= data.pages;
+        $('round-item-page').textContent = playerPage + ' / ' + data.pages;
+      } catch (error) {
+        if (request === requestNumber) message.textContent = error.message;
+      } finally {
+        if (request === requestNumber) loading = false;
+      }
+    }
+    playerForm.addEventListener('submit', event => { event.preventDefault(); loadPlayerItems(true); });
+    playerForm.elements.receipt.addEventListener('change', () => loadPlayerItems(true));
+    spoiler.addEventListener('click', async () => {
+      spoiler.disabled = true;
+      try {
+        const state = await api('/consent', {reveal: revealed ? '0' : '1'});
+        consent(state.revealed);
+      } catch (error) { message.textContent = error.message; }
+      finally { spoiler.disabled = false; }
+    });
+    previous.addEventListener('click', () => { playerPage--; loadPlayerItems(); });
+    next.addEventListener('click', () => { playerPage++; loadPlayerItems(); });
+    document.addEventListener('hub:round-player', () => loadPlayerItems(true));
+    document.addEventListener('hub:round-players-visible', () => { if (!loading) loadPlayerItems(); });
+    document.addEventListener('hub:progression-consent', () => {
+      if (!revealed) results.querySelectorAll('details').forEach(details => details.remove());
+      loadPlayerItems();
+    });
+    document.addEventListener('hub:round-data', event => {
+      const version = JSON.stringify(event.detail);
+      if (version !== lastVersion && !loading) {
+        lastVersion = version;
+        loadPlayerItems();
+      }
+    });
+    loadPlayerItems();
   }
   async function find(){
     const current=++sequence,params=new URLSearchParams(new FormData($('progression-search')));params.set('page',page);

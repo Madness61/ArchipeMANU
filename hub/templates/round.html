@@ -2,19 +2,22 @@
 {% from "ui.html" import icon, progress, game_art, empty_state with context %}
 {% block title %}{{ s.name }} · {{ app_name }}{% endblock %}
 {% block content %}
-<div id="round-center" data-own-slots="{{ own|map(attribute='slot')|list|tojson|forceescape }}" {% if play %}data-build-status="{{ build.status }}"{% endif %} data-phase="{{ round_phase }}" data-csrf="{{ csrf_token }}" data-hosted="{{ 'true' if play and hosted else 'false' }}" data-archived="{{ 'true' if play and build.completed_at else 'false' }}" {% if play and build.status == 'succeeded' and (is_member or manage) and live_connection %}data-live="{{ url_for('live.data',sid=s.id,build_id=build.id) }}"{% endif %}>
+<div id="round-center" {% if round_ready and live_access %}data-live="{{ url_for('live.data',sid=s.id,build_id=build.id,summary=1) }}"{% endif %} {% if play %}data-build-status="{{ build.status }}"{% endif %} data-phase="{{ round_phase }}">
 <a class="small" href="{{ url_for('mvp.lobby_list') }}">{{ icon('arrow','back-arrow') }} {{ _("Meine Runden") }}</a>
 <header class="round-header" id="session-overview" data-refresh-fragment>
-  <div><p class="eyebrow">{{ _("Euer gemeinsamer Spieleabend") }}</p><h1>{{ s.name }}</h1><p class="muted small">{{ _("Host") }} {{ host_name }} · {{ slots|map(attribute='player_id')|unique|list|length if play else member_count }} {{ _("Teilnehmer") }}{% if play %} {{ _("· Seed #") }}{{ build.id }}{% endif %}</p></div>
+  <div><h1>{{ s.name }}</h1><p class="muted small">{{ _("Host") }} {{ host_name }} · {{ slots|map(attribute='player_id')|unique|list|length if play else member_count }} {{ _("Teilnehmer") }}{% if play %} {{ _("· Seed #") }}{{ build.id }}{% endif %}</p></div>
   <span class="chip {{ _('ok') if round_phase in ['running','completed'] else 'warn' }}">{{ _(phase_label) }}</span>
 </header>
 {% if round_phase == 'completed' %}<p class="status-note ok">{{ _("Abgeschlossene Runde · Ergebnisse, Verlauf und Downloads bleiben hier erhalten.") }}</p>
 {% elif not play %}<div class="round-readiness">{{ progress(ready_count, member_count, _('Gemeinsam startklar')) }}<p class="small muted">{% if not is_member %}{{ _("Tritt der Lobby bei und wähle dein Spiel.") }}{% elif not own_entry %}{{ _("Wähle dein Spiel und übernimm die Standardwerte oder passe die Einstellungen an.") }}{% elif not own_entry.ready_valid %}{{ _("Deine Auswahl ist gespeichert. Melde dich bereit, wenn sie für dich passt.") }}{% elif manage and all_ready %}{{ _("Alle sind bereit. Du kannst den Seed generieren.") }}{% else %}{{ _("Du bist bereit. Der Host startet, sobald alle startklar sind.") }}{% endif %}</p></div>{% endif %}
 <nav class="round-nav" aria-label="{{ _("Rundenbereiche") }}">
-{% for key,label,symbol in [('play',_('Spielen'),'play'),('progress',_('Fortschritt'),'chart'),('players',_('Mitspieler'),'users'),('more',_('Mehr'),'settings')] %}<a href="#{{ key }}" data-round-view="{{ key }}" aria-controls="round-{{ key }}" {% if loop.first %}aria-current="page"{% endif %}>{{ icon(symbol) }}{{ _('Konsole') if key == 'play' and console_primary else label }}</a>{% endfor %}
+{% for key,label,symbol in [('play',_('Live') if round_ready else _('Spielen'),'play'),('players',_('Spieler & Items') if round_ready else _('Mitspieler'),'users'),('more',_('Mehr'),'settings')] %}
+<a href="#{{ key }}" data-round-view="{{ key }}" aria-controls="round-{{ key }}" {% if loop.first %}aria-current="page"{% endif %}>{{ icon(symbol) }}{{ label }}</a>
+{% endfor %}
 </nav>
-<section id="round-play" data-round-panel="play" aria-label="{{ _("Spielen") }}">
-{% if play and build.status == 'succeeded' %}
+<section id="round-play" data-round-panel="play" aria-label="{{ _("Live") if round_ready else _("Spielen") }}">
+{% if round_ready %}
+  {% if race and live_access and live_connection %}<p class="status-note" id="round-server-start" role="status" hidden></p>{% endif %}
   {% if console_primary %}
     {% with endpoint=hosted,commands=console_commands,archived=build.completed_at,console_embedded=true %}{% include "console_workspace.html" %}{% endwith %}
     <details id="personal-setup" class="round-personal-setup"{% if not hosted and own %} open{% endif %}><summary>{{ _("Mein Spiel, Dateien & Verbindung") if own else _("Spieldateien & Verbindung") }}</summary>
@@ -26,15 +29,9 @@
   {% include "round_generation.html" %}
 {% endif %}
 </section>
-<section id="round-progress" data-round-panel="progress" aria-label="{{ _("Fortschritt") }}">
-{% if play and build.status == 'succeeded' and (is_member or manage) %}
+<section id="round-players" data-round-panel="players" aria-label="{{ _("Spieler & Items") if round_ready else _("Mitspieler") }}">
+{% if round_ready and live_access %}
   {% include "round_progress.html" %}
-{% else %}{{ empty_state(_('Euer Fortschritt beginnt nach dem Spielstart'), _('Wählt eure Spiele und meldet euch bereit. Sobald der Seed und der Raum eingerichtet sind, erscheint hier euer gemeinsamer Fortschritt.'), _('Zur Vorbereitung'), '#play', 'chart') }}{% endif %}
-</section>
-<section id="round-players" data-round-panel="players" aria-label="{{ _("Mitspieler") }}">
-{% if play and build.status == 'succeeded' %}
-<div class="section-head"><div><h2>{{ _("Eure Welten") }}</h2><p class="muted small">{{ _("Gemeldete Checks und Ziele stammen vom verknüpften Raum. Aktivität bestätigt keine Online-Präsenz.") }}</p></div><button type="button" data-round-refresh>{{ _("Aktualisieren") }}</button></div>
-<div class="round-player-grid" id="round-player-cards">{% for slot in slots %}<article class="panel round-player" data-player-name="{{ slot.slot }}" data-player-game="{{ slot.game_name }}">{{ game_art(slot.game_name,slot.game,true) }}<div><h3>{{ slot.slot }}</h3><p class="muted small">{{ slot.game_name }}</p><p class="small" data-player-summary>{{ _("Noch kein gemeldeter Fortschritt") }}</p><div class="progress-track"><span data-player-bar style="width:0%"></span></div></div>{% set finished=completion.players|selectattr('id','equalto',slot.player_id)|first %}{% if finished %}<p class="small muted round-confirmation">{{ _('Account gelöscht') if finished.deleted else _('Persönlich als fertig bestätigt') if finished.finished else _('Noch nicht als fertig bestätigt') }}</p>{% endif %}<button type="button" data-player-detail>{{ _("Statistik ansehen") }}</button><div class="round-player-detail" hidden></div></article>{% endfor %}</div>
 {% else %}{% include "round_preparation_players.html" %}{% endif %}
 </section>
 <section id="round-more" data-round-panel="more" aria-label="{{ _("Mehr") }}">
@@ -42,7 +39,7 @@
 {% if play and build.status == 'succeeded' %}
 <div class="round-tool-grid">
 <a class="panel tool-link" href="{{ url_for('mvp.build_stats',sid=s.id,build_id=build.id) }}">{{ icon('chart') }}<strong>{{ _("Seed-Analyse") }}</strong><span class="small muted">{{ _("Verteilung und historische Seed-Daten · Spoiler separat freigeben") }}</span></a>
-<a class="panel tool-link" href="{{ url_for('live.dashboard',sid=s.id,build_id=build.id) }}">{{ icon('activity') }}<strong>{{ _("Erweiterte Statistiken") }}</strong><span class="small muted">{{ _("Vergleiche, Interaktionen, Verlauf und Präsentationsmodus") }}</span></a>
+<a class="panel tool-link" aria-label="{{ _('Erweiterte Statistiken öffnen') }}" href="{{ url_for('live.dashboard',sid=s.id,build_id=build.id) }}">{{ icon('activity') }}<strong>{{ _("Erweiterte Statistiken öffnen") }}</strong><span class="small muted">{{ _("Vergleiche, Interaktionen, Verlauf und Präsentationsmodus") }}</span></a>
 </div>
 <section class="panel" id="all-files"><h2>{{ _("Gemeinsame Spieldateien") }}</h2><a class="btn" href="{{ url_for('mvp.build_download',sid=s.id,build_id=build.id) }}">{{ _("Multiworld-ZIP herunterladen") }}</a><p class="small muted">{{ _("Alle Dateien aus dem erzeugten ZIP. Deine sicher zugeordneten Patchdateien findest du zuerst unter „Spielen“.") }}</p><div class="stack">{% for asset in assets %}<div class="row spread play-file"><code>{{ asset.name }}</code><a class="btn small" href="{{ url_for('mvp.build_asset',sid=s.id,build_id=build.id,file_index=asset.index) }}">{{ _("Herunterladen") }}</a></div>{% endfor %}</div></section>
 <section class="panel table-wrap" id="compatibility"><h2>{{ _("Spielversionen dieses Seeds") }}</h2><table><thead><tr><th>{{ _("Spielername") }}</th><th>{{ _("Spiel") }}</th><th>{{ _("Modul-Version") }}</th><th>{{ _("APWorld SHA-256") }}</th></tr></thead><tbody>{% for slot in slots %}<tr><td>{{ slot.slot }}</td><td>{{ slot.game_name }}</td><td>{{ slot.game_version or _('nicht angegeben') }}</td><td><code>{{ slot.apworld_sha256 or _('In Archipelago enthalten') }}</code></td></tr>{% endfor %}</tbody></table></section>

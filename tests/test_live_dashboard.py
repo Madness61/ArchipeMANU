@@ -1,5 +1,6 @@
 """Official API-shaped fixtures; no Archipelago server is contacted."""
 from copy import deepcopy
+from email.utils import formatdate
 import io
 import json
 import threading
@@ -37,6 +38,22 @@ def responses():
 
 
 class APIClientTests(unittest.TestCase):
+    def test_room_wake_uses_fixed_official_get_and_discards_html(self):
+        with patch("hub.live_api.build_opener") as opener:
+            live_api.wake_room(ROOM_ID)
+            req = opener.return_value.open.call_args.args[0]
+            self.assertEqual((req.get_method(), req.full_url), ('GET', ROOM_URL))
+            self.assertIsNone(req.get_header("Cookie"))
+            opener.return_value.open.return_value.__enter__.return_value.read.assert_not_called()
+        with self.assertRaises(ValueError):
+            live_api.wake_room("https://localhost")
+        with patch("hub.ap_console.open_socket") as socket:
+            peer = socket.return_value.__enter__.return_value
+            peer.recv.return_value = '[{"cmd":"RoomInfo","seed_name":"UPSTREAM"}]'
+            self.assertFalse(live_api.reachable(38281, 'AP_LOCAL'))
+            self.assertTrue(live_api.reachable(38281, 'AP_UPSTREAM'))
+            peer.send.assert_not_called()
+
     def test_strict_room_ids_and_ssrf_inputs(self):
         self.assertEqual(live_api.room_id(ROOM_URL + "/"), ROOM_ID)
         for url in ("http://archipelago.gg/room/" + ROOM_ID, "https://evil.test/room/" + ROOM_ID,
@@ -149,6 +166,107 @@ class LiveIntegrationTests(unittest.TestCase):
         response = (client or self.client).get(self.url + "/data")
         self.assertEqual(response.status_code, 200)
         return response.json
+
+    def test_authorized_open_coalesces_wake_and_adopts_rotated_port(self):
+        self.seed()
+        self.payloads['room_status']['last_activity'] = formatdate(self.now - 7300, usegmt=True)
+        with self.app.app_context(), patch.object(live_store.time, 'time', return_value=self.now):
+            self.client.get('/')
+            self.friend.get(self.url + '/data')
+            self.assertIsNone(db.query('SELECT 1 FROM live_room_wake', one=True))
+            outsider = self.app.test_client()
+            self.post('/login', {'username': 'Other'}, client=outsider)
+            self.assertEqual(outsider.get(f'/sessions/{self.sid}').status_code, 403)
+            self.assertIsNone(db.query('SELECT 1 FROM live_room_wake', one=True))
+            for client in (self.client, self.friend):
+                self.assertEqual(client.get(f'/sessions/{self.sid}').status_code, 200)
+        entered = threading.Event()
+        release = threading.Event()
+        def wake(identifier):
+            entered.set()
+            self.assertTrue(release.wait(5))
+        with patch.object(live_api, 'wake_room', side_effect=wake) as visit, \
+                patch.object(live_api, 'reachable', side_effect=lambda port, seed: port == 38282):
+            worker = threading.Thread(target=live_store.run_wake, args=(ROOM_ID, self.now))
+            worker.start()
+            try:
+                self.assertTrue(entered.wait(5))
+                live_store.run_wake(ROOM_ID, self.now)
+                self.assertEqual(self.client.get(self.url + '/data?summary=1').json['room_start']['state'], 'starting')
+            finally:
+                release.set()
+                worker.join(5)
+            visit.assert_called_once_with(ROOM_ID)
+            with self.app.app_context():
+                initial = db.query('SELECT id FROM hosted_rooms WHERE build_id=?', (self.bid,), one=True)
+            self.payloads['room_status'].update(last_port=38282, last_activity=formatdate(self.now + 5, usegmt=True))
+            live_store.run_wake(ROOM_ID, self.now + 5)
+            with self.app.app_context():
+                endpoint = db.query('SELECT id,port FROM hosted_rooms WHERE build_id=?', (self.bid,), one=True)
+                self.assertEqual((endpoint['id'], endpoint['port']), (initial['id'], 38282))
+                self.assertEqual(live_store.wake_status(self.bid)['state'], 'reachable')
+            visit.assert_called_once_with(ROOM_ID)
+
+    def test_wake_verifies_room_and_respects_cooldown_and_archive(self):
+        self.seed()
+        self.payloads['room_status']['last_activity'] = formatdate(self.now - 7300, usegmt=True)
+        self.assertTrue(live_store.request_wake(self.bid, self.now))
+        with self.app.app_context(), patch.object(live_api, 'reachable', return_value=False), patch.object(
+                live_api, 'wake_room', side_effect=live_api.APIError('slow down', 'rate_limited', 600)) as visit:
+            live_store.run_wake(ROOM_ID, self.now)
+            self.assertEqual(live_store.wake_status(self.bid)['state'], 'error')
+            live_store.request_wake(self.bid, self.now + 200)
+            live_store.run_wake(ROOM_ID, self.now + 200)
+            self.assertEqual(visit.call_count, 1)
+            self.payloads['room_status']['players'][0][0] = 'Other slot'
+            live_store.request_wake(self.bid, self.now + 601)
+            live_store.run_wake(ROOM_ID, self.now + 601)
+            self.assertIn('passen nicht', live_store.wake_status(self.bid)['error'])
+            self.assertEqual(visit.call_count, 1)
+            db.execute("UPDATE seed_builds SET completed_at='done' WHERE id=?", (self.bid,))
+            self.assertFalse(live_store.request_wake(self.bid, self.now + 900))
+            self.assertIsNone(self.client.get(self.url + '/data?summary=1').json['room_start'])
+
+    def test_wake_skips_rooms_that_are_reachable_or_closed_during_check(self):
+        self.seed()
+        live_store.request_wake(self.bid, self.now)
+        with self.app.app_context(), patch.object(live_api, 'reachable', return_value=True), patch.object(live_api, 'wake_room') as visit:
+            live_store.run_wake(ROOM_ID, self.now)
+            self.assertEqual(live_store.wake_status(self.bid)['state'], 'reachable')
+            visit.assert_not_called()
+        live_store.request_wake(self.bid, self.now + 151)
+        with self.app.app_context():
+            db.execute("UPDATE sessions SET locked=0 WHERE id=?", (self.sid,))
+        with patch.object(live_api, 'wake_room') as visit:
+            before = len(self.calls)
+            live_store.run_wake(ROOM_ID, self.now + 151)
+            self.assertEqual(len(self.calls), before)
+            visit.assert_not_called()
+
+    def test_paused_room_wake_attempts_end_after_two_visits(self):
+        self.seed()
+        self.payloads['room_status']['last_activity'] = formatdate(self.now - 7300, usegmt=True)
+        live_store.request_wake(self.bid, self.now)
+        with patch.object(live_api, 'reachable', return_value=False), patch.object(live_api, 'wake_room') as visit:
+            for elapsed in (0, 5, 60, 65, 120, 150, 210):
+                live_store.run_wake(ROOM_ID, self.now + elapsed)
+            self.assertEqual(visit.call_count, 2)
+        self.assertEqual(self.client.get(self.url + '/data?summary=1').json['room_start']['state'], 'error')
+
+    def test_verified_goal_enters_journal_once_across_tracker_and_socket(self):
+        from hub import config
+        from hub.services.console_journal import record_goal
+        self.seed()
+        live_store.refresh(self.live_id, self.now)
+        self.payloads['tracker']['player_status'][1]['status'] = 30
+        live_store.refresh(self.live_id, self.now + 61)
+        with self.app.app_context():
+            endpoint = db.query('SELECT id FROM hosted_rooms WHERE build_id=?', (self.bid,), one=True)
+            self.assertEqual(record_goal(config.DB_PATH, self.bid, endpoint['id'], 'Friend'), 0)
+            event = db.query("SELECT * FROM console_events WHERE event_key LIKE 'goal:%'", one=True)
+            self.assertEqual(db.loads(event['payload'])['player_slot'], 'Friend')
+        players = self.client.get(self.url + '/data?summary=1').json['players']
+        self.assertEqual([(p['name'], p['goal']) for p in players], [('Host', False), ('Friend', True)])
 
     def test_collection_shared_cache_and_persistent_history(self):
         self.seed()

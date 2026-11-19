@@ -13,6 +13,10 @@
   window.HUB_UI={playerColor:name=>'var(--player-color-'+playerIndex(name)+')'};
   window.HUB_UI.consoleStates={connecting:t('Verbindung wird aufgebaut'),authenticating:t('Slot wird angemeldet'),connected:t('Mit Archipelago verbunden'),reconnecting:t('Verbindung wird wiederhergestellt'),temporarily_unavailable:t('Vorübergehend nicht erreichbar'),action_required:t('Erneutes Verbinden erforderlich'),disconnected:t('Nicht verbunden'),not_started:t('Aufzeichnung nicht gestartet'),error:t('Verbindung fehlgeschlagen')};
   window.HUB_UI.consoleLabel=state=>window.HUB_UI.consoleStates[state]||t('Unbekannt');
+  window.HUB_UI.roomStartLabel=status=>({
+    checking:t('Archipelago-Server wird geprüft …'),starting:t('Archipelago-Server wird gestartet …'),
+    reachable:t('Archipelago-Server erreichbar'),error:t('Serverstart fehlgeschlagen')
+  })[status?.state]||'';
   const theme=mode=>{document.documentElement.dataset.theme=mode;window.dispatchEvent(new CustomEvent('hub:theme-change'));};
   document.addEventListener('DOMContentLoaded',()=>document.querySelectorAll('time[data-local-date]').forEach(node=>{const date=new Date(node.dateTime);if(!Number.isNaN(date.getTime()))node.textContent=date.toLocaleString(locale,{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}));
   document.addEventListener('change',async event=>{

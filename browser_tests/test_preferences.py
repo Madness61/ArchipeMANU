@@ -29,7 +29,7 @@ def test_language_theme_draft_filters_and_responsive_views(actors,artifact_dir):
         a.set_viewport_size(dict(width=1440,height=1000))
         set_preference(a,'language','en')
         expect(a.get_by_role('button',name='Send',exact=True)).to_be_visible()
-        expect(a.locator('[data-round-view="play"]')).to_have_text('Console')
+        expect(a.locator('[data-round-view="play"]')).to_have_text('Live')
         expect(a.locator('[data-round-view="more"]')).to_have_text('More')
         expect(a.locator('#console-message')).to_have_value('Mein ungesendeter Entwurf')
         expect(a.locator('#console-log')).to_contain_text('Bob → Alice: Progression Key',timeout=15000)

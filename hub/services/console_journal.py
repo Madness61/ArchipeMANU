@@ -59,6 +59,13 @@ def record(path, build_id, user_id, kind, payload, key=None, hosted_id=None, *, 
                                (build_id,user_id,kind,db.dumps(payload),time.time(),key,hosted_id)).rowcount
 
 
+def record_goal(path, build_id, hosted_id, slot, *, transaction=None):
+    return record(path, build_id, None, 'system',
+                  dict(origin='hub', text='{v0} hat das Spielziel erreicht.', values={'v0': slot},
+                       public_type='Goal', player_slot=slot),
+                  f'goal:{hosted_id}:{slot}', hosted_id, transaction=transaction)
+
+
 def catalog(conn, build_id):
     return {row["game"]: {"items": db.loads(row["items"]), "locations": db.loads(row["locations"])}
             for row in conn.execute("SELECT * FROM console_packages WHERE build_id=?", (build_id,))}

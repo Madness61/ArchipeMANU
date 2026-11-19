@@ -1,4 +1,4 @@
-"""Read-only official WebHost API client. Never follows user-controlled URLs."""
+"""Official WebHost requests at a fixed origin."""
 from __future__ import annotations
 
 import base64
@@ -61,21 +61,10 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def fetch(endpoint, identifier):
-    """Only three fixed HTTPS endpoints; no cookies, room wakeups, or commands."""
-    if endpoint not in ENDPOINTS:
-        raise ValueError("Unbekannter API-Endpunkt.")
-    identifier = suuid(identifier)
-    request = Request(f"{ORIGIN}/api/{endpoint}/{identifier}",
-                      headers={"Accept": "application/json", "User-Agent": "MultiworldHub-Live/1.0"})
+def open_webhost(path, accept):
+    request = Request(ORIGIN + path, headers={"Accept": accept, "User-Agent": "MultiworldHub-Live/1.0"})
     try:
-        with build_opener(NoRedirect()).open(request, timeout=TIMEOUT) as response:
-            body = response.read(MAX_BYTES + 1)
-            if len(body) > MAX_BYTES:
-                raise APIError("Die API-Antwort ist zu groß.", "invalid")
-            if "json" not in response.headers.get("Content-Type", "").lower():
-                raise APIError("Die API liefert derzeit kein JSON.", "invalid")
-            payload = json.loads(body)
+        return build_opener(NoRedirect()).open(request, timeout=TIMEOUT)
     except HTTPError as exc:
         delay = retry_delay(exc.headers, 300 if exc.code == 429 else 60)
         exc.close()
@@ -89,11 +78,48 @@ def fetch(endpoint, identifier):
         raise APIError("Die Archipelago-API ist vorübergehend nicht erreichbar.", retry_after=delay) from None
     except (URLError, TimeoutError, OSError):
         raise APIError("Die Archipelago-API ist vorübergehend nicht erreichbar.") from None
+
+
+def fetch(endpoint, identifier):
+    if endpoint not in ENDPOINTS:
+        raise ValueError("Unbekannter API-Endpunkt.")
+    identifier = suuid(identifier)
+    try:
+        with open_webhost(f"/api/{endpoint}/{identifier}", "application/json") as response:
+            body = response.read(MAX_BYTES + 1)
+            if len(body) > MAX_BYTES:
+                raise APIError("Die API-Antwort ist zu groß.", "invalid")
+            if "json" not in response.headers.get("Content-Type", "").lower():
+                raise APIError("Die API liefert derzeit kein JSON.", "invalid")
+            payload = json.loads(body)
+    except (URLError, TimeoutError, OSError):
+        raise APIError("Die Archipelago-API ist vorübergehend nicht erreichbar.") from None
     except (ValueError, UnicodeError, RecursionError):
         raise APIError("Die API-Antwort konnte nicht gelesen werden.", "invalid") from None
     if not isinstance(payload, dict):
         raise APIError("Das API-Antwortformat hat sich geändert.", "invalid")
     return sanitize(endpoint, payload)
+
+
+def wake_room(identifier):
+    # The official GET handler marks the room active. Discard the room page.
+    with open_webhost(f"/room/{suuid(identifier)}", "text/html"):
+        pass
+
+
+def reachable(port, seed):
+    if type(port) is not int or not 1 <= port <= 65535:
+        return False
+    from websockets.exceptions import WebSocketException
+    from .ap_console import matches_seed, open_socket
+    try:
+        with open_socket("archipelago.gg", port, True, timeout=2) as wire:
+            packets = json.loads(wire.recv(timeout=2))
+        return isinstance(packets, list) and any(
+            isinstance(packet, dict) and packet.get('cmd') == 'RoomInfo'
+            and matches_seed(seed, packet.get('seed_name')) for packet in packets)
+    except (OSError, ValueError, EOFError, WebSocketException):
+        return False
 
 
 def sanitize(endpoint, payload):

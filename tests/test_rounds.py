@@ -33,7 +33,8 @@ class RoundTests(unittest.TestCase):
         for url in ('/sessions/1',f'/sessions/1/builds/{bid}/play'):
             page=self.client.get(url).get_data(as_text=True)
             self.assertIn('id="round-center"',page)
-            self.assertEqual(page.count('data-round-panel='),4)
+            self.assertEqual(page.count('data-round-panel='),3)
+            self.assertIn('Spieler &amp; Items', page)
             self.assertIn('id="slot-1">Host',page)
 
     def test_reopened_lobby_prioritizes_preparation_and_explicit_history_keeps_seed(self):

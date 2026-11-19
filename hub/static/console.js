@@ -13,12 +13,17 @@
   let cursor = 0, first = 0, generation = 0, fetching = false, sending=false, catalogVersion = 0, endpointId, authLost=false, archiveLoaded=false;
   const ids = new Set();
   const labels = window.HUB_UI.consoleStates;
+  const startingRoom = data => data?.room_connection?.state !== 'connected'
+    && ['checking','starting'].includes(data?.room_start?.state);
   let players=new Map(),playerPattern=null,playerSignature='';
   function playerNode(name){
     const player=players.get(name),link=document.createElement(player?'a':'strong');
     link.textContent=name;link.className='console-player-name';link.style.setProperty('--player',window.HUB_UI.playerColor(name));
-    if(player){link.href='#'+player.anchor;link.dataset.userId=player.user_id;link.title=player.username;
-      link.addEventListener('click',()=>{document.getElementById('console-player-list').open=true;});}
+    if(player){
+      const roundPlayer = document.getElementById(player.anchor.replace('console-', 'round-'));
+      link.href='#'+(roundPlayer?.id||player.anchor);link.dataset.userId=player.user_id;link.title=player.username;
+      if(!roundPlayer)link.addEventListener('click',()=>{document.getElementById('console-player-list').open=true;});
+    }
     return link;
   }
   function identify(values=[]){
@@ -139,11 +144,11 @@
       const noServer=document.getElementById('console-no-server');
       const autoPort=document.getElementById('console-auto-port');
       const roomSettings=document.getElementById('console-room-settings');
-      if(serverRow)serverRow.hidden=!data.server;
-      if(noServer)noServer.hidden=!!data.server;
+      if(serverRow)serverRow.hidden=!data.server || startingRoom(data) && data.server.auto_port;
+      if(noServer)noServer.hidden=!!data.server || startingRoom(data);
       if(autoPort)autoPort.hidden=!data.server?.auto_port;
       if(roomSettings)roomSettings.hidden=!data.server;
-      if(send)send.disabled=sending||!data.server;
+      if(send)send.disabled=sending||!data.server||startingRoom(data);
       if(data.server){
         const address=data.server.host+':'+data.server.port;
         for(const id of ['console-server-address','host-address']){const node=document.getElementById(id);if(node)node.textContent=address;}
@@ -159,14 +164,19 @@
       }
       const state = document.getElementById('console-state');
       const shared=data.room_connection||data;
+      const launch=data.room_start;
+      const showLaunch=shared.state!=='connected' && (['checking','starting','error'].includes(launch?.state)
+        || (launch?.state==='reachable' && ['connecting','disconnected','not_started'].includes(shared.state)));
       identify(data.players);
       const stateLabel=archived ? window.HUB_I18N.t('Protokoll archiviert')
+        : showLaunch ? window.HUB_UI.roomStartLabel(launch)
         : !data.server ? window.HUB_I18N.t('Wartet auf Raumverbindung')
         : (labels[shared.state] || shared.state) + (shared.state === 'connected' && shared.transport ? ' · ' + shared.transport.toUpperCase() : '');
       if(state.textContent!==stateLabel)state.textContent=stateLabel;
-      state.className = 'chip ' + (shared.state === 'connected' ? 'ok' : ['error','action_required'].includes(shared.state) ? 'err' : '');
+      state.className = 'chip ' + (shared.state === 'connected' || showLaunch && launch.state==='reachable'
+        ? 'ok' : showLaunch && launch.state==='error' || ['error','action_required'].includes(shared.state) ? 'err' : '');
       document.dispatchEvent(new CustomEvent('hub:console-state',{detail:data}));
-      fail(archived ? '' : shared.error || '');
+      fail(archived ? '' : showLaunch ? launch.error : shared.error || '');
       append(data.events,previous);
       if (data.events.length) {
         first = first ? Math.min(first,data.events[0].id) : data.events[0].id;
@@ -198,7 +208,7 @@
     const submit=form.querySelector('[type=submit]');if(submit)submit.disabled=true;
     const showError=text=>{commandError.textContent=text;commandError.hidden=!text;};
     try{if(await post('/command',values,showError)){if(form.elements.namedItem('text').value===original){form.elements.namedItem('text').value='';try{sessionStorage.removeItem(draftKey);}catch{}}}}
-    finally{sending=false;if(submit)submit.disabled=!lastData?.server;}
+    finally{sending=false;if(submit)submit.disabled=!lastData?.server||startingRoom(lastData);}
   });
   kind.addEventListener('change',() => {
     generation++; cursor=0; first=0; ids.clear(); archiveLoaded=false;

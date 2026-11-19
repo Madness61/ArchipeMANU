@@ -6,6 +6,7 @@ import threading
 import time
 
 from . import ap_console, config, db, i18n
+from .services.console_journal import record_goal
 
 LEASE_SECONDS = 20
 _thread = None
@@ -103,7 +104,7 @@ class Recorder(ap_console.Client):
             return
         if cmd=='RoomInfo':
             seed=str(packet.get('seed_name',''))
-            if self.expected_seed and seed not in (self.expected_seed,self.expected_seed.removeprefix('AP_')):
+            if not ap_console.matches_seed(self.expected_seed, seed):
                 raise ValueError('Der Server gehört zu einem anderen Seed. Bitte die gespeicherte Verbindung prüfen.')
             with ap_console.connection(self.path) as conn:
                 conn.execute('UPDATE console_recordings SET password_required=? WHERE build_id=? AND generation=?',
@@ -118,6 +119,9 @@ class Recorder(ap_console.Client):
         if self.state != 'connected':
             return
         speaker = self.players.get(packet.get('slot')) if packet.get('team') == self.team else None
+        if packet['type'] == 'Goal' and speaker:
+            record_goal(self.path, self.build_id, self.endpoint['id'], speaker['name'])
+            return
         if packet['type'] == 'Chat' and speaker and isinstance(packet.get('message'), str):
             parts = [dict(text=speaker['name'], player_slot=speaker['name']),
                      dict(text=': ' + packet['message'][:12000])]
@@ -125,7 +129,8 @@ class Recorder(ap_console.Client):
             parts = self.message_parts(packet)
         ap_console.record(self.path,self.build_id,None,
                           'chat' if packet['type'] in ('Chat','ServerChat') else 'system',
-                          dict(parts=parts,public_type=packet['type']),hosted_id=self.endpoint['id'])
+                          dict(parts=parts,public_type=packet['type'],player_slot=speaker['name'] if speaker else None),
+                          hosted_id=self.endpoint['id'])
 
     def handle_command(self, text):
         raise ValueError('Die Rundenaufzeichnung kann keine Chatnachrichten oder Befehle senden.')

@@ -1,7 +1,7 @@
 """Lobby-authorized dashboard and cached JSON views."""
 from flask import Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template, request, url_for
 
-from . import db, live_api, live_store, mvp
+from . import db, i18n, live_api, live_store, mvp
 
 bp = Blueprint("live", __name__)
 
@@ -27,9 +27,22 @@ def collector():
         live_store.start_collector()
 
 
+def open_room(build):
+    if not build["completed_at"] and live_store.request_wake(build["id"]):
+        collector()
+
+
+def start_status(build):
+    status = None if build["completed_at"] else live_store.wake_status(build["id"])
+    if status:
+        status['error'] = i18n.t(status['error'])
+    return status
+
+
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/live")
 def dashboard(sid, build_id):
     room, build = access(sid, build_id)
+    open_room(build)
     linked = live_store.current(build_id)
     if linked:
         collector()
@@ -42,6 +55,13 @@ def dashboard(sid, build_id):
 def data(sid, build_id):
     _, build = access(sid, build_id)
     linked = live_store.current(build_id)
+    if request.args.get("summary") == "1":
+        if linked:
+            collector()
+        overview = live_store.round_summary(linked, build)
+        response = jsonify(**overview, room_start=start_status(build))
+        response.headers["Cache-Control"] = "no-store"
+        return response
     if not linked:
         return jsonify({"state": "not_linked", "error": "Noch kein Archipelago-Raum verbunden."}), 404
     collector()
@@ -65,7 +85,7 @@ def connect(sid, build_id):
         return redirect(url_for("session_view", sid=sid, build=build_id, _anchor="round-host-connection"))
     live_store.attach(build_id, link, g.user["id"], auto_host=True)
     collector()
-    return redirect(url_for("session_view", sid=sid, build=build_id, _anchor="progress"))
+    return redirect(url_for("session_view", sid=sid, build=build_id, _anchor="play"))
 
 
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/live/refresh", methods=["POST"])

@@ -2,6 +2,7 @@
 from flask import Blueprint, abort, g, jsonify, render_template, request, session
 from werkzeug.exceptions import HTTPException
 from . import auth, console_routes, db, i18n, progression
+from .services.item_finder import player_items
 
 bp = Blueprint('progression',__name__)
 PREFIX = '/sessions/<int:sid>/builds/<int:build_id>/progression'
@@ -56,7 +57,8 @@ def state(sid,build_id):
 
 @bp.route(PREFIX+'/items')
 def items(sid,build_id):
-    _,build,own = access(sid,build_id)
+    recipient = request.args.get('recipient')
+    _,build,own = access(sid,build_id,reveal=recipient is None)
     category = request.args.get('category','all')
     owner = request.args.get('owner','all')
     status = request.args.get('status','all')
@@ -69,6 +71,13 @@ def items(sid,build_id):
             raise ValueError()
     except ValueError:
         abort(400)
+    if recipient is not None:
+        receipt = request.args.get('receipt', 'all')
+        if (recipient not in {slot['slot'] for slot in db.loads(build['snapshot']).get('slots', [])}
+                or receipt not in ('all', 'received', 'not_received', 'unknown')):
+            abort(400)
+        reveal = build_id in session.get('progression_spoilers', [])
+        return jsonify(player_items(build, own, recipient, request.args.get('q', '')[:100], receipt, reveal, page, limit))
     return jsonify(progression.find(build,own,request.args.get('q','')[:100],category,owner,status,page,limit=limit))
 
 

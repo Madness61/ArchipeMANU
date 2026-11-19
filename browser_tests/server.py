@@ -133,8 +133,9 @@ def main():
     ap_bridge.generate = mock_generate
     # Empty schema cache already exists, so startup cannot launch extraction.
     ap_bridge.ap_ready = lambda: True
-    # Read-only WebHost fixtures: external network access is never used.
+    # WebHost fixtures: external network access is never used.
     from types import SimpleNamespace
+    from email.utils import formatdate
     from hub import ap_console, live_api, live_store
     def live_stage():
         path = root / "live-stage.json"
@@ -160,7 +161,9 @@ def main():
         advanced = bool(stage.get("advance"))
         payloads = {
             "room_status": {"tracker": "EBESExQVFhcYGRobHB0eHw", "players": [["Alice", GAME], ["Bob", GAME]],
-                            "last_port": stage.get('port',38281), "last_activity": "Sun, 08 Nov 2026 13:00:00 GMT", "timeout": 7200},
+                            "last_port": stage.get('port',38281),
+                            "last_activity": formatdate(time.time() - (7300 if stage.get('paused') else 0), usegmt=True),
+                            "timeout": 7200},
             "static_tracker": {
                 "groups": [], "player_game": [{"team": 0, "player": p, "game": GAME} for p in (1, 2)],
                 "player_locations_total": [{"team": 0, "player": p, "total_locations": 5} for p in (1, 2)]},
@@ -180,6 +183,11 @@ def main():
             payloads['tracker']['player_status']=payloads['tracker']['player_status'][1:]
         return live_api.sanitize(endpoint, payloads[endpoint])
     live_api.fetch = mock_webhost
+    def mock_wake(identifier):
+        with (root / "live-api-calls.jsonl").open("a", encoding="utf-8") as log:
+            log.write(json.dumps({"endpoint": "wake", "identifier": identifier}) + "\n")
+    live_api.wake_room = mock_wake
+    live_api.reachable = lambda port, seed: not live_stage().get('paused') and port in live_stage().get('local_ports', [])
     app = create_app()
     with app.app_context():
         db.execute("INSERT OR IGNORE INTO users(username,slot_name,is_admin,password_hash) VALUES ('TestAdmin','TestAdmin',1,?)",

@@ -3,7 +3,7 @@ import io
 import shutil
 import zipfile
 from flask import abort, flash, g, jsonify, redirect, render_template, request, send_file, url_for
-from hub import ap_bridge, config, db, yamlgen, mvp, live_store, ap_console
+from hub import ap_bridge, config, db, yamlgen, mvp, live_routes, live_store, ap_console
 from hub import game_catalog
 from hub.web import app
 from hub.services.selection import get_schema, group_default_ref, resolve_template, capture_template, template_info, templates_for, session_entries, session_yamls, get_session, can_manage_session
@@ -90,9 +90,13 @@ def session_view(sid, selection=None, build_id=None):
     chosen = rounds.selected_build(row, history, explicit)
     play = mvp.play_context(sid, chosen["id"]) if chosen else {}
     phase, phase_label = rounds.phase(row, chosen)
-    console_primary = bool(play and chosen["status"] == "succeeded" and not play["race"]
-                           and (is_member or can_manage_session(row)))
+    round_ready = bool(play and chosen["status"] == "succeeded")
+    live_access = is_member or bool(own_entry) or can_manage_session(row)
+    console_primary = round_ready and live_access and not play["race"]
+    if round_ready and live_access and request.method == "GET" and play["live_connection"]:
+        live_routes.open_room(chosen)
     return render_template("round.html", round_phase=phase, phase_label=phase_label,
+                           round_ready=round_ready, live_access=live_access,
                            console_primary=console_primary,console_commands=ap_console.COMMANDS,
                            play=play, **play, s=row, entries=entries, games=games,
                            host_rom_requirements=game_catalog.host_rom_requirements(entries),

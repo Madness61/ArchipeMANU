@@ -67,6 +67,30 @@ class FinderTests(unittest.TestCase):
         for value in ('-1','0','51','abc'):
             self.assertEqual(self.client.get(self.url+'/items?limit='+value).status_code,400)
 
+    def test_player_sheet_groups_exact_copies_and_preserves_spoiler_permissions(self):
+        with self.app.app_context():
+            inventory = dict(checked=[10], missing=[11], received=[dict(item=51, location=20, player=2, flags=1)])
+            db.execute('INSERT INTO progression_live VALUES (?,?,?,?,?,?)',
+                       (self.bid, 'Host', self.hid, 1, db.dumps(inventory), time.time()))
+        url = self.url + '/items?recipient=Host'
+        grouped = self.friend.get(url).json['rows']
+        self.assertEqual(grouped, [dict(name='Sword', total=2, received=1, not_received=1, unknown=0)])
+        self.assertEqual(self.friend.get(url + '&q=Cave').json['total'], 0)
+        self.assertEqual(self.friend.get(url + '&receipt=not_received').json['rows'], grouped)
+        self.assertEqual(self.friend.get(url + '&receipt=unknown').json['rows'], [])
+        self.assertEqual(self.outsider.get(url).status_code, 403)
+        self.assertEqual(self.client.get(self.url + '/items?recipient=Unknown').status_code, 400)
+        self.grant(self.friend)
+        copies = self.friend.get(url).json['rows'][0]['copies']
+        self.assertEqual([(copy['finder'], copy['location'], copy['status']) for copy in copies],
+                         [('Friend', 'Cave', 'received'), ('Friend', 'Garden', 'not_received')])
+        self.assertNotIn('copies', self.client.get(url).json['rows'][0])
+        self.assertEqual(self.friend.get(self.url + '/analysis?slot=Host').status_code, 403)
+        with self.app.app_context():
+            snapshot = db.loads(db.query('SELECT snapshot FROM seed_builds WHERE id=?', (self.bid,), one=True)['snapshot'])
+            snapshot['race'] = True
+            db.execute('UPDATE seed_builds SET snapshot=? WHERE id=?', (db.dumps(snapshot), self.bid))
+        self.assertEqual(self.friend.get(url).status_code, 403)
     def test_observed_checks_and_exact_receipts_are_distinct_and_copies_stay_separate(self):
         now=time.time()
         with self.app.app_context():

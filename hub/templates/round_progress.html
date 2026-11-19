@@ -1,5 +1,44 @@
-<div class="section-head"><div><h2>{{ _("Euer gemeinsamer Fortschritt") }}</h2><p class="small muted" id="round-live-status" role="status">{{ _('Der letzte gemeldete Datenstand wird geladen …') if live_connection else _('Der Host hat noch keinen Raum für die Fortschrittsanzeige verknüpft.') }}</p></div><button type="button" data-round-refresh>{{ _("Aktualisieren") }}</button></div>
-<div class="round-stats"><article class="panel"><span>{{ _("Checks erledigt") }}</span><strong id="round-checks">—</strong></article><article class="panel"><span>{{ _("Gesamtfortschritt") }}</span><strong id="round-percent">—</strong></article><article class="panel"><span>{{ _("Spielziele erreicht") }}</span><strong id="round-goals">—</strong></article><article class="panel"><span>{{ _("Deine Checks") }}</span><strong id="round-own-checks">—</strong></article></div>
-<section class="panel"><div class="progress-track" aria-label="{{ _("Gemeldeter Gesamtfortschritt") }}"><span id="round-total-bar" style="width:0%"></span></div><h3>{{ _("Euer Abend im Verlauf") }}</h3><div id="round-chart" class="round-chart"><p class="muted small">{{ _("Noch keine aufgezeichneten Datenpunkte.") }}</p></div></section>
-<section class="panel"><h2>{{ _("Zuletzt vom Tracker gemeldet") }}</h2><ol id="round-events" class="round-event-list"><li class="muted small">{{ _("Noch keine Ereignisse aufgezeichnet.") }}</li></ol>{% if not race %}<a href="#play">{{ _("Zur Konsole") }}</a>{% endif %}</section>
-<a class="btn" href="{{ url_for('live.dashboard',sid=s.id,build_id=build.id) }}">{{ _("Erweiterte Statistiken öffnen") }} {{ icon('arrow') }}</a>
+<div class="round-team-status">
+  <div><h2>{{ _("Spieler & Items") }}</h2><p class="small muted" id="round-live-status" role="status">{{ _("Fortschritt wird geladen …") }}</p></div>
+  <dl><div><dt>{{ _("Checks erledigt") }}</dt><dd id="round-checks">—</dd></div><div><dt>{{ _("Gesamtfortschritt") }}</dt><dd id="round-percent">—</dd></div><div><dt>{{ _("Spielziele erreicht") }}</dt><dd id="round-goals">—</dd></div></dl>
+</div>
+{% if slots %}
+{% set initial_slot = (own or slots)|first %}
+<div class="round-team">
+  <div class="round-player-list" role="group" aria-label="{{ _('Spieler auswählen') }}">
+    {% for slot in slots %}
+      <button type="button" class="round-player-choice" id="round-player-{{ loop.index0 }}" data-round-player="{{ slot.slot }}" data-game="{{ slot.game_name }}" {% if slot in own %}data-own="1"{% endif %} aria-pressed="{{ 'true' if slot == initial_slot else 'false' }}" aria-controls="round-player-detail">
+        <span class="round-player-dot" aria-hidden="true"></span>
+        <span><strong>{{ slot.slot }}</strong><small>{{ slot.game_name }}</small></span>
+        <span class="round-player-score"><span data-player-summary>—</span><small data-player-goal></small></span>
+        <span class="progress-track" aria-hidden="true"><span data-player-bar></span></span>
+      </button>
+    {% endfor %}
+  </div>
+  <article class="panel round-player-sheet" id="round-player-detail" aria-labelledby="round-player-name" tabindex="-1">
+    <header><div><h3 id="round-player-name">{{ initial_slot.slot }}</h3><p class="small muted" id="round-player-game">{{ initial_slot.game_name }}</p></div><span class="chip" id="round-player-goal">{{ _('Zielstatus unbekannt') }}</span></header>
+    <div class="row round-player-facts"><span id="round-player-checks"></span>{% if not race %}<span id="round-player-received"></span>{% endif %}</div>
+    {% if race %}<p class="muted">{{ _("Die Spielerübersicht zeigt im Race-Modus nur Checks und Ziele.") }}</p>
+    {% elif progression_enabled|default(false) %}
+    <section id="round-player-items" aria-labelledby="round-item-title">
+      <h4 id="round-item-title">{{ _("Progression-Items") }}</h4>
+      <p class="small muted">{{ _("Die APWorld klassifiziert diese Items als Progression. Die Spielzielprüfung bewertet die Notwendigkeit einzelner Exemplare.") }}</p>
+      {% if own %}<div id="round-player-analysis" class="row" hidden>
+        <button type="button" class="small" data-progression-open="next" data-round-analysis>{{ _("Was bringt mich weiter?") }}</button>
+        <button type="button" class="small" data-progression-open="goal" data-round-analysis>{{ _("Spielziel prüfen") }}</button>
+      </div>{% endif %}
+      <form id="round-item-filters" class="row">
+        <label>{{ _("Itemname") }}<input name="q" type="search" maxlength="100" autocomplete="off"></label>
+        <label>{{ _("Empfang") }}<select name="receipt" aria-label="{{ _('Empfang') }}"><option value="all">{{ _("Alle Zustände") }}</option><option value="not_received">{{ _("Ausstehend") }}</option><option value="received">{{ _("Erhalten") }}</option><option value="unknown">{{ _("Unbekannt") }}</option></select></label>
+        <button type="submit">{{ _("Suchen") }}</button>
+      </form>
+      <div class="row spread round-item-toolbar"><p class="small muted" id="round-item-result-status" role="status"></p>
+        <button type="button" class="small" id="round-item-spoilers">{{ _("Fundort-Spoiler bewusst freigeben") }}</button>
+      </div>
+      <ul id="round-item-list" aria-label="{{ _('Progression-Items') }}"></ul>
+      <div class="row" id="round-item-pagination" hidden><button type="button" id="round-item-previous">{{ _("Zurück") }}</button><span class="small" id="round-item-page"></span><button type="button" id="round-item-next">{{ _("Weiter") }}</button></div>
+    </section>
+    {% endif %}
+  </article>
+</div>
+{% endif %}

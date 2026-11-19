@@ -89,7 +89,7 @@ def observations(build, players, rows=None):
     return result
 
 
-def find(build, own, query='', category='all', owner='all', status='all', page=1, limit=50):
+def find(build, own, query='', category='all', owner='all', status='all', page=1, limit=50, *, recipient_slot=None):
     summary, rows = placements(build)
     if rows is None:
         return dict(available=False, rows=[], total=0, pages=0, page=1)
@@ -118,6 +118,8 @@ def find(build, own, query='', category='all', owner='all', status='all', page=1
         if category != 'all' and row['category'] != category:
             continue
         if owner == 'mine' and recipient['name'] not in names:
+            continue
+        if recipient_slot is not None and recipient['name'] != recipient_slot:
             continue
         text = ' '.join((row['item'],row['location'],finder['name'],finder['game'],recipient['name'],recipient['game']))
         if query not in text.casefold():
@@ -150,3 +152,26 @@ def find(build, own, query='', category='all', owner='all', status='all', page=1
     pages = max(1,(len(answer)+limit-1)//limit)
     page = min(page,pages)
     return dict(available=True,total=len(answer),page=page,pages=pages,rows=answer[(page-1)*limit:page*limit])
+
+
+def player_items(build, own, recipient, query, receipt, reveal, page, limit):
+    result = find(build, own, category='progression', limit=0, recipient_slot=recipient)
+    groups = {}
+    query = query.casefold()
+    for row in result['rows']:
+        name = row['item']
+        if query not in name.casefold():
+            continue
+        group = groups.setdefault(row['item_id'], dict(name=name, total=0, received=0, not_received=0, unknown=0))
+        group['total'] += 1
+        group[row['receipt_status']] += 1
+        if reveal and receipt in ('all', row['receipt_status']):
+            group.setdefault('copies', []).append(dict(
+                finder=row['finder_player']['name'], game=row['finder_player']['game'], location=row['location'],
+                status=row['receipt_status'], check_status=row['check_status']))
+    rows = sorted((group for group in groups.values() if receipt == 'all' or group[receipt]),
+                  key=lambda group: group['name'].casefold())
+    pages = max(1, (len(rows) + limit - 1) // limit)
+    page = min(page, pages)
+    return dict(available=result['available'], revealed=reveal, total=len(rows), page=page, pages=pages,
+                rows=rows[(page - 1) * limit:page * limit])

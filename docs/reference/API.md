@@ -98,9 +98,16 @@ beobachtete ItemSend-Meldungen. Gleiche Ereignisse bleiben einmalig, auch wenn
 Live-Meldung und Empfangssynchronisierung beide eintreffen.
 
 `GET /data` ergänzt `recording` und `webhost` mit unabhängigen Zustandsinformationen.
+Bei einem offiziellen Raum liefert `room_start` den Zustand der Hintergrundprüfung.
 Die Browser-/Hub-Erreichbarkeit wird im Browser gemessen; der lokale Spielclient
 bleibt unbekannt. `journal_limit=null` bedeutet ungekürzte persistente Historie;
 die unveränderte API-Seitengröße ist weiterhin 100.
+
+`GET /live/data?summary=1` liefert bestätigte Checks und Ziele je Seed-Slot
+sowie kompakte Gesamtdaten. Im Race-Modus sind die Empfangszahlen ausgeblendet.
+Die Spieleransicht verwendet `GET /progression/items?recipient=<Slot>` für
+gruppierte Progression-Items mit Empfangszahlen je Itemart. Erst nach der
+bestehenden Spoilerfreigabe enthält diese Antwort konkrete Fundorte.
 
 ## Identität, Daten und Grenzen
 
