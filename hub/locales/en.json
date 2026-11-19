@@ -2107,5 +2107,15 @@
   "m2009": "Update room connection",
   "m2010": "Open shared live console",
   "m2011": "A complete, current inventory is missing. Use /received in the console or wait for the linked tracker.",
-  "m2012": "Your command connection is not ready yet. Please wait briefly and send again."
+  "m2012": "Your command connection is not ready yet. Please wait briefly and send again.",
+  "m2013": "Archived log",
+  "m2014": "Waiting for room connection",
+  "m2015": "Last recorded item",
+  "m2016": "Hints may cost server points.",
+  "m2017": "Find an item in the multiworld",
+  "m2018": "Game files & connection",
+  "m2019": "Recently reported by the tracker",
+  "m2020": "Found",
+  "m2021": "Check status unknown",
+  "m2022": "Matches ({v0})"
 }

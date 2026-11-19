@@ -93,6 +93,25 @@ class FinderTests(unittest.TestCase):
         self.output.joinpath('item_placements.json').write_text('{"placements":[]}',encoding='utf-8')
         self.assertFalse(self.client.get(self.url+'/items').json['available'])
 
+    def test_cross_world_journal_proves_a_find_and_only_exact_receipts(self):
+        from hub.services.console_journal import record
+        with self.app.app_context():
+            base = dict(type='item', sender='Friend', recipient='Host', item_id=51)
+            record(config.DB_PATH, self.bid, None, 'items', dict(base, location_id=20, source='live'),
+                   hosted_id=self.hid)
+            record(config.DB_PATH, self.bid, None, 'items', dict(base, location_id=21, source='received_items'),
+                   hosted_id=self.hid)
+            record(config.DB_PATH, self.bid, None, 'items', dict(base, location_id=22, item_id=53, source='live'),
+                   hosted_id=self.hid)  # The recorded recipient does not match this placement.
+        self.grant()
+        rows = self.client.get(self.url + '/items?q=Sword').json['rows']
+        self.assertEqual([row['check_status'] for row in rows], ['checked', 'checked'])
+        self.assertEqual([row['receipt_status'] for row in rows], ['unknown', 'received'])
+        self.assertEqual(self.client.get(self.url + '/items?q=Boo').json['rows'][0]['check_status'], 'unknown')
+        with self.app.app_context():
+            db.execute("INSERT INTO hosted_rooms(build_id,host,port,entered_by,created_at) VALUES (?,'127.0.0.1',3456,1,'later')",(self.bid,))
+        self.assertEqual(self.client.get(self.url + '/items?status=unknown').json['total'], 6)
+
     def test_auth_csrf_own_slot_consent_revocation_race_and_direct_urls(self):
         self.assertEqual(self.app.test_client().get(self.url+'/items').status_code,401)
         self.assertEqual(self.outsider.get(self.url+'/state').status_code,403)

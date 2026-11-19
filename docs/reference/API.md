@@ -65,7 +65,7 @@ Basis: `/sessions/{sid}/builds/{build_id}/console`.
 | `GET /data?before=ID` | Frühere Nachrichten, chronologisch sortiert |
 | `POST /connect` | Formularfelder `slot`, `password` optional, `transport` = `auto` (Standard), `ws` oder `wss` |
 | `POST /disconnect` | Eigene Textverbindung trennen |
-| `POST /command` | `text`; im automatischen Modus eigener Slot serverseitig ermittelt, optional `slot` bei mehreren eigenen Slots; `automatic=1` ausdrücklich möglich |
+| `POST /command` | `text` genügt für die automatische Befehlsverbindung. Bei mehreren eigenen Slots ist `slot` optional. Eine explizit per `/connect` aufgebaute Verbindung ist weiterhin verwendbar |
 | `POST /recording/start` | Host/Admin: `automatic=1`, `transport`, optional `password` aktualisieren den gemeinsamen Leser; kein eigener Slot nötig. Alte Aufrufe mit eigenem `slot` und `consent=1` bleiben gültig |
 | `POST /recording/stop` | Host/Admin: gemeinsamen Leser ausdrücklich pausieren; über die Raumeinstellungen wieder aktivierbar |
 
@@ -115,8 +115,10 @@ die unveränderte API-Seitengröße ist weiterhin 100.
 - Automatische persönliche Verbindungen synchronisieren vor dem ersten Befehl
   Inventar und Datenkatalog. Da AP leere `ReceivedItems` unterdrückt, dient die
   nach `Sync` angeforderte Katalogantwort als geordnete Synchronisierungsgrenze.
-- Gemeinsame Sendungen stammen aus tatsächlichen `PrintJSON/ItemSend`-Paketen
-  oder eindeutig belegten normalen `ReceivedItems` des angemeldeten Slots.
+  Nach zwei Minuten ohne Befehle wird die persönliche Verbindung freigegeben.
+- Der Leser speichert Sendungen aus `PrintJSON/ItemSend` und belegte Empfänge
+  seines verifizierten Seed-Slots. Automatische Befehlsverbindungen speichern
+  persönliche Antworten und können Inventar für die Progression liefern.
   Mehrere verbundene Spieler erzeugen für denselben Check keine Duplikate.
 - Ein vollständiges vergangenes Serverlog ist nicht abrufbar. Empfangsbestätigungen
   werden ausdrücklich als nachträglich erkannt markiert, ohne Fundzeitpunkt.
@@ -135,8 +137,8 @@ die unveränderte API-Seitengröße ist weiterhin 100.
 - Das Raumpasswort bleibt nur im Arbeitsspeicher der Verbindung; es steht nicht
   in Datenbank, URL oder Protokoll. Formularübertragung erfolgt per POST.
 - Logout, abgelaufene Sitzung, entzogene Lobbyrechte, abgeschlossene Runde und
-  geänderte Verknüpfung beenden die persönliche Verbindung. Transiente Ausfälle
-  werden automatisch wiederholt; Browserinaktivität beendet sie nicht.
+  geänderte Verknüpfung beenden die persönliche Verbindung. Bei transienten
+  Ausfällen verbindet sich der Client erneut. Ausstehende Befehle werden verworfen.
 - Der gemeinsame Leser läuft unabhängig von Browser und Login über einen verifizierten
   Seed-Slot ausschließlich lesend weiter. SQLite-Leases schützen die
   Wiederaufnahme nach einem Hub-Neustart. Passwortgeschützte Räume erfordern dann

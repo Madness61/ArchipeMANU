@@ -1,6 +1,6 @@
 {% if progression_enabled|default(false) %}
 <link rel="stylesheet" href="{{ url_for('static',filename='progression.css') }}">
-<dialog id="progression-panel" class="progression-panel" aria-labelledby="progression-title" data-base="{{ url_for('progression.page',sid=room.id,build_id=build.id) }}" data-csrf="{{ csrf_token }}" {% if progression_standalone %}data-standalone="1"{% endif %}>
+<dialog id="progression-panel" class="progression-panel" aria-labelledby="progression-title" data-base="{{ url_for('progression.page',sid=room.id,build_id=build.id) }}" data-csrf="{{ csrf_token }}" data-revealed="{{ '1' if build.id in session.get('progression_spoilers', []) else '0' }}" {% if progression_standalone %}data-standalone="1"{% endif %}>
   <div class="row spread"><div><p class="eyebrow">{{ _("Hilfe für eure Runde") }}</p><h2 id="progression-title">{{ _("Item-Finder & Progression") }}</h2><span class="chip" id="progression-support"></span></div><button type="button" id="progression-close">{{ _("Schließen") }}</button></div>
   <p class="small muted">{{ _("Fundorte enthalten Spoiler für den gesamten Seed. Check-Status und Itemempfang werden getrennt angezeigt, jeweils mit dem zuletzt bekannten Stand.") }}</p>
   <p class="small muted">{{ _("Die Suche zeigt verifizierte adressierte Platzierungen echter Spielerslots. Events, Startinventar und Gruppenslots sind darin nicht enthalten.") }}</p>

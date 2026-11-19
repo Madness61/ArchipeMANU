@@ -77,8 +77,11 @@ class RoundTests(unittest.TestCase):
         self.assertNotIn('id="round-slot-connect"',page)
         self.assertIn('Gemeinsame Spieldateien',page)
 
-    def test_configured_running_round_prioritizes_console_but_race_and_archive_do_not(self):
-        bid,_=self.seed()
+    def test_successful_round_prioritizes_console_and_race_hides_it(self):
+        bid, slots = self.seed()
+        waiting = self.client.get('/sessions/1').get_data(as_text=True)
+        self.assertIn('id="ap-console"', waiting)
+        self.assertIn('id="console-no-server" ', waiting)
         self.post(f'/sessions/1/builds/{bid}/hosting',{'host':'archipelago.gg','port':'49537'})
         page=self.client.get('/sessions/1').get_data(as_text=True)
         self.assertIn('id="ap-console"',page)
@@ -89,5 +92,8 @@ class RoundTests(unittest.TestCase):
             db.execute("UPDATE seed_builds SET snapshot=? WHERE id=?",(json.dumps(dict(slots=[],race=True)),bid))
         self.assertNotIn('id="ap-console"',self.client.get('/sessions/1').get_data(as_text=True))
         with self.app.app_context():
-            db.execute("UPDATE seed_builds SET snapshot=?,completed_at='done' WHERE id=?",(json.dumps(dict(slots=[])),bid))
-        self.assertNotIn('id="ap-console"',self.client.get('/sessions/1').get_data(as_text=True))
+            db.execute("UPDATE seed_builds SET snapshot=?,completed_at='done' WHERE id=?",(json.dumps(dict(slots=slots)),bid))
+        archive = self.client.get('/sessions/1').get_data(as_text=True)
+        self.assertIn('id="ap-console"', archive)
+        self.assertIn('data-archived="1"', archive)
+        self.assertNotIn('id="console-command"', archive)

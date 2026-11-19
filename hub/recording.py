@@ -69,6 +69,7 @@ class Recorder(ap_console.Client):
         self.thread.name = f"ap-recording-{self.build_id}"
 
     def authorized(self, conn):
+        conn.execute('BEGIN IMMEDIATE')
         row = conn.execute('SELECT * FROM console_recordings WHERE build_id=?',(self.build_id,)).fetchone()
         if not row or not row['enabled'] or row['generation']!=self.generation or row['lease_owner']!=ap_console.PROCESS_ID or not permitted(conn,row):
             return False
@@ -116,7 +117,12 @@ class Recorder(ap_console.Client):
     def public_event(self, packet):
         if self.state != 'connected':
             return
-        parts = self.message_parts(packet)
+        speaker = self.players.get(packet.get('slot')) if packet.get('team') == self.team else None
+        if packet['type'] == 'Chat' and speaker and isinstance(packet.get('message'), str):
+            parts = [dict(text=speaker['name'], player_slot=speaker['name']),
+                     dict(text=': ' + packet['message'][:12000])]
+        else:
+            parts = self.message_parts(packet)
         ap_console.record(self.path,self.build_id,None,
                           'chat' if packet['type'] in ('Chat','ServerChat') else 'system',
                           dict(parts=parts,public_type=packet['type']),hosted_id=self.endpoint['id'])
@@ -144,6 +150,7 @@ def enable(build, endpoint, actor, slot, password='', transport='auto'):
         conn.execute('''INSERT INTO console_recordings(build_id,hosted_id,actor_id,slot,uuid,transport,lease_owner,lease_until,updated_at)
             VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(build_id) DO UPDATE SET hosted_id=excluded.hosted_id,
             actor_id=excluded.actor_id,slot=excluded.slot,transport=excluded.transport,enabled=1,
+            automatic=0,
             generation=console_recordings.generation+1,state='connecting',error='',password_required=0,
             lease_owner=excluded.lease_owner,lease_until=excluded.lease_until,updated_at=excluded.updated_at''',
             (build['id'],endpoint['id'],actor,slot,ap_console.secrets.token_hex(16),transport,ap_console.PROCESS_ID,now+LEASE_SECONDS,now))
@@ -152,11 +159,12 @@ def enable(build, endpoint, actor, slot, password='', transport='auto'):
 
 
 def disable(build_id):
-    with db.transaction() as conn:
-        conn.execute("UPDATE console_recordings SET enabled=0,generation=generation+1,state='disconnected',error='',lease_until=0 WHERE build_id=?",(build_id,))
-    current = worker(build_id)
-    if current:
-        current.close()
+    with _room_lock:
+        with db.transaction() as conn:
+            conn.execute("UPDATE console_recordings SET enabled=0,generation=generation+1,state='disconnected',error='',lease_until=0 WHERE build_id=?",(build_id,))
+        current = worker(build_id)
+        if current:
+            current.close()
 
 
 def ensure(build, endpoint, password=None, transport='auto', force=False):
@@ -222,7 +230,8 @@ def resume_due(automatic=False):
                 except ValueError:
                     continue  # Bounded pool; lease prevents a busy retry loop.
     with db.transaction() as conn:
-        rows = conn.execute("SELECT * FROM console_recordings WHERE enabled=1 AND state!='action_required'").fetchall()
+        rows = conn.execute("""SELECT * FROM console_recordings WHERE enabled=1 AND state!='action_required'
+            AND (automatic=0 OR ?=0)""", (int(automatic),)).fetchall()
     for previous in rows:
         current = worker(previous['build_id'])
         if current and current.thread.is_alive():
@@ -273,9 +282,12 @@ def status(build_id, endpoint):
     last = conn.execute("SELECT MAX(observed_at) AS at FROM console_events WHERE build_id=? AND hosted_id=? AND kind='items' AND user_id IS NULL",(build_id,hosted_id)).fetchone()['at']
     started = conn.execute('SELECT 1 FROM console_streams WHERE build_id=? AND hosted_id=? AND connected_at IS NOT NULL',(build_id,hosted_id)).fetchone()
     active = conn.execute("SELECT 1 FROM console_streams WHERE build_id=? AND hosted_id=? AND state='connected' AND heartbeat>?",(build_id,hosted_id,max(ap_console.PROCESS_STARTED,time.time()-15))).fetchone()
+    if row and row['hosted_id'] != hosted_id:
+        row = None
     current = worker(build_id)
-    state = current.state if current and current.thread.is_alive() else row['state'] if row else 'not_started'
-    if row and row['enabled'] and not active and not (current and current.thread.is_alive()) and state in ('connected','authenticating'):
+    local = current and current.endpoint['id'] == hosted_id and current.thread.is_alive()
+    state = current.state if local else row['state'] if row else 'not_started'
+    if row and row['enabled'] and not active and not local and state in ('connected','authenticating'):
         state='reconnecting'
     return dict(state='active' if active else 'interrupted' if started else 'not_started',last_event=last,
                 enabled=bool(row and row['enabled']),console_state=state,

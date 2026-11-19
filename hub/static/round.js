@@ -9,7 +9,7 @@
   const el = (tag, text, cls) => { const n=document.createElement(tag); if(text!=null)n.textContent=text; if(cls)n.className=cls; return n; };
   const value = v => v == null ? '—' : typeof v==='number'?v.toLocaleString(window.HUB_I18N.locale):String(v);
   const pct = v => v == null ? '—' : v.toLocaleString(window.HUB_I18N.locale,{maximumFractionDigits:1})+' %';
-  let view='play', liveBusy=false, personalBusy=false, currentMetrics=null, consoleState=null, generation=0;
+  let view='play', liveBusy=false;
   async function api(url, body) {
     const response=await fetch(url,{cache:'no-store',...(body ? {method:'POST',headers:{'X-CSRF-Token':root.dataset.csrf},body:new URLSearchParams(body)} : {})});
     const data=await response.json().catch(()=>({error:window.HUB_I18N.t('Die Antwort konnte nicht gelesen werden. Bitte gegebenenfalls neu anmelden.')}));
@@ -24,7 +24,7 @@
     nav.forEach(a=>{if(a.dataset.roundView===view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
     if(target){let parent=target.closest('details');while(parent){parent.open=true;parent=parent.parentElement?.closest('details');}}
     if(target && !panels.includes(target))requestAnimationFrame(()=>target.scrollIntoView({block:'start'}));
-    if(['progress','players'].includes(view)){loadLive();if(view==='progress')loadPersonal();}
+    if(['progress','players'].includes(view)) loadLive();
   }
   window.addEventListener('hashchange',openView);
   nav.forEach((a,index)=>a.addEventListener('keydown',event=>{
@@ -35,7 +35,7 @@
   root.addEventListener('click',event=>{
     const setup=event.target.closest('[data-show-setup]');
     if(setup){event.preventDefault();const box=$(setup.dataset.showSetup);box.hidden=!box.hidden;setup.setAttribute('aria-expanded',String(!box.hidden));if(!box.hidden)box.scrollIntoView({block:'nearest'});}
-    if(event.target.closest('[data-round-refresh]')){loadLive();if(view==='progress')loadPersonal();}
+    if(event.target.closest('[data-round-refresh]')) loadLive();
     const button=event.target.closest('[data-player-detail]');
     if(button){const card=button.closest('[data-player-name]'),detail=card.querySelector('.round-player-detail');detail.hidden=!detail.hidden;button.setAttribute('aria-expanded',String(!detail.hidden));button.textContent=detail.hidden?window.HUB_I18N.t('Statistik ansehen'):window.HUB_I18N.t('Statistik schließen');}
   });
@@ -51,7 +51,6 @@
     flush();box.append(svg,el('p',new Date(history[0].at).toLocaleString(window.HUB_I18N.locale)+' – '+new Date(history.at(-1).at).toLocaleString(window.HUB_I18N.locale),'small muted'));
   }
   function renderLive(data) {
-    currentMetrics=data.metrics;
     const m=data.metrics;
     $('round-live-status').textContent=data.error ? data.error+' '+window.HUB_I18N.t('Der letzte erfolgreiche Datenstand bleibt sichtbar.') : data.updated_at ? (data.stale?window.HUB_I18N.t('Veralteter Datenstand · '):window.HUB_I18N.t('Zuletzt gemeldet · '))+new Date(data.updated_at).toLocaleString(window.HUB_I18N.locale) : window.HUB_I18N.t('Der erste Datenstand wird noch abgerufen.');
     if(data.seed_matches===false)$('round-live-status').textContent+=window.HUB_I18N.t(' Achtung: Spieler oder Spiele des Raums weichen vom lokalen Seed ab.');
@@ -80,16 +79,6 @@
     catch(error){if($('round-live-status'))$('round-live-status').textContent=error.message;}
     finally{liveBusy=false;}
   }
-  async function loadPersonal() {
-    if(!root.dataset.console||personalBusy)return;personalBusy=true;
-    try{
-      const data=await api(root.dataset.console+'/data?kind=all');
-      const shared=data.room_connection||data;
-      if($('round-item-events'))$('round-item-events').replaceChildren(...data.events.slice(-8).reverse().map(e=>el('li',e.text,'small')));
-      if($('round-personal-status'))$('round-personal-status').textContent=shared.error || (shared.state==='connected'?window.HUB_I18N.t('Textkonsole verbunden. Lokaler Spielclient: unbekannt.'):window.HUB_I18N.t('Textkonsole: ')+window.HUB_UI.consoleLabel(shared.state)+'. '+window.HUB_I18N.t('Verbindung und Befehle findest du in der Konsole.'));
-    }catch(error){if($('round-personal-status'))$('round-personal-status').textContent=error.message;}
-    finally{personalBusy=false;}
-  }
-  async function poll(){if(!document.hidden&&['progress','players'].includes(view)){await loadLive();if(view==='progress')await loadPersonal();}setTimeout(poll,5000);}
+  async function poll(){if(!document.hidden&&['progress','players'].includes(view)) await loadLive();setTimeout(poll,5000);}
   openView();setTimeout(poll,5000);
 })();

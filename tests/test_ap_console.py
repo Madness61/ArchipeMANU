@@ -157,7 +157,7 @@ class ConsoleTests(unittest.TestCase):
         self.assertEqual(outsider.get(self.url+"/data").status_code,403)
         for text in ("!admin login secret", "!getitem Sword", "/connect http://metadata", "/unknown", "a\nb"):
             self.assertEqual(self.post(self.url+"/command",{"text":text}).status_code,400)
-        self.assertEqual(self.post(self.url+"/command",{"text":"/received"}).status_code,409)
+        self.assertEqual(self.post(self.url+"/command",{"text":"/received","slot":"Friend"}).status_code,403)
         with self.app.app_context():
             row = db.query("SELECT snapshot FROM seed_builds WHERE id=?",(self.bid,),one=True)
             metadata = db.loads(row["snapshot"]); metadata["race"] = True

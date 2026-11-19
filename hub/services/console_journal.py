@@ -83,15 +83,18 @@ def render_payload(payload, packages):
 def identities(build_id):
     conn = db.get()
     build = conn.execute('SELECT snapshot FROM seed_builds WHERE id=?',(build_id,)).fetchone()
-    users = {row['id']:row['username'] for row in conn.execute('SELECT id,username FROM users')}
+    if not build:
+        return []
+    users = {row['id']:row['username'] for row in conn.execute("""SELECT id,username FROM users
+        WHERE id IN (SELECT json_extract(value,'$.player_id') FROM json_each(NULLIF(?, ''), '$.slots'))""",
+        (build['snapshot'],))}
     return [dict(slot=slot['slot'],game=slot['game_name'],user_id=slot.get('player_id'),
                  username=users.get(slot.get('player_id'),''),anchor=f'console-player-{index}')
-            for index,slot in enumerate(db.loads(build['snapshot']).get('slots',[]) if build else [])]
+            for index,slot in enumerate(db.loads(build['snapshot']).get('slots',[]))]
 
 
 def events(build_id, user_id, after=0, kind="all", before=0, *, players=None):
     conn = db.get()
-    packages = catalog(conn, build_id)
     args = [build_id, user_id]
     scope = "build_id=? AND (user_id IS NULL OR user_id=?)"
     endpoint = conn.execute("SELECT id FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (build_id,)).fetchone()
@@ -120,6 +123,9 @@ def events(build_id, user_id, after=0, kind="all", before=0, *, players=None):
         rows = list(reversed(conn.execute(f"SELECT * FROM console_events WHERE {scope} AND id<? ORDER BY id DESC LIMIT 100", (*args, before)).fetchall()))
     else:
         rows = list(reversed(conn.execute(f"SELECT * FROM console_events WHERE {scope} ORDER BY id DESC LIMIT 100", args).fetchall()))
+    if not rows:
+        return []
+    packages = catalog(conn, build_id)
     result = []
     for row in rows:
         payload = db.loads(row["payload"])

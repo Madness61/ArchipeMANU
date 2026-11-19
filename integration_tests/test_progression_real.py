@@ -255,12 +255,12 @@ class RealProgressionTests(unittest.TestCase):
                     base=f'/sessions/{sid}/builds/{bid}/console'
                     for client,account,slot in zip(clients,('SiteA','SiteB'),('NativeA','NativeB')):
                         self.assertEqual(post(client,'/login',dict(username=account,password='p')).status_code,302)
-                        self.assertEqual(post(client,base+'/command',dict(text='/hint',automatic='1')).status_code,202)
+                        self.assertEqual(post(client,base+'/command',dict(text='/hint')).status_code,202)
                         wait(lambda:any(row.get('packet_type')=='CommandResult' and row['actor']['slot']==slot
                                         for row in client.get(base+'/data').json['events']))
                     own=[{row['id'] for row in client.get(base+'/data').json['events'] if row['visibility']=='personal'} for client in clients]
                     self.assertFalse(own[0]&own[1])
-                    self.assertEqual(post(clients[1],base+'/command',dict(text='native shared chat',automatic='1')).status_code,202)
+                    self.assertEqual(post(clients[1],base+'/command',dict(text='native shared chat')).status_code,202)
                     wait(lambda:any('native shared chat' in row['text'] for row in clients[0].get(base+'/data').json['events']))
                     for client in clients:
                         chat=[row for row in client.get(base+'/data').json['events'] if 'native shared chat' in row['text'] and row['kind']=='chat']

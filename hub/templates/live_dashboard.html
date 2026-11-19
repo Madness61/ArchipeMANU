@@ -2,8 +2,6 @@
 {% block title %}{{ _("Live-Dashboard ·") }} {{ room.name }}{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='live.css') }}">
-<p class="small live-back-link"><a href="{{ url_for('mvp.play_page', sid=room.id, build_id=build.id) }}">{{ _("← Zur Runde & Verbindung") }}</a></p>
-{% if not race %}<div class="row live-tools"><a class="btn" href="{{ url_for('mvp.play_page',sid=room.id,build_id=build.id) }}">{{ _("Zur gemeinsamen Live-Konsole") }}</a></div>{% endif %}
 <div id="live-dashboard" data-url="{{ url_for('live.data', sid=room.id, build_id=build.id) }}" data-refresh-url="{{ url_for('live.refresh', sid=room.id, build_id=build.id) }}" data-csrf="{{ csrf_token }}" data-linked="{{ '1' if linked else '0' }}">
   <section class="live-hero">
     <div><p class="eyebrow"><span class="live-dot" aria-hidden="true"></span> {{ _("Multiworld live") }}</p><h1>{{ room.name }}</h1><p>{{ _("Ein gemeinsamer Abend. Jede Welt zählt.") }}</p><div class="live-hero-meta"><span>{{ _("Seed #") }}{{ build.id }}</span><span id="live-room-code">{{ linked.room_id if linked else _('Noch kein Raum verbunden') }}</span><span id="live-status-chip">{{ _("Verbindung wird vorbereitet") }}</span></div></div>
@@ -11,8 +9,7 @@
   </section>
   {% if not linked %}
   <section class="panel live-empty"><h2>{{ _("Eure Runde wartet auf den ersten Live-Stand") }}</h2><p>{{ _("Lade die Multiworld-ZIP bei Archipelago hoch und erstelle dort einen Raum. Verbinde dann hier den Raumlink.") }}</p>
-  {% set live_connection = none %}{% include "live_connect.html" %}
-  {% if not manager %}<p class="muted">{{ _("Der Host kann den Raumlink hier hinterlegen.") }}</p>{% endif %}</section>
+  {% if manager and not build.completed_at %}<a class="btn primary" href="{{ url_for('session_view',sid=room.id,build=build.id,_anchor='round-host-connection') }}">{{ _("Verbindung einrichten") }}</a>{% endif %}</section>
   {% else %}
   <div class="live-update-bar"><p id="live-update" role="status" aria-live="polite">{{ _("Der erste Datenstand wird geladen …") }}</p><p id="live-next" class="small muted"></p></div>
   <div class="live-notice" id="live-warning" role="status" hidden></div>

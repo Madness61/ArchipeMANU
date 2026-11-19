@@ -4,10 +4,13 @@
   const log = document.getElementById('console-log');
   const empty = document.getElementById('console-empty');
   const error = document.getElementById('console-error');
+  const commandError = document.getElementById('console-command-error');
+  const send = document.querySelector('#console-command button[type=submit]');
   const kind = document.getElementById('console-kind');
   const search = document.getElementById('console-search');
   const older = document.getElementById('console-older');
-  let cursor = 0, first = 0, generation = 0, fetching = false, sending=false, catalogVersion = 0, endpointId, authLost=false;
+  const archived = root.dataset.archived === '1';
+  let cursor = 0, first = 0, generation = 0, fetching = false, sending=false, catalogVersion = 0, endpointId, authLost=false, archiveLoaded=false;
   const ids = new Set();
   const labels = window.HUB_UI.consoleStates;
   let players=new Map(),playerPattern=null,playerSignature='';
@@ -56,7 +59,7 @@
       line(window.HUB_I18N.t('Archipelago Live-Konsole'),labels[room.state]||room.state);
       line(window.HUB_I18N.t('Letzter Konsolenkontakt'),dateText(room.last_contact));
       line(window.HUB_I18N.t('Nächster Reconnect-Versuch'),room.next_retry_at?dateText(room.next_retry_at):window.HUB_I18N.t('Keiner geplant'));
-      if(data.recording?.enabled)line(window.HUB_I18N.t('Rundenaufzeichnung'),window.HUB_UI.consoleLabel(data.recording.console_state));
+      if(data.recording?.last_event)line(window.HUB_I18N.t('Zuletzt aufgezeichnetes Item'),dateText(data.recording.last_event));
       line(window.HUB_I18N.t('Lokaler Spielclient'),window.HUB_I18N.t('Unbekannt · keine zuverlässige technische Prüfung'));
     }
     box.replaceChildren(fragment);
@@ -67,7 +70,6 @@
     catch(error){hubReachable=false;diagnostics();throw new Error(window.HUB_I18N.t('Der Hub ist nicht erreichbar. Der letzte Datenstand bleibt sichtbar.'));}
     hubReachable=true;
     if(response.ok)lastHubContact=Date.now()/1000;
-    diagnostics();
     const data = await response.json().catch(() => ({error:response.status === 429 ? window.HUB_I18N.t('Zu viele Anfragen. Bitte kurz warten.') : window.HUB_I18N.t('Die Anfrage konnte nicht verarbeitet werden. Bitte gegebenenfalls erneut anmelden.')}));
     if(response.status===401){authLost=true;window.HUB_AUTH_REQUIRED?.(data.login_url);}
     if (!response.ok) throw new Error(data.error || window.HUB_I18N.t('Die Anfrage ist fehlgeschlagen.'));
@@ -108,10 +110,13 @@
       line.hidden = !line.dataset.text.includes(search.value.toLocaleLowerCase(window.HUB_I18N.locale));
       fragment.append(line);
     });
-    const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 90;
+    const previousHeight = log.scrollHeight;
+    const previousTop = log.scrollTop;
+    const atBottom = previousHeight - previousTop - log.clientHeight < 90;
     if (prepend) log.prepend(fragment); else log.append(fragment);
     empty.hidden = ids.size > 0;
-    if (!prepend && atBottom) log.scrollTop = log.scrollHeight;
+    if (prepend) log.scrollTop = previousTop + log.scrollHeight - previousHeight;
+    else if (atBottom) log.scrollTop = log.scrollHeight;
   }
   async function load(previous=false) {
     if (fetching) return;
@@ -125,19 +130,22 @@
       diagnostics(data);
       if(data.recording){
         const recording=data.recording;
-        const lastEvent=document.getElementById('console-last-event'),lastText=window.HUB_I18N.t('Letztes erfasstes Item: {v0}',{v0:dateText(recording.last_event)});
-        if(lastEvent.textContent!==lastText)lastEvent.textContent=lastText;
         const recordError=document.getElementById('recording-error');if(recordError){recordError.textContent=recording.error;recordError.hidden=!recording.error;}
       }
       const changedCatalog = (catalogVersion !== data.catalog_version || endpointId!==undefined && endpointId!==data.endpoint_id) && cursor > 0;
       catalogVersion = data.catalog_version;
       endpointId=data.endpoint_id;
+      const serverRow=document.getElementById('console-server-row');
+      const noServer=document.getElementById('console-no-server');
+      const autoPort=document.getElementById('console-auto-port');
+      const roomSettings=document.getElementById('console-room-settings');
+      if(serverRow)serverRow.hidden=!data.server;
+      if(noServer)noServer.hidden=!!data.server;
+      if(autoPort)autoPort.hidden=!data.server?.auto_port;
+      if(roomSettings)roomSettings.hidden=!data.server;
+      if(send)send.disabled=sending||!data.server;
       if(data.server){
         const address=data.server.host+':'+data.server.port;
-        const serverRow=document.getElementById('console-server-row');
-        if(serverRow)serverRow.hidden=false;
-        const autoPort=document.getElementById('console-auto-port');
-        if(autoPort)autoPort.hidden=!data.server.auto_port;
         for(const id of ['console-server-address','host-address']){const node=document.getElementById(id);if(node)node.textContent=address;}
         for(const [id,value] of [['server-host',data.server.host],['server-port',data.server.port]]){const node=document.getElementById(id);if(node)node.textContent=String(value);}
         if(data.server.auto_port)document.querySelectorAll('.hosting-fields input[name=port]').forEach(input=>{
@@ -145,32 +153,34 @@
         });
       }
       if (changedCatalog) {
-        cursor=0;first=0;ids.clear();
+        cursor=0;first=0;ids.clear();archiveLoaded=false;
         log.querySelectorAll('.console-line').forEach(line=>line.remove());
         empty.hidden=false;return;
       }
       const state = document.getElementById('console-state');
       const shared=data.room_connection||data;
       identify(data.players);
-      const stateLabel=(labels[shared.state] || shared.state) + (shared.state === 'connected' && shared.transport ? ' · ' + shared.transport.toUpperCase() : '');
+      const stateLabel=archived ? window.HUB_I18N.t('Protokoll archiviert')
+        : !data.server ? window.HUB_I18N.t('Wartet auf Raumverbindung')
+        : (labels[shared.state] || shared.state) + (shared.state === 'connected' && shared.transport ? ' · ' + shared.transport.toUpperCase() : '');
       if(state.textContent!==stateLabel)state.textContent=stateLabel;
       state.className = 'chip ' + (shared.state === 'connected' ? 'ok' : ['error','action_required'].includes(shared.state) ? 'err' : '');
       document.dispatchEvent(new CustomEvent('hub:console-state',{detail:data}));
-      if (shared.error || data.error) fail(shared.error || data.error);
-      else if (shared.state === 'connected') fail('');
+      fail(archived ? '' : shared.error || '');
       append(data.events,previous);
       if (data.events.length) {
         first = first ? Math.min(first,data.events[0].id) : data.events[0].id;
         if (!previous) cursor = data.cursor;
       }
       if (previous || !position) older.disabled = data.events.length < 100;
+      if (archived) archiveLoaded = true;
     } catch (e) { if (requestGeneration === generation) fail(e.message); }
     finally { fetching = false; }
   }
-  async function post(path,form) {
-    fail('');
+  async function post(path,form,showError=fail) {
+    showError('');
     try { await api(path,form); await load(); return true; }
-    catch(e) { fail(e.message); return false; }
+    catch(e) { showError(e.message); return false; }
   }
   document.getElementById('recording-start')?.addEventListener('submit',async event=>{
     event.preventDefault();const form=event.currentTarget,values=new FormData(form),button=form.querySelector('button[type=submit]');
@@ -186,12 +196,12 @@
     const values = new FormData(form);
     const original=values.get('text');
     const submit=form.querySelector('[type=submit]');if(submit)submit.disabled=true;
-    try{if(await post('/command',values)){if(form.elements.namedItem('text').value===original){form.elements.namedItem('text').value='';try{sessionStorage.removeItem(draftKey);}catch{}}}}
-    finally{sending=false;if(submit)submit.disabled=false;}
-    values.delete('password');
+    const showError=text=>{commandError.textContent=text;commandError.hidden=!text;};
+    try{if(await post('/command',values,showError)){if(form.elements.namedItem('text').value===original){form.elements.namedItem('text').value='';try{sessionStorage.removeItem(draftKey);}catch{}}}}
+    finally{sending=false;if(submit)submit.disabled=!lastData?.server;}
   });
   kind.addEventListener('change',() => {
-    generation++; cursor=0; first=0; ids.clear();
+    generation++; cursor=0; first=0; ids.clear(); archiveLoaded=false;
     log.querySelectorAll('.console-line').forEach(line => line.remove());
     empty.hidden=false;
     load();
@@ -230,6 +240,6 @@
     });
   });
   document.getElementById('console-command')?.addEventListener('submit',()=>showCommands(false));
-  async function poll() { if (!authLost && !document.hidden && !root.closest('[data-round-panel]')?.hidden) await load(); setTimeout(poll,2000); }
+  async function poll() { if (!authLost && !archiveLoaded && !document.hidden && !root.closest('[data-round-panel]')?.hidden) await load(); setTimeout(poll,2000); }
   poll();
 })();

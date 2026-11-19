@@ -43,16 +43,23 @@ def observe(client):
     """Called only by the existing, identity-checked TextOnly receiver thread."""
     from hub.ap_console import connection
     if not client.items_synced or client.state != 'connected':
+        last_observation = getattr(client, 'progression_observed_at', None)
+        if last_observation is None:
+            return
         with connection(client.path) as conn:
-            conn.execute("UPDATE progression_live SET payload=json_set(payload,'$.synchronized',0) WHERE build_id=? AND slot_name=? AND hosted_id=?",
-                         (client.build_id,client.slot_name,client.endpoint['id']))
+            conn.execute("""UPDATE progression_live SET payload=json_set(payload,'$.synchronized',0)
+                WHERE build_id=? AND slot_name=? AND hosted_id=? AND observed_at=?""",
+                         (client.build_id,client.slot_name,client.endpoint['id'],last_observation))
+        client.progression_observed_at = None
         return
     payload = dict(slot=client.slot, team=client.team, received=list(client.received),
                    checked=sorted(client.checked), missing=sorted(client.missing),synchronized=True)
+    observed_at = time.time()
     with connection(client.path) as conn:
         conn.execute('''INSERT OR REPLACE INTO progression_live(build_id,slot_name,hosted_id,user_id,payload,observed_at)
                      VALUES (?,?,?,?,?,?)''', (client.build_id,client.slot_name,client.endpoint['id'],client.user_id,
-                                               db.dumps(payload),time.time()))
+                                               db.dumps(payload),observed_at))
+    client.progression_observed_at = observed_at
 
 
 def run_worker(request):

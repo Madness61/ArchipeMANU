@@ -96,6 +96,22 @@ def find(build, own, query='', category='all', owner='all', status='all', page=1
     players = {p['id']:p for p in summary['players']}
     names = {slot['slot'] for slot in own}
     observed = observations(build,summary['players'],rows)
+    checks = {pid: (set(state['checked']), set(state.get('missing', ())), at)
+              for pid, (state, at, _) in observed.items()}
+    receipts = {
+        pid: ({(item['item'], item['location'], item['player']) for item in state['received']},
+              state.get('received_complete', True), at)
+        for pid, (state, at, _) in observed.items()
+    }
+    journal = {}
+    for event in db.query("""SELECT payload,observed_at FROM console_events
+        WHERE build_id=? AND hosted_id=(SELECT MAX(id) FROM hosted_rooms WHERE build_id=?)
+        AND user_id IS NULL AND kind='items'""", (build['id'], build['id'])):
+        payload = db.loads(event['payload'])
+        if payload.get('type') == 'item':
+            key = (payload['sender'], payload['location_id'], payload['recipient'], payload['item_id'])
+            journal[key] = (event['observed_at'], payload.get('source'))
+    query = query.casefold()
     answer = []
     for index, row in enumerate(rows):
         finder, recipient = players[row['finder']], players[row['recipient']]
@@ -104,21 +120,27 @@ def find(build, own, query='', category='all', owner='all', status='all', page=1
         if owner == 'mine' and recipient['name'] not in names:
             continue
         text = ' '.join((row['item'],row['location'],finder['name'],finder['game'],recipient['name'],recipient['game']))
-        if query.casefold() not in text.casefold():
+        if query not in text.casefold():
             continue
         check, check_at, receipt, receipt_at = 'unknown', None, 'unknown', None
-        if row['finder'] in observed:
-            state, at, _ = observed[row['finder']]
-            if row['location_id'] in state['checked']:
+        if row['finder'] in checks:
+            found, missing, at = checks[row['finder']]
+            if row['location_id'] in found:
                 check, check_at = 'checked', at
-            elif row['location_id'] in state.get('missing',[]):
+            elif row['location_id'] in missing:
                 check, check_at = 'unchecked', at
-        if row['recipient'] in observed:
-            state, at, _ = observed[row['recipient']]
-            matched = any((i['item'],i['location'],i['player']) == (row['item_id'],row['location_id'],row['finder'])
-                          for i in state['received'])
-            if matched or state.get('received_complete',True):
+        if row['recipient'] in receipts:
+            items, complete, at = receipts[row['recipient']]
+            matched = (row['item_id'], row['location_id'], row['finder']) in items
+            if matched or complete:
                 receipt, receipt_at = ('received' if matched else 'not_received'), at
+        event = journal.get((finder['name'], row['location_id'], recipient['name'], row['item_id']))
+        if event:
+            at, source = event
+            if check_at is None or at > check_at:
+                check, check_at = 'checked', at
+            if source == 'received_items' and (receipt_at is None or at > receipt_at):
+                receipt, receipt_at = 'received', at
         if status != 'all' and check != status:
             continue
         answer.append(dict(id=index, **row, finder_player=finder, recipient_player=recipient,

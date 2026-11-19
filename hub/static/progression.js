@@ -2,12 +2,15 @@
 (() => {
   const root=document.getElementById('progression-panel');
   if(!root)return;
-  const t=text=>window.HUB_I18N.t(text), $=id=>document.getElementById(id);
+  const t=window.HUB_I18N.t, $=id=>document.getElementById(id);
   const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n;};
   const labels={
     checked:t('Bereits eingesammelt'),unchecked:t('Noch nicht eingesammelt'),unknown:t('Unbekannter Status'),
     received:t('Empfang bestätigt'),not_received:t('Zu diesem Stand noch nicht empfangen'),
     progression:t('Progression'),useful:t('Useful'),filler:t('Filler'),trap:t('Trap')
+  };
+  const inlineStatus={
+    checked:t('Gefunden'),unchecked:t('Offen'),unknown:t('Fundstatus unbekannt')
   };
   const reasons={
     busy:t('Archipelago wird gerade verwendet. Bitte die Analyse später erneut starten.'),
@@ -25,7 +28,7 @@
     timeout:t('Die Berechnung hat ihr Zeitlimit erreicht. Konsole und Itemsuche bleiben verfügbar.'),
     worker_failed:t('Diese Spielwelt konnte nicht zuverlässig ausgewertet werden. Konsole und Itemsuche bleiben verfügbar.')
   };
-  let revealed=false,view='finder',page=1,pages=1,sequence=0,analysisBusy=false,timer=null;
+  let revealed=root.dataset.revealed==='1',view='finder',page=1,pages=1,sequence=0,analysisBusy=false,timer=null;
   const fail=text=>{$('progression-error').textContent=text;$('progression-error').hidden=!text;};
   async function api(path,body){
     const response=await fetch(root.dataset.base+path,{cache:'no-store',...(body?{method:'POST',headers:{'X-CSRF-Token':root.dataset.csrf},body:new URLSearchParams(body)}:{})});
@@ -80,22 +83,27 @@
     if(!inlineForm)return;
     const query=$('live-item-query').value.trim(),current=++inlineSequence;
     if(!query){$('live-item-output').hidden=true;$('live-item-results').replaceChildren();return;}
-    inlineFail('');inlineBusy=true;
+    inlineFail('');
+    if(!revealed){consent(false);return;}
+    inlineBusy=true;
     try{
-      const state=await api('/state');if(current!==inlineSequence)return;consent(state.revealed);
-      if(!revealed)return;
       const data=await api('/items?'+new URLSearchParams({q:query,page:inlinePage,limit:5}));
       if(current!==inlineSequence||!revealed)return;
+      inlinePage=data.page;
       $('live-item-results').replaceChildren(...data.rows.map(row=>{
-        const card=node('article',null,'live-item-result');card.append(node('h4',row.item),
+        const card=node('article',null,'live-item-result');
+        const heading=node('div',null,'row spread');
+        heading.append(node('h4',row.item),node('span',inlineStatus[row.check_status],
+          'chip '+(row.check_status==='checked'?'ok':'')));
+        card.append(heading,
           node('p',t('Empfänger')+': '+row.recipient_player.name,'small'),
-          node('p',t('Fundort')+': '+row.location+' · '+row.finder_player.name+' ('+row.finder_player.game+')','small'),
-          node('p',t('Fundort-Check')+': '+labels[row.check_status],'small muted'),
-          node('p',t('Itemempfang')+': '+labels[row.receipt_status],'small muted'));
+          node('p',row.location+' · '+row.finder_player.name+' ('+row.finder_player.game+')','small'));
+        if(row.receipt_status==='received')card.append(node('p',labels.received,'small muted'));
         return card;
       }));
       $('live-item-output').hidden=false;
-      $('live-item-count').textContent=data.available?t('Gefundene Items')+': '+data.total:reasons.placements_missing;
+      $('live-item-count').textContent=data.available?t('{v0} Treffer',{v0:data.total.toLocaleString(window.HUB_I18N.locale)}):reasons.placements_missing;
+      $('live-item-previous').hidden=$('live-item-next').hidden=data.pages<=1;
       $('live-item-previous').disabled=inlinePage<=1;$('live-item-next').disabled=inlinePage>=(data.pages||1);
     }catch(error){if(current===inlineSequence){if(error.status===403)consent(false);inlineFail(error.message);}}
     finally{if(current===inlineSequence)inlineBusy=false;}
@@ -103,7 +111,8 @@
   if(inlineForm){
     inlineForm.addEventListener('submit',event=>{event.preventDefault();clearTimeout(inlineTimer);inlinePage=1;inlineFind();});
     $('live-item-query').addEventListener('input',()=>{clearTimeout(inlineTimer);inlineSequence++;inlineBusy=false;inlinePage=1;
-      if(!$('live-item-query').value.trim()){$('live-item-output').hidden=true;$('live-item-results').replaceChildren();}
+      $('live-item-output').hidden=true;
+      if(!$('live-item-query').value.trim()){$('live-item-results').replaceChildren();$('live-item-consent').hidden=true;inlineFail('');}
       else if(revealed)inlineTimer=setTimeout(inlineFind,350);
     });
     $('live-item-reveal').addEventListener('click',async()=>{try{const state=await api('/consent',{reveal:'1'});consent(state.revealed);inlinePage=1;inlineFind();}catch(error){inlineFail(error.message);}});

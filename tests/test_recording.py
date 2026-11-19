@@ -78,6 +78,28 @@ class SharedRoomTests(unittest.TestCase):
         self.assertEqual(self.post(self.url+'/recording/start',dict(automatic='1'),client=spectator).status_code,403)
         self.assertFalse(self.server.commands)
 
+    def test_writer_does_not_supply_shared_events_or_recording_coverage(self):
+        reader = self.room()
+        self.wait_for(lambda: reader.catalog_ready)
+        version = self.state()['catalog_version']
+        self.assertEqual(self.post(self.url + '/command', {'text': '/hint Key'}).status_code, 202)
+        self.wait_for(lambda: self.server.commands == [('Host', '!hint Key')])
+        self.assertEqual(self.state()['catalog_version'], version)
+        self.assertEqual(self.post(self.url + '/recording/stop', {}).status_code, 200)
+        self.wait_for(lambda: not reader.thread.is_alive())
+        self.assertEqual(self.state()['state'], 'connected')
+        self.assertEqual(self.state()['recording']['state'], 'interrupted')
+        writer, = self.server.clients
+        self.server.send(writer, [
+            dict(cmd='PrintJSON', type='Chat', data=[dict(text='No shared reader')]),
+            dict(cmd='PrintJSON', type='ItemSend', receiving=2, item=[502, 1002, 1, 0]),
+        ])
+        self.assertEqual(self.post(self.url + '/command', {'text': '/hint Potion'}).status_code, 202)
+        self.wait_for(lambda: len(self.server.commands) == 2)
+        rows = self.state()['events']
+        self.assertFalse(any('No shared reader' in row['text'] or
+                             row.get('delivery', {}).get('item_id') == 502 for row in rows))
+
     def test_password_is_supplied_once_by_host_and_reused_for_writers(self):
         self.server.password='One room secret'
         first=self.room();self.wait_for(lambda:first.state=='action_required')
@@ -263,7 +285,8 @@ class RecordingTests(unittest.TestCase):
         self.server.send(self.server.clients[0],[dict(cmd='PrintJSON',type='Hint',data=[dict(text='PRIVATE HINT')]),
                                                 dict(cmd='PrintJSON',type='Chat',data=[dict(text='PRIVATE CHAT')]),
                                                 dict(cmd='Print',text='PRIVATE PRINT')])
-        self.post(self.url+'/command',dict(text='hello'))  # No personal text session is active.
+        with self.assertRaises(ValueError):
+            current.handle_command('hello')
         time.sleep(.2)
         with self.app.app_context():
             stored=' '.join(r['payload'] for r in db.query('SELECT payload FROM console_events'))

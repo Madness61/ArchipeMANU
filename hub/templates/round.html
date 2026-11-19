@@ -2,7 +2,7 @@
 {% from "ui.html" import icon, progress, game_art, empty_state with context %}
 {% block title %}{{ s.name }} · {{ app_name }}{% endblock %}
 {% block content %}
-<div id="round-center" data-own-slots="{{ own|map(attribute='slot')|list|tojson|forceescape }}" {% if play %}data-build-status="{{ build.status }}"{% endif %} data-phase="{{ round_phase }}" data-csrf="{{ csrf_token }}" data-hosted="{{ 'true' if play and hosted else 'false' }}" data-archived="{{ 'true' if play and build.completed_at else 'false' }}" {% if play and build.status == 'succeeded' and (is_member or manage) %}{% if live_connection %}data-live="{{ url_for('live.data',sid=s.id,build_id=build.id) }}"{% endif %} {% if not race %}data-console="{{ url_for('console.page',sid=s.id,build_id=build.id) }}"{% endif %}{% endif %}>
+<div id="round-center" data-own-slots="{{ own|map(attribute='slot')|list|tojson|forceescape }}" {% if play %}data-build-status="{{ build.status }}"{% endif %} data-phase="{{ round_phase }}" data-csrf="{{ csrf_token }}" data-hosted="{{ 'true' if play and hosted else 'false' }}" data-archived="{{ 'true' if play and build.completed_at else 'false' }}" {% if play and build.status == 'succeeded' and (is_member or manage) and live_connection %}data-live="{{ url_for('live.data',sid=s.id,build_id=build.id) }}"{% endif %}>
 <a class="small" href="{{ url_for('mvp.lobby_list') }}">{{ icon('arrow','back-arrow') }} {{ _("Meine Runden") }}</a>
 <header class="round-header" id="session-overview" data-refresh-fragment>
   <div><p class="eyebrow">{{ _("Euer gemeinsamer Spieleabend") }}</p><h1>{{ s.name }}</h1><p class="muted small">{{ _("Host") }} {{ host_name }} · {{ slots|map(attribute='player_id')|unique|list|length if play else member_count }} {{ _("Teilnehmer") }}{% if play %} {{ _("· Seed #") }}{{ build.id }}{% endif %}</p></div>
@@ -16,8 +16,8 @@
 <section id="round-play" data-round-panel="play" aria-label="{{ _("Spielen") }}">
 {% if play and build.status == 'succeeded' %}
   {% if console_primary %}
-    {% with endpoint=hosted,commands=console_commands,archived=false,console_embedded=true %}{% include "console_workspace.html" %}{% endwith %}
-    <details id="personal-setup" class="round-personal-setup"><summary>{{ _("Mein Spiel, Dateien & Verbindung") }}</summary>
+    {% with endpoint=hosted,commands=console_commands,archived=build.completed_at,console_embedded=true %}{% include "console_workspace.html" %}{% endwith %}
+    <details id="personal-setup" class="round-personal-setup"{% if not hosted and own %} open{% endif %}><summary>{{ _("Mein Spiel, Dateien & Verbindung") if own else _("Spieldateien & Verbindung") }}</summary>
   {% endif %}
   {% include "round_play.html" %}
   {% if console_primary %}</details>{% endif %}
@@ -43,7 +43,6 @@
 <div class="round-tool-grid">
 <a class="panel tool-link" href="{{ url_for('mvp.build_stats',sid=s.id,build_id=build.id) }}">{{ icon('chart') }}<strong>{{ _("Seed-Analyse") }}</strong><span class="small muted">{{ _("Verteilung und historische Seed-Daten · Spoiler separat freigeben") }}</span></a>
 <a class="panel tool-link" href="{{ url_for('live.dashboard',sid=s.id,build_id=build.id) }}">{{ icon('activity') }}<strong>{{ _("Erweiterte Statistiken") }}</strong><span class="small muted">{{ _("Vergleiche, Interaktionen, Verlauf und Präsentationsmodus") }}</span></a>
-{% if not race and not console_primary %}<a class="panel tool-link" href="{{ url_for('console.page',sid=s.id,build_id=build.id) }}">{{ icon('terminal') }}<strong>{{ _("Archipelago-Konsole") }}</strong><span class="small muted">{{ _("Chat, Hinweise, Befehle und vollständiges Itemprotokoll") }}</span></a>{% endif %}
 </div>
 <section class="panel" id="all-files"><h2>{{ _("Gemeinsame Spieldateien") }}</h2><a class="btn" href="{{ url_for('mvp.build_download',sid=s.id,build_id=build.id) }}">{{ _("Multiworld-ZIP herunterladen") }}</a><p class="small muted">{{ _("Alle Dateien aus dem erzeugten ZIP. Deine sicher zugeordneten Patchdateien findest du zuerst unter „Spielen“.") }}</p><div class="stack">{% for asset in assets %}<div class="row spread play-file"><code>{{ asset.name }}</code><a class="btn small" href="{{ url_for('mvp.build_asset',sid=s.id,build_id=build.id,file_index=asset.index) }}">{{ _("Herunterladen") }}</a></div>{% endfor %}</div></section>
 <section class="panel table-wrap" id="compatibility"><h2>{{ _("Spielversionen dieses Seeds") }}</h2><table><thead><tr><th>{{ _("Spielername") }}</th><th>{{ _("Spiel") }}</th><th>{{ _("Modul-Version") }}</th><th>{{ _("APWorld SHA-256") }}</th></tr></thead><tbody>{% for slot in slots %}<tr><td>{{ slot.slot }}</td><td>{{ slot.game_name }}</td><td>{{ slot.game_version or _('nicht angegeben') }}</td><td><code>{{ slot.apworld_sha256 or _('In Archipelago enthalten') }}</code></td></tr>{% endfor %}</tbody></table></section>
@@ -53,7 +52,7 @@
 {% include "round_manage.html" %}
 </section>
 <p class="small muted" id="session-refresh-status" role="status" aria-live="polite"></p>
-{% if progression_enabled|default(false) and play and build.status == 'succeeded' and not race and (is_member or manage) %}{% with room=s %}{% include "progression_panel.html" %}{% endwith %}{% if not console_primary %}<div class="row"><button type="button" data-progression-open="finder">{{ _("Item suchen") }}</button><button type="button" data-progression-open="next">{{ _("Was bringt mich weiter?") }}</button></div>{% endif %}{% endif %}
+{% if console_primary %}{% with room=s %}{% include "progression_panel.html" %}{% endwith %}{% endif %}
 </div>
 {% endblock %}
 {% block scripts %}

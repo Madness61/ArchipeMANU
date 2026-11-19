@@ -22,6 +22,7 @@ PROCESS_ID = secrets.token_hex(16)
 PROCESS_STARTED = time.time()
 MAX_FRAME = 16 * 1024 * 1024
 IDLE_SECONDS = 30 * 60  # Historical constant; browser inactivity no longer ends a connection.
+COMMAND_IDLE_SECONDS = 120
 RETRY_BASE = 2
 RETRY_MAX = 60
 GUARD_SECONDS = 5
@@ -136,7 +137,8 @@ class Client:
         self.catalog_ready = False
         self.sync_pending = False
         self.items_synced = False
-        self.last_seen = time.monotonic()
+        self.command_lock = threading.Lock()
+        self.last_command = time.monotonic()
         self.thread = threading.Thread(target=self.run, daemon=True, name=f"ap-console-{self.build_id}-{user_id}")
 
     def note(self, text, kind="system", origin="hub", values=None):
@@ -172,6 +174,12 @@ class Client:
         return True
 
     def valid(self):
+        if self.managed:
+            with self.command_lock:
+                if time.monotonic() - self.last_command > COMMAND_IDLE_SECONDS and self.outbox.empty():
+                    self.stop.set()
+                if self.stop.is_set():
+                    return False
         with connection(self.path) as conn:
             row = conn.execute("SELECT completed_at,snapshot FROM seed_builds WHERE id=?", (self.build_id,)).fetchone()
             endpoint = self.target(conn)
@@ -191,6 +199,8 @@ class Client:
 
     def stream_state(self):
         """Persist coverage transitions atomically across all explicit readers."""
+        if self.managed:
+            return
         now = time.time()
         fresh_after = max(PROCESS_STARTED,now-15)
         with connection(self.path) as conn:
@@ -418,7 +428,10 @@ class Client:
                         raise ValueError("Der Datenkatalog des Spiels ist zu groß oder ungültig.")
                     maps.append({str(integer(value)): str(name)[:500] for name, value in content[field].items()})
                 with connection(self.path) as conn:
-                    conn.execute("INSERT OR REPLACE INTO console_packages(build_id,game,items,locations,updated_at) VALUES (?,?,?,?,?)",
+                    conn.execute("""INSERT INTO console_packages(build_id,game,items,locations,updated_at)
+                        VALUES (?,?,?,?,?) ON CONFLICT(build_id,game) DO UPDATE SET
+                        items=excluded.items,locations=excluded.locations,updated_at=excluded.updated_at
+                        WHERE console_packages.items<>excluded.items OR console_packages.locations<>excluded.locations""",
                                  (self.build_id, game, db.dumps(maps[0]), db.dumps(maps[1]), time.time()))
             self.catalog_ready = self.catalog_ready or self.game in packet['data']['games']
             if self.managed and self.sync_pending and self.catalog_ready:
@@ -450,6 +463,8 @@ class Client:
             self.observe_progression()
         elif cmd == "PrintJSON":
             if packet.get("type") == "ItemSend":
+                if self.managed:
+                    return
                 item = network_item(packet["item"])
                 self.delivery(item, integer(packet['receiving']), 'live')
             else:
@@ -514,6 +529,8 @@ class Client:
                 insert(conn)
 
     def confirm_receipts(self, items, index):
+        if self.managed:
+            return
         with connection(self.path) as conn:
             conn.execute('BEGIN IMMEDIATE')
             for offset,item in enumerate(items):
@@ -543,6 +560,14 @@ class Client:
             if not self.managed or text.startswith('!'):
                 self.note('An Archipelago gesendet: {v0}', 'sent', values=dict(v0=text))
 
+    def submit(self, text):
+        with self.command_lock:
+            if self.stop.is_set() or self.state not in ('connected', 'connecting', 'authenticating'):
+                return False
+            self.outbox.put_nowait(text)
+            self.last_command = time.monotonic()
+            return True
+
     def close(self):
         self.stop.set()
         self.password = None
@@ -558,7 +583,6 @@ def current(build_id, user_id, token_hash):
     with _lock:
         client = _clients.get(key(build_id, user_id))
         if client and client.token_hash == token_hash:
-            client.last_seen = time.monotonic()
             return client
     return None
 
@@ -567,7 +591,7 @@ def start(build, user_id, token_hash, endpoint, slot, password="", secure=None, 
     with _lock:
         if managed:
             old = _clients.get(key(build['id'],user_id))
-            if old and old.managed and old.token_hash==token_hash and old.slot_name==slot and old.endpoint['id']==endpoint['id'] and old.secure==secure and old.thread.is_alive() and not old.stop.is_set() and old.state in ('connecting','authenticating','connected','reconnecting','temporarily_unavailable'):
+            if old and old.managed and old.token_hash==token_hash and old.slot_name==slot and old.endpoint['id']==endpoint['id'] and old.secure==secure and old.password==password and old.thread.is_alive() and not old.stop.is_set() and old.state in ('connecting','authenticating','connected','reconnecting','temporarily_unavailable'):
                 return old
         client = Client(config.DB_PATH.resolve(), build, user_id, token_hash, dict(endpoint), slot, password, secure)
         client.managed = managed

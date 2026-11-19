@@ -2107,5 +2107,15 @@
   "m2009": "Raumverbindung aktualisieren",
   "m2010": "Zur gemeinsamen Live-Konsole",
   "m2011": "Ein vollständiger, aktueller Itemzustand fehlt. Nutze /received in der Konsole oder warte auf den verknüpften Tracker.",
-  "m2012": "Deine Befehlsverbindung ist noch nicht bereit. Bitte kurz warten und erneut senden."
+  "m2012": "Deine Befehlsverbindung ist noch nicht bereit. Bitte kurz warten und erneut senden.",
+  "m2013": "Protokoll archiviert",
+  "m2014": "Wartet auf Raumverbindung",
+  "m2015": "Zuletzt aufgezeichnetes Item",
+  "m2016": "Hinweise können Serverpunkte kosten.",
+  "m2017": "Item in der Multiworld suchen",
+  "m2018": "Spieldateien & Verbindung",
+  "m2019": "Zuletzt vom Tracker gemeldet",
+  "m2020": "Gefunden",
+  "m2021": "Fundstatus unbekannt",
+  "m2022": "{v0} Treffer"
 }

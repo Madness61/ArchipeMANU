@@ -90,8 +90,7 @@ def session_view(sid, selection=None, build_id=None):
     chosen = rounds.selected_build(row, history, explicit)
     play = mvp.play_context(sid, chosen["id"]) if chosen else {}
     phase, phase_label = rounds.phase(row, chosen)
-    console_primary = bool(play and chosen["status"] == "succeeded" and play["hosted"]
-                           and not chosen["completed_at"] and not play["race"]
+    console_primary = bool(play and chosen["status"] == "succeeded" and not play["race"]
                            and (is_member or can_manage_session(row)))
     return render_template("round.html", round_phase=phase, phase_label=phase_label,
                            console_primary=console_primary,console_commands=ap_console.COMMANDS,

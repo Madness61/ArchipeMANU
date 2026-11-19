@@ -81,7 +81,7 @@ def automatic_client(build, own, slot=''):
 
 
 def state(value):
-    return dict(state=value.state if value else "disconnected", error=value.error if value else "",
+    return dict(state=value.state if value else "disconnected", error=i18n.t(value.error) if value else "",
                 slot=value.slot_name if value else None, transport=value.transport if value else None,
                 last_contact=value.last_contact if value else None,
                 connected_at=value.connected_at if value else None,
@@ -115,8 +115,6 @@ def data(sid, build_id):
     # must trigger a reload next time, rather than permanently caching raw IDs.
     catalog_version = db.query("SELECT COALESCE(MAX(updated_at),0) AS version FROM console_packages WHERE build_id=?", (build_id,), one=True)["version"]
     endpoint = db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1",(build_id,),one=True)
-    if not current_app.testing and endpoint and not build['completed_at']:
-        recording.ensure(build,endpoint)
     linked = live_store.current(build_id)
     if linked:
         live_routes.collector()
@@ -126,15 +124,19 @@ def data(sid, build_id):
         recording.start_supervisor()
     shared = recording.status(build_id,endpoint)
     reader = recording.worker(build_id)
+    if not endpoint or (reader and reader.endpoint['id'] != endpoint['id']):
+        reader = None
     room_state = state(reader)
     if not reader:
         room_state.update(state=shared['console_state'] if shared['enabled'] else 'disconnected',error=shared['error'])
-    return jsonify(**state(client(build_id)), room_connection=room_state, players=players, events=rows, cursor=rows[-1]["id"] if rows else after,
+    response = jsonify(**state(client(build_id)), room_connection=room_state, players=players, events=rows, cursor=rows[-1]["id"] if rows else after,
                    catalog_version=catalog_version, endpoint_id=endpoint["id"] if endpoint else None,
                    server=dict(host=endpoint["host"], port=endpoint["port"], room_url=endpoint["room_url"],
                                auto_port=bool(linked and linked["auto_host"] and not build['completed_at'])) if endpoint else None,
                    recording=shared,webhost=connection_diagnostics.webhost(build),
                    limit=100, journal_limit=None)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 @bp.route(PREFIX + '/recording/start', methods=['POST'])
@@ -220,6 +222,9 @@ def command(sid, build_id):
     _, build, own = access(sid, build_id, mutate=True)
     if not own:
         abort(403, "Nur Spieler mit eigenem Slot können Befehle senden.")
+    slot = request.form.get('slot', '')
+    if slot and slot not in {value['slot'] for value in own}:
+        abort(403, 'Du kannst dich nur mit deinem eigenen Spielslot verbinden.')
     text = request.form.get("text", "").strip()
     if not text or len(text) > 500 or any(ord(c) < 32 or ord(c) == 127 for c in text):
         abort(400, "Bitte eine einzelne Nachricht mit höchstens 500 Zeichen eingeben.")
@@ -234,7 +239,7 @@ def command(sid, build_id):
         abort(400, "Dieser Serverbefehl wird in der Webkonsole nicht unterstützt. Verwende /help oder !help.")
     if verb == "/help":
         ap_console.record(config.DB_PATH, build_id, g.user["id"], "system",
-                          {'type':'help','origin':'hub'})
+                          dict(type='help', origin='hub', actor_slot=slot or own[0]['slot']))
     elif verb == "/connect":
         if text != "/connect":
             abort(400, "Die Konsole verwendet die gespeicherte Serveradresse. Verbinde über das Formular oben.")
@@ -249,17 +254,16 @@ def command(sid, build_id):
         return jsonify(state="disconnected")
     else:
         current = client(build_id)
-        automatic = request.form.get('automatic')=='1' or recording.status(build_id,None)['automatic']
+        automatic = request.form.get('automatic') == '1' or not current or current.managed or bool(slot)
         if automatic:
-            current=automatic_client(build,own,request.form.get('slot',''))
-        if not current or (current.state != "connected" and not (automatic and current.state in ('connecting','authenticating'))):
-            if automatic:
-                abort(409,'Deine Befehlsverbindung ist noch nicht bereit. Bitte kurz warten und erneut senden.')
+            current = automatic_client(build, own, slot)
+        elif current.state != 'connected':
             abort(409, "Verbinde zuerst deinen eigenen Slot mit Archipelago.")
         if text.startswith("/"):
             text = verb + text[len(verb):]
         try:
-            current.outbox.put_nowait(text)
+            if not current.submit(text):
+                abort(409, 'Deine Befehlsverbindung ist noch nicht bereit. Bitte kurz warten und erneut senden.')
         except queue.Full:
             abort(429, "Zu viele ausstehende Befehle. Bitte kurz warten.")
     return jsonify(accepted=True), 202
