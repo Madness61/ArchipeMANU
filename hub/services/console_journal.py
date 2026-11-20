@@ -154,6 +154,11 @@ def events(build_id, user_id, after=0, kind="all", before=0, *, players=None):
                 text=i18n.t(first)+(separator+rest if separator else '')
         entry = dict(id=row["id"], kind=row["kind"], at=row["observed_at"], text=text,
                      visibility="team" if row["user_id"] is None else "personal")
+        if payload.get('connection_role') == 'reader':
+            entry['connection_role'] = 'reader'
+            entry['server_text'] = text
+            entry['text'] = (i18n.t('Gemeinsamer Hintergrundleser verbunden.') if payload['public_type'] == 'Join'
+                             else i18n.t('Gemeinsamer Hintergrundleser getrennt.'))
         if row['user_id'] is not None:
             actor = next((p for p in players if p['user_id']==row['user_id'] and p['slot']==payload.get('actor_slot')),None)
             entry['actor'] = actor

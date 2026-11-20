@@ -11,6 +11,9 @@ class FakeAP:
         self.history = {1:[[501,1001,2,1]],2:[]}
         self.emit_live = True
         self.suppress_empty_receipts = False
+        self.announce_joins = False
+        self.before_connected = []
+        self.accept_connections = True
         self.lock = threading.RLock()
         self.package_requested = threading.Event()
         self.package_gate = threading.Event()
@@ -57,6 +60,9 @@ class FakeAP:
             wire.close(code=1012, reason="isolated test restart")
 
     def handle(self, wire):
+        if not self.accept_connections:
+            wire.close(code=1012, reason="isolated test outage")
+            return
         self.send(wire,[{"cmd":"RoomInfo","seed_name":self.seed,"password":bool(self.password),
                          "version":{"major":0,"minor":6,"build":8,"class":"Version"},"games":[self.game]}])
         name = None
@@ -81,6 +87,17 @@ class FakeAP:
                                          for i,n in enumerate(self.names,1)},"missing_locations":[1001,1002],"checked_locations":[1000]}]
                         if self.history.get(slot) or not self.suppress_empty_receipts:
                             reply.append({"cmd":"ReceivedItems","index":0,"items":self.history.get(slot,[])})
+                        if self.announce_joins:
+                            tags = packet['tags']
+                            verb = 'tracking' if 'Tracker' in tags else 'viewing' if 'TextOnly' in tags else 'playing'
+                            event = dict(cmd='PrintJSON', type='Join', team=0, slot=slot, tags=tags,
+                                         data=[dict(text=f'{name} {verb} has joined.')])
+                            with self.lock:
+                                recipients = list(self.clients)
+                            for recipient in recipients + [wire]:
+                                self.send(recipient, [event])
+                        if self.before_connected:
+                            self.send(wire, self.before_connected)
                         self.send(wire,reply)
                         with self.lock:
                             self.clients.append(wire)

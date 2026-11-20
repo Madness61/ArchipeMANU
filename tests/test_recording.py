@@ -65,6 +65,69 @@ class SharedRoomTests(unittest.TestCase):
         self.assertEqual(len([p for p in self.server.packets if p['cmd']=='Connect']),3)
         self.assertTrue(recording.worker(self.bid) is reader)
 
+    def test_reader_tag_and_same_slot_public_events_during_authentication(self):
+        self.server.announce_joins = True
+        self.server.before_connected = [
+            dict(cmd='PrintJSON', type=kind, team=0, slot=1, tags=tags, data=[dict(text=text)])
+            for kind, tags, text in (
+                ('Join', ['AP'], 'Real player joined the same slot'),
+                ('Join', ['Tracker'], 'Another tracker joined the same slot'),
+                ('Part', [], 'Unidentified client left the same slot'),
+            )
+        ]
+        reader = self.room()
+        self.wait_for(lambda: reader.state == 'connected' and reader.catalog_ready)
+        connect = next(packet for packet in self.server.packets if packet['cmd'] == 'Connect')
+        self.assertCountEqual(connect['tags'], ['Tracker', 'ArchipeMANU-Reader'])
+        for client in (self.client, self.friend):
+            events = self.state(client)['events']
+            service, = (entry for entry in events if entry.get('connection_role') == 'reader')
+            self.assertEqual(service['text'], 'Gemeinsamer Hintergrundleser verbunden.')
+            self.assertIn('Host tracking has joined.', service['server_text'])
+            for packet in self.server.before_connected:
+                event, = (entry for entry in events if entry['text'] == packet['data'][0]['text'])
+                self.assertNotIn('connection_role', event)
+                self.assertEqual(event['visibility'], 'team')
+
+    def test_reader_prefers_the_hosts_verified_slot_over_seed_order(self):
+        with self.app.app_context():
+            snapshot = db.loads(db.query('SELECT snapshot FROM seed_builds', one=True)['snapshot'])
+            snapshot['slots'].reverse()
+            db.execute('UPDATE seed_builds SET snapshot=?', (db.dumps(snapshot),))
+        reader = self.room()
+        self.wait_for(lambda: reader.state == 'connected')
+        self.assertEqual(reader.slot_name, 'Host')
+
+    def test_automatic_retries_keep_one_outage_warning_and_current_diagnostics(self):
+        original = ap_console.connect_transport
+        failed = False
+
+        def connect(host, port, secure):
+            if failed:
+                raise ConnectionRefusedError()
+            return original(host, port, secure)
+
+        with patch.object(ap_console, 'connect_transport', side_effect=connect), \
+                patch.object(ap_console, 'RETRY_BASE', .01), patch.object(ap_console, 'RETRY_MAX', .03):
+            reader = self.room()
+            self.wait_for(lambda: reader.state == 'connected' and reader.catalog_ready)
+            failed = True
+            self.server.interrupt()
+            self.wait_for(lambda: reader.retry_attempt >= 6)
+            data = self.state()
+            self.assertEqual(data['room_connection']['state'], 'temporarily_unavailable')
+            self.assertIn('Der Server lehnt die Verbindung ab', data['room_connection']['error'])
+            self.assertGreaterEqual(data['room_connection']['retry_attempt'], 6)
+            self.assertIsNotNone(data['room_connection']['next_retry_at'])
+            self.assertEqual(sum('Itemaufzeichnung unterbrochen' in row['text'] for row in data['events']), 1)
+            self.assertFalse(any('Weitere Versuche' in row['text'] or 'Automatische Wiederverbindung' in row['text']
+                                 for row in data['events']))
+            failed = False
+            self.wait_for(lambda: reader.state == 'connected' and reader.catalog_ready)
+            data = self.state()
+            self.assertEqual(data['room_connection']['retry_attempt'], 0)
+            self.assertEqual(sum('Itemaufzeichnung fortgesetzt' in row['text'] for row in data['events']), 1)
+
     def test_automatic_commands_reject_foreign_slots_and_spectator_writes(self):
         reader=self.room();self.wait_for(lambda:reader.state=='connected')
         self.assertEqual(self.post(self.url+'/command',dict(text='/hint Key',slot='Friend')).status_code,403)

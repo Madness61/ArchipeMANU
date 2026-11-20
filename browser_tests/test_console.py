@@ -24,6 +24,7 @@ def test_shared_reader_inline_finder_and_spectator(actors,artifact_dir):
     from .test_redesign import capture
     a,b,viewer=actors.alice,actors.bob,actors.admin
     with FakeAP(game=GAME,names=('Alice','Bob'),seed='BROWSER_TEST') as server:
+        server.announce_joins = True
         register(a,'Alice');register(b,'Bob');upload_world(a)
         create_lobby(a,'Ein gemeinsamer Verlauf');join_lobby(b,'Ein gemeinsamer Verlauf')
         select_game(a);select_game(b);mark_ready(a,'Alice');mark_ready(b,'Bob')
@@ -37,8 +38,14 @@ def test_shared_reader_inline_finder_and_spectator(actors,artifact_dir):
         b.goto(url);login(viewer,'TestAdmin');viewer.goto(url)
         for page in (a,b,viewer):
             expect(page.locator('#console-log')).to_contain_text('Progression Key')
+            expect(page.locator('#console-log')).to_contain_text('Gemeinsamer Hintergrundleser verbunden.')
+            expect(page.locator('#console-log')).not_to_contain_text('Alice tracking has joined.')
             expect(page.locator('#console-connect')).to_have_count(0)
         assert len(server.clients)==1
+        server.send(server.clients[0], [dict(cmd='PrintJSON', type='Join', team=0, slot=1, tags=['AP'],
+                                             data=[dict(text='Alice playing has joined.')])])
+        for page in (a,b,viewer):
+            expect(page.locator('#console-log')).to_contain_text('Alice playing has joined.')
         expect(viewer.locator('#console-command')).to_have_count(0)
         blocked=viewer.evaluate("""async base=>{const response=await fetch(base+'/command',{method:'POST',headers:{'X-CSRF-Token':document.getElementById('ap-console').dataset.csrf},body:new URLSearchParams({text:'/hint Key',slot:'Alice',automatic:'1'})});return response.status;}""",base)
         assert blocked==403
@@ -128,8 +135,23 @@ def test_console_items_commands_private_hints_and_mobile(actors, artifact_dir):
         alice.get_by_role("button",name="Senden",exact=True).click()
         expect(alice.locator("#console-log")).to_contain_text("Alice: Hallo zusammen!")
         alice.get_by_label('Nachricht oder Befehl',exact=True).fill('Entwurf bleibt erhalten')
+        server.accept_connections = False
         server.interrupt()
-        expect(alice.locator('#console-log')).to_contain_text('Textverbindung wiederhergestellt',timeout=20000)
+        expect(alice.locator('#console-state')).to_have_text('Verbindung wird wiederhergestellt')
+        expect(alice.locator('#console-error')).to_be_hidden()
+        expect(alice.locator('#console-log').get_by_text('Itemaufzeichnung unterbrochen', exact=False)).to_have_count(1)
+        expect(alice.locator('#console-log')).not_to_contain_text('Textverbindung unterbrochen. Automatische Wiederverbindung')
+        alice.get_by_text('Verbindungsdiagnose', exact=True).click()
+        expect(alice.locator('#console-diagnostics')).to_contain_text('Letzter Verbindungsfehler')
+        expect(alice.locator('#console-diagnostics')).to_contain_text('AP-Slot des Hintergrundlesers')
+        for width, height, mode in ((390, 844, 'mobile'), (1365, 950, 'desktop')):
+            alice.set_viewport_size(dict(width=width, height=height))
+            alice.locator('#main-content').evaluate('n=>{n.focus({preventScroll:true});n.blur()}')
+            alice.evaluate('window.scrollTo(0,0)')
+            assert alice.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+            alice.screenshot(path=str(artifact_dir/f'console-reconnecting-{mode}.png'), full_page=True)
+        server.accept_connections = True
+        expect(alice.locator('#console-log').get_by_text('Itemaufzeichnung fortgesetzt', exact=False)).to_have_count(1, timeout=20000)
         expect(alice.get_by_label('Nachricht oder Befehl',exact=True)).to_have_value('Entwurf bleibt erhalten')
         assert sum(p.get('text')=='Hallo zusammen!' for p in server.packets)==1
         alice.locator('#main-content').evaluate('n=>{n.focus({preventScroll:true});n.blur()}');alice.evaluate('window.scrollTo(0,0)')
@@ -177,7 +199,7 @@ def test_official_room_port_rotation_updates_console_and_copy_address_without_re
         alice.get_by_label('Nachricht oder Befehl',exact=True).fill('Entwurf bleibt beim Portwechsel')
         publish(second.port,61)
         expect(alice.locator('#console-log')).to_contain_text('neuen Port',timeout=20000)
-        expect(alice.locator('#console-log')).to_contain_text('Textverbindung wiederhergestellt',timeout=20000)
+        expect(alice.locator('#console-log').get_by_text('Itemaufzeichnung fortgesetzt', exact=False)).to_have_count(1, timeout=20000)
         expect(alice.locator('#console-state')).to_have_text('Mit Archipelago verbunden · WS')
         expect(alice.locator('#console-server-address')).to_have_text(f'archipelago.gg:{second.port}')
         expect(alice.locator('#console-auto-port')).to_be_visible()

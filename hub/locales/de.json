@@ -2178,5 +2178,11 @@
   "m2090": "Logikhilfe für dein gemeldetes Inventar.",
   "m2091": "Älterer Stand vom {v0}",
   "m2092": "Check noch offen",
-  "m2093": "Laut Spiellogik erreichbar"
+  "m2093": "Laut Spiellogik erreichbar",
+  "m2094": "Gemeinsamer Hintergrundleser verbunden.",
+  "m2095": "Gemeinsamer Hintergrundleser getrennt.",
+  "m2096": "AP-Slot des Hintergrundlesers",
+  "m2097": "Verbindungsversuche",
+  "m2098": "Letzter Verbindungsfehler",
+  "m2099": "Beim Verbindungsaufbau konnten nicht alle öffentlichen Meldungen aufgezeichnet werden."
 }
