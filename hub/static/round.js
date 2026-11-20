@@ -38,9 +38,13 @@
     track.hidden = player.progress == null;
     track.firstElementChild.style.width = Math.min(100, player.progress || 0) + '%';
     const at = player.observed_at && new Date(player.observed_at);
-    const older = root.dataset.phase !== 'completed' && Date.now() - at > 300000;
-    $('round-player-observed').textContent = at ? t(older ? 'Älterer Stand vom {v0}' : 'Zuletzt bestätigt am {v0}',
-      {v0: observed.format(at)}) : '';
+    let observedText = '';
+    if (at) {
+      const values = {v0: observed.format(at)};
+      const older = root.dataset.phase !== 'completed' && Date.now() - at > 300000;
+      observedText = older ? t('Älterer Stand vom {v0}', values) : t('Zuletzt bestätigt am {v0}', values);
+    }
+    $('round-player-observed').textContent = observedText;
     const badge = $('round-player-goal');
     badge.textContent = goal(player.goal);
     badge.classList.toggle('ok', player.goal === true);
