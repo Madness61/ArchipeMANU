@@ -34,7 +34,7 @@ class InterfaceTests(unittest.TestCase):
             self.assertEqual(game_catalog.label('Speichern'),'Speichern')
             self.assertEqual(game_catalog.label('Rollenspiel'),i18n.t('Rollenspiel'))
             row=dict(name='Test',slug='test',added_by='Host',custom=True,support_state='loaded',
-                     catalog=dict(description='Test',genres=['Rollenspiel'],tags=['Speichern'],setup_type='mod'))
+                     catalog=dict(description='Test',genres=['Rollenspiel','Speichern'],setup_type='mod'))
             self.assertTrue(game_catalog.matches(row,q=i18n.t('Rollenspiel')))
             self.assertTrue(game_catalog.matches(row,q='Speichern'))
             self.assertFalse(game_catalog.matches(row,q='Save'))

@@ -24,41 +24,44 @@ class GameMetadataTests(unittest.TestCase):
         self.login(self.host, "Host")
         self.login(self.friend, "Friend")
         response = self.upload(self.friend, description="Ein Spiel mit Dungeons.",
-                               genres="Action, Puzzle, action", tags="2D, Erkundung, erkundung")
+                               genres="Action, Puzzle, action")
         self.assertEqual(response.status_code, 302)
         with self.app.app_context():
             row = db.query("SELECT * FROM game_metadata", one=True)
             self.assertEqual(db.loads(row["genres"]), ["Action", "Puzzle"])
-            self.assertEqual(db.loads(row["tags"]), ["2D", "Erkundung"])
+            db.execute("UPDATE game_metadata SET tags=?", (db.dumps(["AltbestandStichwort"]),))
         url = "/games/test_world/metadata/edit"
         self.assertEqual(self.friend.get(url).status_code, 200)
         self.assertEqual(self.post(self.friend, url, {
             "description": "Neue Beschreibung <script>alert(1)</script>",
-            "genres": "Adventure", "tags": "Gemeinsamer Abend, 3D"}).status_code, 302)
-        page = self.host.get("/games?tag=Gemeinsamer+Abend&genre=Adventure&q=abend").get_data(as_text=True)
+            "genres": "Adventure"}).status_code, 302)
+        page = self.host.get("/games?tag=not-a-tag&genre=Adventure&q=Neue").get_data(as_text=True)
         self.assertIn("1 von 1 Spielen", page)
         self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", page)
         self.assertNotIn("<script>alert(1)</script>", page)
-        self.assertEqual(self.host.get("/games?tag=not-a-tag").status_code, 400)
+        self.assertNotIn("AltbestandStichwort", page)
+        self.assertNotIn('name="tag"', page)
+        self.assertIn("0 von 1 Spielen", self.host.get("/games?q=AltbestandStichwort").get_data(as_text=True))
         self.assertEqual(self.upload(self.friend, version="2.0").status_code, 302)
         with self.app.app_context():
             self.assertEqual(db.query("SELECT tags FROM game_metadata", one=True)["tags"],
-                             db.dumps(["Gemeinsamer Abend", "3D"]))
+                             db.dumps(["AltbestandStichwort"]))
             self.assertEqual(len(community.all_games()[0]["versions"]), 2)
         # Pending/inactive worlds also expose the edit action without needing a schema.
         with patch.object(ap_bridge, "index", return_value={**fixtures.INDEX, "games": {}}):
             page = self.friend.get("/games/test_world/setup").get_data(as_text=True)
             self.assertIn('aria-label="Beschreibung bearbeiten"', page)
-            self.assertIn("Gemeinsamer Abend", page)
+            self.assertNotIn('id="game-tags"', page)
+            self.assertNotIn("AltbestandStichwort", page)
 
     def test_edit_permissions_csrf_and_reset(self):
         self.login(self.host, "Host")
         self.login(self.friend, "Friend")
-        self.assertEqual(self.upload(self.host, tags="Testtag").status_code, 302)
+        self.assertEqual(self.upload(self.host, genres="Testgenre").status_code, 302)
         url = "/games/test_world/metadata/edit"
         self.assertEqual(self.friend.get(url).status_code, 403)
-        self.assertEqual(self.post(self.friend, url, {"tags": "Forbidden"}).status_code, 403)
-        self.assertEqual(self.host.post(url, data={"tags": "No CSRF"}).status_code, 403)
+        self.assertEqual(self.post(self.friend, url, {"genres": "Forbidden"}).status_code, 403)
+        self.assertEqual(self.host.post(url, data={"genres": "No CSRF"}).status_code, 403)
         self.assertEqual(self.app.test_client().get(url).status_code, 302)
         self.assertEqual(self.post(self.host, url, {"_action": "reset"}).status_code, 302)
         with self.app.app_context():
@@ -67,34 +70,34 @@ class GameMetadataTests(unittest.TestCase):
 
     def test_validation_precedes_archive_storage_and_retains_form_values(self):
         self.login(self.host, "Host")
-        response = self.upload(self.host, tags="x" * 41, description="Mein Entwurf")
+        response = self.upload(self.host, genres="x" * 41, description="Mein Entwurf")
         self.assertEqual(response.status_code, 400)
         self.assertIn("Mein Entwurf", response.get_data(as_text=True))
         with self.app.app_context():
             self.assertFalse(db.query("SELECT * FROM community_games"))
             self.assertFalse(db.query("SELECT * FROM game_metadata"))
-        self.assertEqual(self.upload(self.host, tags="Valid").status_code, 302)
+        self.assertEqual(self.upload(self.host, genres="Valid").status_code, 302)
         response = self.post(self.host, "/games/test_world/metadata/edit", {
-            "description": "x" * 1501, "tags": "Keep this draft"})
+            "description": "x" * 1501, "genres": "Keep this draft"})
         self.assertEqual(response.status_code, 400)
         with self.app.app_context():
-            self.assertEqual(db.loads(db.query("SELECT tags FROM game_metadata", one=True)["tags"]), ["Valid"])
+            self.assertEqual(db.loads(db.query("SELECT genres FROM game_metadata", one=True)["genres"]), ["Valid"])
 
     def test_added_game_catalog_is_specific_and_editorial_data_is_immutable(self):
         slugs = ["bloodstained_rotn", "tmc", "tboir", "ss", "RE4R", "pseudoregalia", "borderlands2", "borderlands_tps"]
         for slug in slugs:
             info = game_catalog.details(slug, slug)
-            self.assertTrue(info["documented"] and info["tags"] and info["genres"])
+            self.assertTrue(info["documented"] and info["genres"])
             self.assertTrue(info["description"] and info["steps"] and info["guide_url"])
         original = game_catalog.details("tmc", "The Minish Cap")
         edited = game_catalog.details("tmc", "The Minish Cap", {
-            "description": "Unser Text", "genres": '["Custom"]', "tags": '[]'})
+            "description": "Unser Text", "genres": '["Custom"]'})
         self.assertEqual(edited["genres"], ["Custom"])
         self.assertEqual(game_catalog.details("tmc", "The Minish Cap"), original)
 
     def test_open_overview_for_loaded_and_unloaded_games_preserves_old_bookmarks(self):
         self.login(self.host, "Host")
-        self.upload(self.host, description="Unsere Beschreibung", genres="Puzzle", tags="2D")
+        self.upload(self.host, description="Unsere Beschreibung", genres="Puzzle")
         library = self.host.get("/games").get_data(as_text=True)
         self.assertNotIn('>Spiel bearbeiten</a>', library)
         self.assertNotIn('>Anleitung &amp; Voraussetzungen</a>', library)
@@ -115,34 +118,35 @@ class GameMetadataTests(unittest.TestCase):
 
     def test_single_field_updates_preserve_other_fields_and_reject_posted_neighbors(self):
         self.login(self.host, "Host")
-        self.upload(self.host, description="Original", genres="Puzzle", tags="2D")
+        self.upload(self.host, description="Original", genres="Puzzle")
         url = "/games/test_world/metadata/edit"
-        for field, value in (("description", "Neuer Text"), ("genres", "Action"), ("tags", "Erkundung, 3D")):
+        for field, value in (("description", "Neuer Text"), ("genres", "Action")):
             response = self.post(self.host, url, {"_section": field, field: value,
                                                  "author": "999", "ignored": "bad"})
             self.assertEqual(response.location, f"/games/test_world#game-{field}")
-        # A stale description form must not overwrite the newer tags, even if sent.
-        self.post(self.host, url, {"_section": "description", "description": "Letzter Text", "tags": "Stale"})
+        self.post(self.host, url, {"_section": "description", "description": "Letzter Text", "genres": "Stale"})
+        self.assertEqual(self.post(self.host, url, {"_section": "tags", "tags": "Stale"}).status_code, 400)
         with self.app.app_context():
             row = db.query("SELECT * FROM game_metadata", one=True)
             self.assertEqual(row["description"], "Letzter Text")
             self.assertEqual(db.loads(row["genres"]), ["Action"])
-            self.assertEqual(db.loads(row["tags"]), ["Erkundung", "3D"])
             self.assertEqual(row["author"], 1)
 
-    def test_partial_edit_initializes_curated_tags_without_clearing_them(self):
+    def test_partial_edit_keeps_curated_genres(self):
         self.login(self.host, "Host")
         with patch.object(ap_bridge, "index", return_value={**fixtures.INDEX, "games": {
                 "borderlands2": {"game": "Borderlands 2", "version": "1"}}}):
-            self.post(self.host, "/games/borderlands2/metadata/edit", {
+            response = self.post(self.host, "/games/borderlands2/metadata/edit", {
                 "_section": "description", "description": "Unser Text"})
+            self.assertEqual(response.status_code, 302)
         with self.app.app_context():
-            row = db.query("SELECT * FROM game_metadata", one=True)
-            self.assertEqual(db.loads(row["tags"]), game_catalog.details("borderlands2", "Borderlands 2")["tags"])
+            row = dict(db.query("SELECT * FROM game_metadata", one=True))
+        self.assertEqual(game_catalog.details("borderlands2", "Borderlands 2", row)["genres"],
+                         game_catalog.details("borderlands2", "Borderlands 2")["genres"])
 
     def test_invalid_partial_edit_retains_draft_and_does_not_write_other_fields(self):
         self.login(self.host, "Host")
-        self.upload(self.host, description="Original", genres="Puzzle", tags="2D")
+        self.upload(self.host, description="Original", genres="Puzzle")
         url = "/games/test_world/metadata/edit"
         response = self.post(self.host, url, {"_section": "genres", "genres": "x" * 41})
         self.assertEqual(response.status_code, 400)
@@ -153,7 +157,7 @@ class GameMetadataTests(unittest.TestCase):
         self.assertEqual(self.post(self.host, url, {"_section": "author", "author": "2"}).status_code, 400)
         with self.app.app_context():
             row = db.query("SELECT * FROM game_metadata", one=True)
-            self.assertEqual((row["description"], db.loads(row["genres"]), db.loads(row["tags"])), ("Original", ["Puzzle"], ["2D"]))
+            self.assertEqual((row["description"], db.loads(row["genres"])), ("Original", ["Puzzle"]))
 
     def test_contextual_actions_keep_existing_permissions_and_csrf(self):
         self.login(self.host, "Host")
@@ -163,8 +167,8 @@ class GameMetadataTests(unittest.TestCase):
         self.assertNotIn('aria-label="Beschreibung bearbeiten"', page)
         self.assertIn('aria-label="Installationsanleitung bearbeiten"', page)
         url = "/games/test_world/metadata/edit"
-        self.assertEqual(self.post(self.friend, url, {"_section": "tags", "tags": "Forbidden"}).status_code, 403)
-        self.assertEqual(self.host.post(url, data={"_section": "tags", "tags": "No CSRF"}).status_code, 403)
+        self.assertEqual(self.post(self.friend, url, {"_section": "genres", "genres": "Forbidden"}).status_code, 403)
+        self.assertEqual(self.host.post(url, data={"_section": "genres", "genres": "No CSRF"}).status_code, 403)
 
 
 if __name__ == "__main__":

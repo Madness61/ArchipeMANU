@@ -99,7 +99,8 @@ def all_games(search=""):
         item["active"] = module in active_modules
         for version in item["versions"]:
             version["active"] = version["sha256"] in active_hashes
-    metadata = {row["module"]: dict(row) for row in db.query("SELECT * FROM game_metadata")}
+    metadata = {row["module"]: dict(row) for row in db.query(
+        "SELECT module,description,genres FROM game_metadata WHERE description<>'' OR genres<>'[]'")}
     owned_modules = {row["module"] for row in uploads if g.get("user") and row["created_by"] == g.user["id"]}
     for item in library.values():
         item["metadata"] = metadata.get(item["slug"], {})
@@ -113,43 +114,40 @@ def parse_metadata(form):
     description = form.get("description", "").strip()
     if len(description) > 1500:
         raise ValueError("Die Beschreibung darf höchstens 1500 Zeichen enthalten.")
-    def labels(key, maximum):
-        result, seen = [], set()
-        for raw in re.split(r"[,;\n]", form.get(key, "")):
-            label = " ".join(raw.split())
-            if not label:
-                continue
-            if label.casefold() == "all":
-                raise ValueError("Der Begriff 'all' ist für die Filterauswahl reserviert.")
-            if len(label) > 40 or any(ord(char) < 32 for char in label):
-                raise ValueError("Genres und Tags dürfen jeweils höchstens 40 Zeichen enthalten.")
-            if label.casefold() not in seen:
-                result.append(label)
-                seen.add(label.casefold())
-        if len(result) > maximum:
-            raise ValueError(f"Bitte höchstens {maximum} {key.title()} angeben.")
-        return result
-    return dict(description=description, genres=labels("genres", 12), tags=labels("tags", 20))
+    genres, seen = [], set()
+    for raw in re.split(r"[,;\n]", form.get("genres", "")):
+        genre = " ".join(raw.split())
+        if not genre:
+            continue
+        key = genre.casefold()
+        if key == "all":
+            raise ValueError("Der Begriff 'all' ist für die Filterauswahl reserviert.")
+        if len(genre) > 40 or any(ord(char) < 32 for char in genre):
+            raise ValueError("Genres dürfen höchstens 40 Zeichen enthalten.")
+        if key not in seen:
+            genres.append(genre)
+            seen.add(key)
+    if len(genres) > 12:
+        raise ValueError("Bitte höchstens 12 Genres angeben.")
+    return dict(description=description, genres=genres)
 
 
 def save_metadata(slug, values):
-    db.execute("""INSERT INTO game_metadata(module,description,genres,tags,author)
-        VALUES (?,?,?,?,?) ON CONFLICT(module) DO UPDATE SET
-        description=excluded.description,genres=excluded.genres,tags=excluded.tags,
+    db.execute("""INSERT INTO game_metadata(module,description,genres,author)
+        VALUES (?,?,?,?) ON CONFLICT(module) DO UPDATE SET
+        description=excluded.description,genres=excluded.genres,
         author=excluded.author,updated_at=CURRENT_TIMESTAMP""",
-        (slug, values["description"], db.dumps(values["genres"]), db.dumps(values["tags"]), g.user["id"]))
+        (slug, values["description"], db.dumps(values["genres"]), g.user["id"]))
 
 
-def save_metadata_field(slug, field, values, catalog):
+def save_metadata_field(slug, field, values):
     """Update one validated catalog field without overwriting another editor's work."""
-    if field not in ("description", "genres", "tags"):
+    if field not in ("description", "genres"):
         raise ValueError("Unbekanntes Katalogfeld.")
-    initial = dict(description="", genres=[], tags=catalog["tags"])
-    initial[field] = values[field]
-    db.execute(f"""INSERT INTO game_metadata(module,description,genres,tags,author) VALUES (?,?,?,?,?)
+    db.execute(f"""INSERT INTO game_metadata(module,description,genres,author) VALUES (?,?,?,?)
         ON CONFLICT(module) DO UPDATE SET {field}=excluded.{field},
         author=excluded.author,updated_at=CURRENT_TIMESTAMP""",
-        (slug, initial["description"], db.dumps(initial["genres"]), db.dumps(initial["tags"]), g.user["id"]))
+        (slug, values["description"], db.dumps(values["genres"]), g.user["id"]))
 
 
 @bp.route("/games/<slug>/metadata/edit", methods=["GET", "POST"])
@@ -162,11 +160,10 @@ def metadata_edit(slug):
     if not item["can_edit_metadata"]:
         abort(403)
     section = request.form.get("_section", "") if request.method == "POST" else ""
-    if section and section not in ("description", "genres", "tags"):
+    if section and section not in ("description", "genres"):
         abort(400)
     values = dict(description=item["catalog"]["description"],
-                  genres=", ".join(item["catalog"]["genres"] if item["catalog"]["genres"] != ["Noch nicht zugeordnet"] else []),
-                  tags=", ".join(item["catalog"]["tags"]))
+                  genres=", ".join(item["catalog"]["genres"] if item["catalog"]["genres"] != ["Noch nicht zugeordnet"] else []))
     if request.method == "POST":
         values = {**values, **request.form}
         if request.form.get("_action") == "reset":
@@ -175,13 +172,13 @@ def metadata_edit(slug):
         else:
             try:
                 if section:
-                    save_metadata_field(slug, section, parse_metadata({section: request.form.get(section, "")}), item["catalog"])
+                    save_metadata_field(slug, section, parse_metadata({section: request.form.get(section, "")}))
                 else:
                     save_metadata(slug, parse_metadata(request.form))
             except ValueError as exc:
                 flash(str(exc), "error")
                 return render_template("game_metadata.html", item=item, values=values, section=section), 400
-            flash("Beschreibung, Genres und Tags gespeichert.", "info")
+            flash("Spielangaben gespeichert.", "info")
         return redirect(url_for("game", slug=slug, _anchor="game-" + section if section else "game-overview"))
     return render_template("game_metadata.html", item=item, values=values)
 
@@ -238,7 +235,7 @@ def game_add():
             yaml_data = yaml_upload.stream.read(YAML_LIMIT + 1)
             valid_yaml(yaml_data, info["game"] or label)
         # Save only after all inputs pass validation.
-        has_metadata = bool(metadata["description"] or metadata["genres"] or metadata["tags"])
+        has_metadata = bool(metadata["description"] or metadata["genres"])
         existing_module = next((row for row in all_games() if row["slug"] == info["module"]), None)
         if has_metadata and existing_module and not existing_module["can_edit_metadata"]:
             raise ValueError("Katalogangaben bestehender Spiele können nur der Uploader oder ein Admin ändern.")

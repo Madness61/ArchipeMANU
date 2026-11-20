@@ -131,21 +131,21 @@ for _line in _DATA.strip().splitlines():
 
 CATALOG.update({
     "bloodstained_rotn": dict(
-        genres=["Metroidvania", "Action-Rollenspiel"], tags=["2D", "Erkundung", "Ausrüstung", "Bosskämpfe"], setup_type="mod",
+        genres=["Metroidvania", "Action-Rollenspiel"], setup_type="mod",
         description="Erkunde als Miriam ein dämonisches Schloss, sammle Splitterfähigkeiten und entdecke neue Wege mit wechselnder Ausrüstung.",
         requirements=["Bloodstained: Ritual of the Night für Windows und ein zur APWorld passendes Bloodstained-AP-Releasepaket."],
         steps=["Spielstände sichern. Spielclient und APWorld aus derselben kompatiblen Veröffentlichung verwenden; Anleitungen für ältere Integrationen nicht miteinander mischen.",
                "Die Game-Dateien des Releasepakets nach Entwickler-Anleitung in den Spielordner kopieren. Alte Randomizer-Dateien vorab gemäß Anleitung entfernen.",
                "Einen neuen Story-Spielstand mit der zur YAML passenden Schwierigkeit anlegen. Nach dem Laden mit F5 das Verbindungsfenster öffnen und Server, Slotname sowie gegebenenfalls Passwort eintragen."]),
     "tmc": dict(
-        genres=["Action-Adventure", "Puzzle"], tags=["2D", "Dungeons", "Erkundung", "GBA"], setup_type="rom",
+        genres=["Action-Adventure", "Puzzle"], setup_type="rom",
         description="Reise mit Link und Ezelo durch Hyrule, schrumpfe auf Minish-Größe und löse Dungeons mit neu gefundener Ausrüstung.",
         requirements=["Eigene europäische GBA-ROM von The Legend of Zelda: The Minish Cap, Archipelago mit passender TMC-APWorld und BizHawk ab 2.7."],
         steps=["Den eigenen .aptmc-Slot-Patch aus der Runde mit Archipelago öffnen und die europäische Original-ROM zum Patchen auswählen.",
                "Die erzeugte GBA-ROM in BizHawk starten und Run in background aktivieren. Den BizHawk-Client öffnen und connector_bizhawk_generic.lua in der Lua-Konsole laden.",
                "Die Lua-Konsole offen lassen und den BizHawk-Client mit Server:Port der Runde verbinden. Der Client muss das Spiel erkannt haben, bevor Checks und Items übertragen werden."]),
     "tboir": dict(
-        genres=["Roguelike", "Action", "Shooter"], tags=["2D", "Dungeon-Crawler", "Zufallsgeneriert", "Item-Synergien"], setup_type="mod",
+        genres=["Roguelike", "Action", "Shooter"], setup_type="mod",
         description="Kämpfe dich durch zufällig erzeugte Kellerräume und kombiniere Gegenstände zu immer neuen Fähigkeiten und Angriffen.",
         requirements=["The Binding of Isaac: Rebirth mit allen DLCs bis Repentance oder Repentance+, The Archipelago of Isaac aus dem Steam Workshop und die passende tboir.apworld.",
                       "Ein gesicherter Spielstand mit freigeschalteten Wegen zu den Endbossen; Archipelago mit Isaac Client."],
@@ -153,7 +153,7 @@ CATALOG.update({
                "Im Spiel einen ausreichend fortgeschrittenen Spielstand wählen, The Archipelago of Isaac aktivieren und einen Run starten.",
                "Den Isaac Client öffnen, Server:Port eintragen und verbinden. Slotname und verwendeten Spielstand angeben. Erst losspielen, wenn die Verbindung im Spiel grün angezeigt wird."]),
     "ss": dict(
-        genres=["Action-Adventure", "Puzzle"], tags=["3D", "Dungeons", "Erkundung", "Wii"], setup_type="rom",
+        genres=["Action-Adventure", "Puzzle"], setup_type="rom",
         description="Erkunde mit Link das Wolkenmeer und die Gebiete unter den Wolken, löse Dungeons und erschließe neue Wege mit Werkzeugen.",
         requirements=["Eigenes US-Disc-Abbild von Skyward Sword, Revision 1.00; die Wii-Fassung, nicht Skyward Sword HD.",
                       "Dolphin oder eine nach Entwickler-Anleitung eingerichtete Wii sowie SS AP Patcher und ss.apworld aus passenden Releases."],
@@ -190,21 +190,12 @@ CATALOG.update({
                "Danach das Spiel starten; mit Einfügen das Archipelago-Fenster öffnen und unter Server die Verbindung prüfen. Schwierigkeit und Included Content müssen zur YAML passen. Separate Ways ist als Spielinhalt noch nicht unterstützt; bei reinem Mercenaries entfällt der Kampagnen-Patch."]),
 })
 
-# Gameplay tags complement genres; they do not assert APWorld capabilities.
-for _slug, _tags in {
-    "borderlands2": ["Ego-Perspektive", "Loot", "Quests", "Science-Fiction"],
-    "borderlands_tps": ["Ego-Perspektive", "Loot", "Quests", "Science-Fiction"],
-    "pseudoregalia": ["3D", "Erkundung", "Bewegungsfähigkeiten", "Präzise Sprünge"],
-    "RE4R": ["Third-Person", "Ressourcenmanagement", "Kampagne", "Horror"],
-}.items():
-    CATALOG[_slug]["tags"] = _tags
-
 _SOURCES = json.loads(Path(__file__).with_name("game_catalog_sources.json").read_text(encoding="utf-8"))
-_CURATED_LABELS={'Noch nicht zugeordnet'}|{value for entry in CATALOG.values() for field in ('genres','tags') for value in entry.get(field,[])}
+_CURATED_LABELS = {"Noch nicht zugeordnet"} | {genre for entry in CATALOG.values() for genre in entry["genres"]}
 
 
 def label(value):
-    """Translate curated genre/tag vocabulary without translating arbitrary user tags."""
+    """Translate curated genres while preserving custom genre names."""
     return i18n.t(value) if value in _CURATED_LABELS else value
 
 
@@ -217,7 +208,7 @@ def details(slug, name, metadata=None):
                      description=f"{name} ist eine zusätzliche Archipelago-Integration. Die Einrichtung hängt von dieser APWorld ab.",
                      requirements=["Eine zur APWorld passende Spielversion und der vom Entwickler angegebene Client oder Mod. Die Anforderungen sind hier noch nicht dokumentiert."],
                      steps=["Die Anleitung des APWorld-Entwicklers prüfen und Spiel, Client sowie Mod in passenden Versionen installieren. Den Host um die genaue Quelle bitten, falls sie beim Upload fehlt."])
-    entry = {**entry, "tags": list(entry.get("tags", []))}
+    entry = dict(entry)
     english = i18n.language() == 'en'
     if english:
         translated = _EN.get(slug, _EN['_unknown'])
@@ -229,8 +220,6 @@ def details(slug, name, metadata=None):
             entry["description"] = metadata["description"]
         if metadata.get("genres"):
             entry["genres"] = json.loads(metadata["genres"]) or entry["genres"]
-        if "tags" in metadata:
-            entry["tags"] = json.loads(metadata["tags"])
     return {**entry, "unassigned_genres": entry["genres"] == ["Noch nicht zugeordnet"],
             "setup_label": i18n.t(SETUP_TYPES[entry["setup_type"]]),
             "host_rom": i18n.t(HOST_ROM_REQUIRED.get(slug)),
@@ -275,13 +264,12 @@ def enrich(rows):
     return result
 
 
-def matches(row, q="", kind="all", state="all", genre="all", setup="all", tag="all"):
+def matches(row, q="", kind="all", state="all", genre="all", setup="all"):
     info = row["catalog"]
-    terms=[*info['genres'],*info['tags']]
+    terms = info["genres"]
     haystack = " ".join([row["name"], row["slug"], row["added_by"], info["description"], *terms,*(label(value) for value in terms)]).lower()
     return (q.lower().strip() in haystack
             and (kind == "all" or row["custom"] == (kind == "custom"))
             and (state == "all" or row["support_state"] == state)
             and (genre == "all" or genre in info["genres"])
-            and (tag == "all" or tag in info["tags"])
             and (setup == "all" or info["setup_type"] == setup))

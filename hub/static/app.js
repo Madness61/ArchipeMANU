@@ -124,10 +124,10 @@
   const libraryFilters = document.getElementById("library-filters");
   if (libraryFilters) {
     const cards = $$("[data-library-game]").map(card => ({
-      card, search: (card.dataset.search+' '+[...card.querySelectorAll('.genre-tags .chip,.catalog-tags .chip')].map(node=>node.textContent).join(' ')).toLocaleLowerCase(window.HUB_I18N.locale), kind: card.dataset.kind,
-      state: card.dataset.state, genres: JSON.parse(card.dataset.genres), tags: JSON.parse(card.dataset.tags), setup: card.dataset.setup,
+      card, search: (card.dataset.search+' '+[...card.querySelectorAll('.genre-tags .chip')].map(node=>node.textContent).join(' ')).toLocaleLowerCase(window.HUB_I18N.locale), kind: card.dataset.kind,
+      state: card.dataset.state, genres: JSON.parse(card.dataset.genres), setup: card.dataset.setup,
     }));
-    const fields = ["q", "kind", "state", "genre", "tag", "setup"];
+    const fields = ["q", "kind", "state", "genre", "setup"];
     const filter = (updateUrl = true) => {
       const values = Object.fromEntries(fields.map(name => [name, libraryFilters.elements[name].value]));
       const query = values.q.trim().toLowerCase();
@@ -137,7 +137,6 @@
           && (values.kind === "all" || values.kind === item.kind)
           && (values.state === "all" || values.state === item.state || (values.state === "unloaded" && item.state !== "loaded"))
           && (values.genre === "all" || item.genres.includes(values.genre))
-          && (values.tag === "all" || item.tags.includes(values.tag))
           && (values.setup === "all" || values.setup === item.setup);
         item.card.hidden = !visible;
         if (visible) count++;

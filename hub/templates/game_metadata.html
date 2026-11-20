@@ -7,7 +7,7 @@
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   {% if section %}
   <input type="hidden" name="_section" value="{{ section }}">
-  <label for="metadata-value">{{ _('Kurzbeschreibung') if section == 'description' else _('Genres') if section == 'genres' else _('Tags') }}</label>
+  <label for="metadata-value">{{ _('Kurzbeschreibung') if section == 'description' else _('Genres') }}</label>
   {% if section == 'description' %}<textarea id="metadata-value" name="description" rows="4" maxlength="1500">{{ values.description }}</textarea>{% else %}<input id="metadata-value" name="{{ section }}" value="{{ values[section] }}">{% endif %}
   {% else %}{% include "catalog_fields.html" %}{% endif %}
   <div class="row"><button class="primary">{{ _("Spielangaben speichern") }}</button><a class="btn" href="{{ url_for('game', slug=item.slug, _anchor='game-' ~ section if section else 'game-overview') }}">{{ _("Abbrechen") }}</a></div>

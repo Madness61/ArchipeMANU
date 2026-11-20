@@ -21,21 +21,19 @@ def games():
     # Preserve old bookmarks without continuing to call installed options 'ready'.
     state = {"ready": "loaded", "pending": "unloaded"}.get(state, state)
     genre = request.args.get("genre", "all")
-    tag = request.args.get("tag", "all")
     setup = request.args.get("setup", "all")
     genres = sorted({g for row in library for g in row["catalog"]["genres"]})
-    tags = sorted({tag for row in library for tag in row["catalog"]["tags"]}, key=str.casefold)
     setup_types = {key: label for key, label in game_catalog.SETUP_TYPES.items()
                    if any(row["catalog"]["setup_type"] == key for row in library)}
     if (kind not in ("all", "builtin", "custom")
             or state not in ("all", "unloaded", *game_catalog.SUPPORT_STATES)
-            or genre not in ("all", *genres) or tag not in ("all", *tags) or setup not in ("all", *setup_types)):
+            or genre not in ("all", *genres) or setup not in ("all", *setup_types)):
         abort(400, "Unbekannter Spielefilter.")
     rows = [row for row in library if game_catalog.matches(
-        row, q, kind, "all" if state == "unloaded" else state, genre, setup, tag)
+        row, q, kind, "all" if state == "unloaded" else state, genre, setup)
         and (state != "unloaded" or not row["installed"])]
     return render_template("games.html", rows=rows, library=library, q=q, kind=kind,
-                           state=state, genre=genre, tag=tag, tags=tags, setup=setup, genres=genres,
+                           state=state, genre=genre, setup=setup, genres=genres,
                            setup_types=setup_types, support_states=game_catalog.SUPPORT_STATES,
                            total=len(library))
 
