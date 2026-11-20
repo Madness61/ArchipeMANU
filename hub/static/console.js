@@ -13,6 +13,7 @@
   let cursor = 0, first = 0, generation = 0, fetching = false, sending=false, catalogVersion = 0, endpointId, authLost=false, archiveLoaded=false;
   const ids = new Set();
   const labels = window.HUB_UI.consoleStates;
+  const retrying = room => room.state === 'reconnecting' || room.state === 'temporarily_unavailable';
   const startingRoom = data => data?.room_connection?.state !== 'connected'
     && ['checking','starting'].includes(data?.room_start?.state);
   let players=new Map(),playerPattern=null,playerSignature='';
@@ -49,6 +50,16 @@
     const box=document.getElementById('console-diagnostics');if(!box)return;
     const fragment=document.createDocumentFragment();
     const line=(label,value)=>{const row=document.createElement('div'),name=document.createElement('strong'),detail=document.createElement('span');name.textContent=label;detail.textContent=value;row.append(name,detail);fragment.append(row);};
+    if(data){
+      const room=data.room_connection||data;
+      line(window.HUB_I18N.t('Archipelago Live-Konsole'),labels[room.state]||room.state);
+      if(data.recording?.automatic && room.slot)line(window.HUB_I18N.t('AP-Slot des Hintergrundlesers'),room.slot);
+      line(window.HUB_I18N.t('Letzter Konsolenkontakt'),dateText(room.last_contact));
+      line(window.HUB_I18N.t('Nächster Reconnect-Versuch'),room.next_retry_at?dateText(room.next_retry_at):window.HUB_I18N.t('Keiner geplant'));
+      if(room.retry_attempt)line(window.HUB_I18N.t('Verbindungsversuche'),room.retry_attempt.toLocaleString(window.HUB_I18N.locale));
+      if(room.error)line(window.HUB_I18N.t('Letzter Verbindungsfehler'),room.error);
+      if(data.recording?.last_event)line(window.HUB_I18N.t('Zuletzt aufgezeichnetes Item'),dateText(data.recording.last_event));
+    }
     line(window.HUB_I18N.t('ArchipeMANU-Backend'),hubReachable===false?window.HUB_I18N.t('Nicht erreichbar'):hubReachable?window.HUB_I18N.t('Erreichbar'):window.HUB_I18N.t('Wird geprüft'));
     line(window.HUB_I18N.t('Letzter erfolgreicher Kontakt'),dateText(lastHubContact));
     if(data){
@@ -60,11 +71,6 @@
         const cacheLabels={fresh:window.HUB_I18N.t('Im Cache'),due:window.HUB_I18N.t('Aktualisierung fällig'),updating:window.HUB_I18N.t('Abruf läuft'),error:window.HUB_I18N.t('Abruf fehlgeschlagen')};
         line(window.HUB_I18N.t('API-Cache'),web.endpoints.length?web.endpoints.map(e=>e.endpoint+': '+cacheLabels[e.state]).join(' · '):window.HUB_I18N.t('Noch keine Daten'));
       }
-      const room=data.room_connection||data;
-      line(window.HUB_I18N.t('Archipelago Live-Konsole'),labels[room.state]||room.state);
-      line(window.HUB_I18N.t('Letzter Konsolenkontakt'),dateText(room.last_contact));
-      line(window.HUB_I18N.t('Nächster Reconnect-Versuch'),room.next_retry_at?dateText(room.next_retry_at):window.HUB_I18N.t('Keiner geplant'));
-      if(data.recording?.last_event)line(window.HUB_I18N.t('Zuletzt aufgezeichnetes Item'),dateText(data.recording.last_event));
       line(window.HUB_I18N.t('Lokaler Spielclient'),window.HUB_I18N.t('Unbekannt · keine zuverlässige technische Prüfung'));
     }
     box.replaceChildren(fragment);
@@ -101,6 +107,10 @@
         route.append(sender,document.createTextNode(' → '),recipient,document.createTextNode(': '),item);
         const place=document.createElement('small');place.className='console-item-place';place.textContent=entry.delivery.location.name+' · '+entry.delivery.sender.game;
         text.append(route,place);
+      }else if(entry.connection_role==='reader'){
+        text.textContent=entry.text;
+        text.title=entry.server_text;
+        text.className='muted';
       }else messageText(text,entry.text);
       if(entry.source==='received_items'){
         const evidence=document.createElement('small');evidence.className='console-item-place';
@@ -135,7 +145,12 @@
       diagnostics(data);
       if(data.recording){
         const recording=data.recording;
-        const recordError=document.getElementById('recording-error');if(recordError){recordError.textContent=recording.error;recordError.hidden=!recording.error;}
+        const recordError=document.getElementById('recording-error');
+        if(recordError){
+          const warning=recording.console_state==='action_required' ? recording.error : '';
+          if(recordError.textContent!==warning)recordError.textContent=warning;
+          recordError.hidden=!warning;
+        }
       }
       const changedCatalog = (catalogVersion !== data.catalog_version || endpointId!==undefined && endpointId!==data.endpoint_id) && cursor > 0;
       catalogVersion = data.catalog_version;
@@ -176,7 +191,7 @@
       state.className = 'chip ' + (shared.state === 'connected' || showLaunch && launch.state==='reachable'
         ? 'ok' : showLaunch && launch.state==='error' || ['error','action_required'].includes(shared.state) ? 'err' : '');
       document.dispatchEvent(new CustomEvent('hub:console-state',{detail:data}));
-      fail(archived ? '' : showLaunch ? launch.error : shared.error || '');
+      fail(archived ? '' : showLaunch ? launch.error || '' : retrying(shared) ? '' : shared.error || '');
       append(data.events,previous);
       if (data.events.length) {
         first = first ? Math.min(first,data.events[0].id) : data.events[0].id;

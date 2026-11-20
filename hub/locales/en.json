@@ -2178,5 +2178,11 @@
   "m2090": "Find options based on your reported inventory.",
   "m2091": "Older snapshot from {v0}",
   "m2092": "Check still open",
-  "m2093": "Reachable according to game logic"
+  "m2093": "Reachable according to game logic",
+  "m2094": "Shared background reader connected.",
+  "m2095": "Shared background reader disconnected.",
+  "m2096": "Background reader's AP slot",
+  "m2097": "Connection attempts",
+  "m2098": "Last connection error",
+  "m2099": "Some public messages could not be recorded while connecting."
 }

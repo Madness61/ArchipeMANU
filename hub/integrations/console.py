@@ -115,6 +115,9 @@ def network_item(value):
 
 
 class Client:
+    connect_tags = ("TextOnly",)
+    report_connection_events = True
+
     def __init__(self, path, build, user_id, token_hash, endpoint, slot, password, secure):
         self.path, self.build_id, self.user_id = Path(path), build["id"], user_id
         self.token_hash, self.endpoint = token_hash, endpoint
@@ -146,8 +149,6 @@ class Client:
         self.thread = threading.Thread(target=self.run, daemon=True, name=f"ap-console-{self.build_id}-{user_id}")
 
     def note(self, text, kind="system", origin="hub", values=None):
-        if self.managed and kind=='system' and origin=='hub' and text.startswith('Als '):
-            return  # Automatic authentication is not a second user-facing step.
         payload = dict(text=text,origin=origin,actor_slot=self.slot_name)
         if values is not None:
             payload['values']=values
@@ -174,7 +175,8 @@ class Client:
         self.endpoint["port"] = target["port"]
         self.error = ""
         self.failure_streak = self.retry_attempt = 0
-        self.note("Archipelago hat einen neuen Port gemeldet. Die Textkonsole verbindet sich automatisch neu.")
+        if not self.managed:
+            self.note("Archipelago hat einen neuen Port gemeldet. Die Textkonsole verbindet sich automatisch neu.")
         return True
 
     def valid(self):
@@ -262,7 +264,9 @@ class Client:
                         self.transition("action_required", "internal")
                         break
                     self.error = "" if isinstance(exc, PortChanged) else connection_error(exc)
-                    self.interrupted_at = self.interrupted_at or time.time()
+                    first_interruption = self.connected_at is not None and self.interrupted_at is None
+                    if first_interruption:
+                        self.interrupted_at = time.time()
                     if self.stable_since and time.monotonic() - self.stable_since > 60:
                         self.failure_streak = 0
                     self.stable_since = None
@@ -271,7 +275,8 @@ class Client:
                     delay = min(RETRY_MAX, RETRY_BASE * 2 ** min(self.retry_attempt - 1, 10))
                     delay = min(RETRY_MAX, delay * random.uniform(1, 1.2))
                     self.next_retry_at = time.time() + delay
-                    self.transition("reconnecting" if self.retry_attempt < 5 else "temporarily_unavailable", type(exc).__name__)
+                    self.transition("reconnecting" if self.retry_attempt < 5 else "temporarily_unavailable",
+                                    type(exc).__name__, announce=first_interruption and self.report_connection_events)
                 finally:
                     if self.wire:
                         self.wire.close()
@@ -293,9 +298,9 @@ class Client:
                 self.wire.close()
                 self.wire = None
             if self.state != "action_required":
-                self.transition("disconnected", "stopped_or_authorization_changed")
+                self.transition("disconnected", "stopped_or_authorization_changed", announce=self.report_connection_events)
 
-    def transition(self, state, reason):
+    def transition(self, state, reason, *, announce=True):
         self.state, self.reason = state, reason
         self.observe_progression()
         try:
@@ -303,6 +308,8 @@ class Client:
         except sqlite3.Error:
             pass  # A deleted build/endpoint must still let its worker stop.
         _state_logger.info("build=%s user=%s state=%s reason=%s", self.build_id, self.user_id, state, reason)
+        if not announce:
+            return
         message = {
             "reconnecting": "Textverbindung unterbrochen. Automatische Wiederverbindung; während der Lücke können Itemmeldungen fehlen.",
             "temporarily_unavailable": "Textserver vorübergehend nicht erreichbar. Weitere Versuche folgen automatisch.",
@@ -379,7 +386,7 @@ class Client:
                 raise ValueError("Der Server gehört zu einem anderen Seed. Bitte die gespeicherte Verbindung prüfen.")
             self.wire.send(db.dumps([dict(cmd="Connect", password=self.password or None, game="", name=self.slot_name,
                                          uuid=self.uuid, version={"major":0,"minor":6,"build":8,"class":"Version"},
-                                         items_handling=7, tags=["TextOnly"], slot_data=self.request_slot_data)]))
+                                         items_handling=7, tags=self.connect_tags, slot_data=self.request_slot_data)]))
         elif cmd == "ConnectionRefused":
             errors = packet.get("errors", [])
             reason = ("Das Raumpasswort ist falsch oder fehlt." if "InvalidPassword" in errors else
@@ -410,7 +417,8 @@ class Client:
             self.stable_since = time.monotonic()
             self.stream_state()
             if self.interrupted_at:
-                self.note("Textverbindung wiederhergestellt. Empfangsliste und Checks werden synchronisiert. Belegte Empfänge werden ergänzt; ein vollständiger Verlauf lässt sich daraus nicht rekonstruieren.")
+                if self.report_connection_events:
+                    self.note("Textverbindung wiederhergestellt. Empfangsliste und Checks werden synchronisiert. Belegte Empfänge werden ergänzt; ein vollständiger Verlauf lässt sich daraus nicht rekonstruieren.")
                 self.interrupted_at = None
             commands=[{"cmd":"GetDataPackage","games":sorted({v['game'] for v in self.players.values() if v['type']==1})}]
             if self.managed:
@@ -419,7 +427,8 @@ class Client:
                 self.sync_pending = True
                 commands.insert(0,dict(cmd='Sync'))
             self.wire.send(db.dumps(commands))
-            self.note(f"Als {self.slot_name} mit Archipelago verbunden. Der Spielclient bleibt unabhängig davon verbunden.")
+            if self.report_connection_events:
+                self.note(f"Als {self.slot_name} mit Archipelago verbunden. Der Spielclient bleibt unabhängig davon verbunden.")
         elif self.state != "connected":
             return
         elif cmd == "DataPackage":
@@ -599,6 +608,7 @@ def start(build, user_id, token_hash, endpoint, slot, password="", secure=None, 
                 return old
         client = Client(config.DB_PATH.resolve(), build, user_id, token_hash, dict(endpoint), slot, password, secure)
         client.managed = managed
+        client.report_connection_events = not managed
         return launch(client, key(build['id'],user_id))
 
 
