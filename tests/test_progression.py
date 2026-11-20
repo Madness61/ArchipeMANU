@@ -108,6 +108,53 @@ class FinderTests(unittest.TestCase):
             db.execute("INSERT INTO hosted_rooms(build_id,host,port,entered_by,created_at) VALUES (?,'127.0.0.1',3456,1,'later')",(self.bid,))
         self.assertEqual(self.client.get(self.url+'/items?status=unknown').json['total'],6)
 
+    def test_player_item_focus_separates_found_unconfirmed_received_and_unknown(self):
+        with self.app.app_context():
+            db.execute('INSERT INTO progression_live VALUES (?,?,?,?,?,?)',
+                       (self.bid, 'Friend', self.hid, 2, db.dumps(dict(checked=[20], missing=[], received=[])), time.time()))
+        url = self.url + '/items?recipient=Host&focus='
+        hidden = self.client.get(url + 'open').json
+        self.assertEqual(hidden['counts'], dict(open=1, received=0, unknown=1))
+        self.assertEqual(hidden['rows'][0]['states'], {'found': 1})
+        self.assertNotIn('copies', hidden['rows'][0])
+        self.assertEqual(self.client.get(url + 'unknown').json['rows'][0]['states'], {'unknown': 1})
+        self.grant()
+        self.assertEqual(self.client.get(url + 'open').json['rows'][0]['copies'][0]['finder'], 'Friend')
+        self.assertEqual(self.client.get(url + 'open').json['rows'][0]['copies'][0]['status'], 'unknown')
+        with self.app.app_context():
+            db.execute('INSERT INTO progression_live VALUES (?,?,?,?,?,?)',
+                       (self.bid, 'Host', self.hid, 1,
+                        db.dumps(dict(checked=[], missing=[], received=[dict(item=51, location=20, player=2)])), time.time()))
+        self.assertEqual(self.client.get(url + 'received').json['rows'][0]['copies'][0]['check_status'], 'checked')
+        self.assertEqual(self.client.get(url + 'open').json['rows'][0]['states'], {'unreceived': 1})
+        self.assertEqual(self.client.get(url + 'invalid').status_code, 400)
+
+    def test_overview_reads_only_cached_general_analysis_for_owned_slot_with_consent(self):
+        url = self.url + '/analysis?overview=1&slot=Host'
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.grant(self.friend)
+        self.assertEqual(self.friend.get(url).status_code, 403)
+        self.grant()
+        with patch.object(progression, 'job', return_value=dict(
+                state='ready', observed_at=time.time(), reachable=[dict(id=11, name='Village', region='Town')],
+                singles_complete=True)) as job:
+            result = self.client.get(url).json
+            self.assertEqual(result['next_check'], 'Village')
+            self.assertEqual(result['reachable_count'], 1)
+            self.assertNotIn('static', result)
+            self.assertEqual(job.call_args.args[3:], (False, None, 'items'))
+            self.assertEqual(self.post(url, {'slot': 'Host'}).status_code, 400)
+            job.assert_called_once()
+
+        with patch.object(progression, 'job', return_value=dict(
+                state='ready', reachable=[], singles_complete=False, singles=[
+                    dict(items=[dict(name='Sword', count=1, locations=[dict(finder=2, location_id=20)])],
+                         new_checks=[10], new_regions=['Town'])
+                ])):
+            result = self.client.get(url).json
+            self.assertEqual(result['next_item'], dict(name='Sword', checks=1, regions=1, finders=['Friend']))
+            self.assertFalse(result['singles_complete'])
+
     def test_historical_missing_corrupt_placements_and_completed_round(self):
         self.grant()
         self.assertEqual(self.client.get(self.url+'/analysis').json['reason'],'historical_seed')
@@ -124,6 +171,8 @@ class FinderTests(unittest.TestCase):
             record(config.DB_PATH, self.bid, None, 'items', dict(base, location_id=20, source='live'),
                    hosted_id=self.hid)
             record(config.DB_PATH, self.bid, None, 'items', dict(base, location_id=21, source='received_items'),
+                   hosted_id=self.hid)
+            record(config.DB_PATH, self.bid, None, 'items', dict(base, location_id=21, source='live'),
                    hosted_id=self.hid)
             record(config.DB_PATH, self.bid, None, 'items', dict(base, location_id=22, item_id=53, source='live'),
                    hosted_id=self.hid)  # The recorded recipient does not match this placement.

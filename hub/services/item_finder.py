@@ -103,14 +103,17 @@ def find(build, own, query='', category='all', owner='all', status='all', page=1
               state.get('received_complete', True), at)
         for pid, (state, at, _) in observed.items()
     }
-    journal = {}
+    found_at, delivered_at = {}, {}
     for event in db.query("""SELECT payload,observed_at FROM console_events
         WHERE build_id=? AND hosted_id=(SELECT MAX(id) FROM hosted_rooms WHERE build_id=?)
         AND user_id IS NULL AND kind='items'""", (build['id'], build['id'])):
         payload = db.loads(event['payload'])
         if payload.get('type') == 'item':
             key = (payload['sender'], payload['location_id'], payload['recipient'], payload['item_id'])
-            journal[key] = (event['observed_at'], payload.get('source'))
+            at = event['observed_at']
+            found_at[key] = max(at, found_at.get(key, 0))
+            if payload.get('source') == 'received_items':
+                delivered_at[key] = max(at, delivered_at.get(key, 0))
     query = query.casefold()
     answer = []
     for index, row in enumerate(rows):
@@ -136,13 +139,13 @@ def find(build, own, query='', category='all', owner='all', status='all', page=1
             matched = (row['item_id'], row['location_id'], row['finder']) in items
             if matched or complete:
                 receipt, receipt_at = ('received' if matched else 'not_received'), at
-        event = journal.get((finder['name'], row['location_id'], recipient['name'], row['item_id']))
-        if event:
-            at, source = event
-            if check_at is None or at > check_at:
-                check, check_at = 'checked', at
-            if source == 'received_items' and (receipt_at is None or at > receipt_at):
-                receipt, receipt_at = 'received', at
+        key = (finder['name'], row['location_id'], recipient['name'], row['item_id'])
+        if key in found_at and (check_at is None or found_at[key] > check_at):
+            check, check_at = 'checked', found_at[key]
+        if key in delivered_at and (receipt_at is None or delivered_at[key] > receipt_at):
+            receipt, receipt_at = 'received', delivered_at[key]
+        if receipt == 'received' and (check_at is None or (check != 'checked' and receipt_at >= check_at)):
+            check, check_at = 'checked', receipt_at
         if status != 'all' and check != status:
             continue
         answer.append(dict(id=index, **row, finder_player=finder, recipient_player=recipient,
@@ -154,24 +157,47 @@ def find(build, own, query='', category='all', owner='all', status='all', page=1
     return dict(available=True,total=len(answer),page=page,pages=pages,rows=answer[(page-1)*limit:page*limit])
 
 
-def player_items(build, own, recipient, query, receipt, reveal, page, limit):
+def player_item_state(row):
+    if row['receipt_status'] == 'received':
+        return 'received'
+    if row['check_status'] == 'checked':
+        return 'found'
+    if row['check_status'] == 'unchecked':
+        return 'unchecked'
+    if row['receipt_status'] == 'not_received':
+        return 'unreceived'
+    return 'unknown'
+
+
+def player_items(build, own, recipient, query, receipt, reveal, page, limit, focus='all'):
     result = find(build, own, category='progression', limit=0, recipient_slot=recipient)
     groups = {}
+    counts = dict(open=0, received=0, unknown=0)
     query = query.casefold()
     for row in result['rows']:
+        state = player_item_state(row)
+        view = 'open' if state in ('found', 'unchecked', 'unreceived') else state
+        counts[view] += 1
+        if focus not in ('all', view):
+            continue
         name = row['item']
         if query not in name.casefold():
             continue
         group = groups.setdefault(row['item_id'], dict(name=name, total=0, received=0, not_received=0, unknown=0))
         group['total'] += 1
         group[row['receipt_status']] += 1
+        if focus != 'all':
+            states = group.setdefault('states', {})
+            states[state] = states.get(state, 0) + 1
         if reveal and receipt in ('all', row['receipt_status']):
             group.setdefault('copies', []).append(dict(
                 finder=row['finder_player']['name'], game=row['finder_player']['game'], location=row['location'],
                 status=row['receipt_status'], check_status=row['check_status']))
     rows = sorted((group for group in groups.values() if receipt == 'all' or group[receipt]),
-                  key=lambda group: group['name'].casefold())
+                  key=lambda group: (not group.get('states', {}).get('found'),
+                                     not group.get('states', {}).get('unchecked'),
+                                     group['name'].casefold(), group['name']))
     pages = max(1, (len(rows) + limit - 1) // limit)
     page = min(page, pages)
     return dict(available=result['available'], revealed=reveal, total=len(rows), page=page, pages=pages,
-                rows=rows[(page - 1) * limit:page * limit])
+                counts=counts, rows=rows[(page - 1) * limit:page * limit])
