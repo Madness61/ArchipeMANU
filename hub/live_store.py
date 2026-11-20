@@ -463,7 +463,8 @@ def round_summary(linked, build):
         if name in goals and (goal is None or goals[name] >= (linked['last_success'] if observed else 0)):
             goal = True
         players.append(dict(name=name, game=slot['game_name'], checks=checks, total=total, goal=goal,
-                            progress=live_metrics.percent(checks, total), received=None if race else received))
+                            progress=live_metrics.percent(checks, total), received=None if race else received,
+                            observed_at=iso(at)))
     checks = sum(p['checks'] for p in players) if players and all(p['checks'] is not None for p in players) else None
     total = sum(p['total'] for p in players) if players and all(p['total'] is not None for p in players) else None
     last_item = None if race else db.query("""SELECT MAX(id) AS id FROM console_events
@@ -471,7 +472,9 @@ def round_summary(linked, build):
     return dict(players=players, checks=checks, total=total, progress=live_metrics.percent(checks, total),
                 goals=sum(p['goal'] is True for p in players), known_goals=sum(p['goal'] is not None for p in players),
                 updated_at=iso(max(updated)) if updated else None, seed_matches=matches,
-                item_version=[hosted_id, max(updated, default=None), last_item])
+                item_version=[hosted_id, linked['tracker_id'] if linked else None,
+                              linked['last_success'] if matches else None,
+                              max((row['observed_at'] for row in snapshots.values()), default=None), last_item])
 
 
 def presentation(linked, build, window="6h", now=None):
