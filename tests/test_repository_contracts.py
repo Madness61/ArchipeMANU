@@ -38,7 +38,7 @@ class RouteContractTests(unittest.TestCase):
 class RepositoryContractTests(unittest.TestCase):
     def test_internal_markdown_links_and_heading_anchors(self):
         self.assertEqual(list(broken_links()), [])
-        self.assertEqual({p.name for p in ROOT.glob('*.md')}, {'README.md'})
+        self.assertEqual({p.name for p in ROOT.glob('*.md')}, {'README.md', 'AGENTS.md'})
         self.assertGreater(len(list(documents())), 20)
 
     def test_markdown_checker_reports_missing_file_and_anchor(self):

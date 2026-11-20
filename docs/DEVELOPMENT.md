@@ -1,12 +1,14 @@
 # Entwicklung und Tests
 
+Für Coding-Agenten gelten die kompakten [Projektregeln](../AGENTS.md). Diese Detailreferenz nur bei konkretem Bedarf lesen, nicht standardmäßig vor jeder Änderung.
+
 ## Git und Aufgaben
 
 `main` ist der zentrale Entwicklungsstand. Neue Arbeit beginnt auf einem kurzlebigen Feature-Branch von aktuellem `origin/main`, mit PR direkt gegen `main`. Tests und Review vor dem Merge prüfen; Branch-Schutz niemals umgehen. Keine normalen Ketten auf offenen Feature-Branches. Technisch erforderliche Ausnahmen müssen im PR begründet und zeitnah integriert werden.
 
 Aufgaben ausschließlich als [GitHub Issues](https://github.com/Madness61/ArchipeMANU/issues) führen. Kategorien: Bug, Feature, UX, Refactoring, Tests, Dokumentation. Titel/Kategorie und Akzeptanzkriterien nennen, Duplikate vorher suchen und passende PRs verlinken. Es gibt keine zweite aktive TODO-Liste. Ohne Projects-Zugriff genügt diese Issues-Struktur.
 
-Die alte Kette #11–16 wurde anhand ihrer Commit-Abstammung geprüft und über #16 per Merge-Commit integriert. Alle sechs PRs sind gemergt. Die anschließende Vereinfachung beginnt direkt auf diesem `main`; die [Archivübersicht](archive/README.md) erklärt die Dokumentations- und TODO-Migration.
+Historische PR-Ketten und abgeschlossene Umstellungen stehen in der [Archivübersicht](archive/README.md); sie sind keine Vorgabe für neue Aufgaben.
 
 ## Umgebung
 
@@ -20,6 +22,8 @@ $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $PWD ".playwright-browsers"
 ```
 
 ## Prüfungen
+
+Während der Bearbeitung zuerst die betroffenen Tests ausführen. Vor dem Merge die vollständige Python- und Browser-Suite erfolgreich prüfen; bei Änderungen an AP-/Worker-Logik zusätzlich die echten isolierten Integrationstests ausführen. Ergebnisse, Skips und Grenzen korrekt dokumentieren.
 
 ```powershell
 .\.venv-browser\Scripts\python.exe -W error::ResourceWarning -m unittest discover -s tests -v
@@ -42,7 +46,7 @@ Reguläre GitHub Actions führen Python-Tests auf Ubuntu und Windows sowie Chrom
 
 ## Änderungsregeln
 
-Zuständigkeit vor Änderungen in [ARCHITECTURE.md](ARCHITECTURE.md) bestimmen. Bestehende URLs, CLI-Einstiegspunkte und Datenverträge bewahren. Keine Datenbankmigration allein für Dateiverschiebungen. Nötige Migrationen additiv, wiederholbar und mit Altdaten-Test ausführen. Niemals echten `data/`-Ordner für Tests verwenden, zurücksetzen oder löschen.
+Bei unklaren Zuständigkeiten die relevanten Abschnitte in [ARCHITECTURE.md](ARCHITECTURE.md) nachschlagen; keine pauschale Volllektüre. Bestehende URLs, CLI-Einstiegspunkte und Datenverträge bewahren. Keine Datenbankmigration allein für Dateiverschiebungen. Nötige Migrationen additiv, wiederholbar und mit Altdaten-Test ausführen. Niemals echten `data/`-Ordner für Tests verwenden, zurücksetzen oder löschen.
 
 Tests entsprechend geändertem Verhalten ergänzen; alte Funktionsverträge nicht stillschweigend abschwächen. Die deaktivierte Paarlogik behält ihre Regressionen in der Extension; die Produktionsengine erhält eigene Tests gegen unbeabsichtigte Paar-/Zielaufrufe. Route-, Import-, Skript- und Markdown-Verträge gehören zur Unit-Suite.
 
