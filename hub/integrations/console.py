@@ -234,9 +234,11 @@ class Client:
             scope = (self.build_id, self.endpoint['id'])
             active_sql = "SELECT 1 FROM console_streams WHERE build_id=? AND hosted_id=? AND state='connected' AND heartbeat>?"
             before = conn.execute(active_sql, (*scope, fresh_after)).fetchone()
-            previous = conn.execute('SELECT 1 FROM console_streams WHERE build_id=? AND hosted_id=? AND connected_at IS NOT NULL', scope).fetchone()
+            previous = conn.execute('''SELECT id FROM console_streams WHERE build_id=? AND hosted_id=?
+                AND connected_at IS NOT NULL ORDER BY (id = ?) DESC LIMIT 1''', (*scope, self.stream_id)).fetchone()
             state = self.state
-            if (state == 'connected' and not before and previous and self.stable_since is not None
+            if (state == 'connected' and not before and previous and previous['id'] == self.stream_id
+                    and self.stable_since is not None
                     and time.monotonic() - self.stable_since < self.coverage_recovery_seconds):
                 # Keep one gap open while sockets authenticate and drop in quick succession.
                 state = 'recovering'
