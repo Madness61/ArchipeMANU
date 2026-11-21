@@ -410,5 +410,6 @@ class MigrationTests(unittest.TestCase):
                     after = [dict(r) for r in conn.execute(f"SELECT * FROM {table}")]
                     if table == "users":
                         self.assertTrue(all(r.pop("password_hash") == "" for r in after))
+                        self.assertTrue(all(r.pop("is_trusted") == 0 for r in after))
                     self.assertEqual(after,rows)
                 self.assertEqual(conn.execute("PRAGMA foreign_key_check").fetchall(),[])
