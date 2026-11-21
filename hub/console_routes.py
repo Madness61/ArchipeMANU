@@ -1,7 +1,7 @@
 """Authenticated, CSRF-protected API for the Archipelago TextOnly console."""
 import queue
 
-from flask import Blueprint, abort, current_app, g, jsonify, render_template, request, session
+from flask import Blueprint, abort, current_app, g, jsonify, make_response, render_template, request, session
 from werkzeug.exceptions import HTTPException
 
 from . import ap_console, auth, config, db, live_routes, live_store, i18n, recording, connection_diagnostics
@@ -93,10 +93,19 @@ def state(value):
 @bp.route(PREFIX)
 def page(sid, build_id):
     room, build, own = access(sid, build_id)
-    live_routes.open_room(build)
+    popout = request.args.get("popout") == "1"
+    if not popout:
+        live_routes.open_room(build)
     endpoint = db.query("SELECT * FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (build_id,), one=True)
-    return render_template("console.html", room=room, build=build, own=own, endpoint=endpoint,
+    html = render_template("console_popout.html" if popout else "console.html",
+                           room=room, build=build, own=own, endpoint=endpoint, console_popout=popout,
                            commands=ap_console.COMMANDS, archived=bool(build["completed_at"]))
+    if not popout:
+        return html
+    response = make_response(html)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Content-Security-Policy"] = "frame-ancestors 'self'"
+    return response
 
 
 @bp.route(PREFIX + "/data")
@@ -130,7 +139,8 @@ def data(sid, build_id):
     room_state = state(reader)
     if not reader:
         room_state.update(state=shared['console_state'] if shared['enabled'] else 'disconnected',error=shared['error'])
-    response = jsonify(**state(client(build_id)), room_connection=room_state, room_start=live_routes.start_status(build),
+    response = jsonify(**state(client(build_id)), viewer_id=g.user["id"],
+                   room_connection=room_state, room_start=live_routes.start_status(build),
                    players=players, events=rows, cursor=rows[-1]["id"] if rows else after,
                    catalog_version=catalog_version, endpoint_id=endpoint["id"] if endpoint else None,
                    server=dict(host=endpoint["host"], port=endpoint["port"], room_url=endpoint["room_url"],

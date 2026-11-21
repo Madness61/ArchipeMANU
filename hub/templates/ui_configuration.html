@@ -1,0 +1,2 @@
+<script id="ui-configuration" type="application/json">{{ dict(language=ui_prefs.language,theme=ui_prefs.theme,messages=ui_messages,patterns=ui_patterns,endpoint=url_for('save_preferences'),csrf=csrf_token)|tojson }}</script>
+<script src="{{ url_for('static', filename='preferences.js') }}"></script>

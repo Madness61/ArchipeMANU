@@ -152,9 +152,13 @@ class ConsoleTests(unittest.TestCase):
         self.assertEqual(self.client.post(self.url+"/connect",data={}).status_code,403)
         self.assertEqual(self.post(self.url+"/connect",{"slot":"Friend"}).status_code,403)
         self.assertEqual(self.app.test_client().get(self.url+"/data").status_code,401)
+        anonymous = self.app.test_client().get(self.url+"?popout=1")
+        self.assertEqual(anonymous.status_code,302)
+        self.assertIn("/login?next=",anonymous.location)
         outsider = self.app.test_client()
         self.post("/login",{"username":"Outsider"},client=outsider)
         self.assertEqual(outsider.get(self.url+"/data").status_code,403)
+        self.assertEqual(outsider.get(self.url+"?popout=1").status_code,403)
         for text in ("!admin login secret", "!getitem Sword", "/connect http://metadata", "/unknown", "a\nb"):
             self.assertEqual(self.post(self.url+"/command",{"text":text}).status_code,400)
         self.assertEqual(self.post(self.url+"/command",{"text":"/received","slot":"Friend"}).status_code,403)
@@ -162,7 +166,7 @@ class ConsoleTests(unittest.TestCase):
             row = db.query("SELECT snapshot FROM seed_builds WHERE id=?",(self.bid,),one=True)
             metadata = db.loads(row["snapshot"]); metadata["race"] = True
             db.execute("UPDATE seed_builds SET snapshot=? WHERE id=?",(db.dumps(metadata),self.bid))
-        for suffix in ("", "/data", "/commands"):
+        for suffix in ("", "?popout=1", "/data", "/commands"):
             self.assertEqual(self.client.get(self.url+suffix).status_code,403)
         self.assertEqual(self.post(self.url+"/connect",{}).status_code,403)
 

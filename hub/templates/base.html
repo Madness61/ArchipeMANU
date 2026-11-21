@@ -10,8 +10,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='round.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='themes.css') }}">
-  <script id="ui-configuration" type="application/json">{{ dict(language=ui_prefs.language,theme=ui_prefs.theme,messages=ui_messages,patterns=ui_patterns,endpoint=url_for('save_preferences'),csrf=csrf_token)|tojson }}</script>
-  <script src="{{ url_for('static',filename='preferences.js') }}"></script>
+  {% include "ui_configuration.html" %}
 </head>
 <body class="{{ 'app-shell' if g.user else 'auth-shell' }}" data-page="{{ request.endpoint or '' }}">
 <a class="skip-link" href="#main-content">{{ _("Zum Inhalt springen") }}</a>

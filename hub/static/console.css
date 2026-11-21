@@ -17,7 +17,54 @@
 .console-line.console-for-me{background:color-mix(in srgb,var(--ok) 12%,transparent);border-left:3px solid var(--ok)}.console-player-name{color:var(--player,var(--accent-hover))}.console-item-name{color:var(--accent-hover)}.console-recording-status{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}.console-diagnostics #console-diagnostics{display:grid;gap:10px;margin-top:14px}.console-diagnostics #console-diagnostics>div{display:grid;grid-template-columns:minmax(140px,1fr) minmax(0,2fr);gap:12px}.console-diagnostics span{overflow-wrap:anywhere}.recording-manager{border-top:1px solid var(--line);margin-top:20px;padding-top:16px}.recording-manager form{margin:12px 0}.recording-manager .recording-consent{display:flex;flex-direction:row;align-items:start;gap:8px}.recording-manager input[type=checkbox]{width:18px;min-width:18px;min-height:18px}.recording-manager>button{margin-top:10px}@media(max-width:650px){.console-diagnostics #console-diagnostics>div{grid-template-columns:1fr;gap:3px}}
 .console-sidebar{align-items:start}.console-line a.console-player-name{font-weight:750;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}.console-players{list-style:none;padding:0}.console-players li{padding:9px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.console-players small{display:block;color:var(--muted)}.console-players li:target{outline:2px solid var(--accent);border-radius:6px}.console-diagnostics{margin-top:16px}.live-item-finder form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.live-item-finder form label{grid-column:1/-1;font-size:11px}.live-item-finder input{width:100%;min-width:0}.live-item-finder form button{padding:9px 12px}.live-item-finder .technical-options{gap:8px}.live-item-finder .technical-options button{font-size:11px;white-space:normal;padding:8px 10px}.live-item-result{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.live-item-result h4{font-size:14px;margin:0 0 5px}.live-item-result p{margin:4px 0}#live-item-results{max-height:480px;overflow:auto}#live-item-output>.row{gap:6px;flex-wrap:wrap}#live-item-output button{font-size:11px;padding:8px 10px}
 @media(max-width:650px){.console-workspace .console-filters{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.console-filters>button{grid-column:1/-1}.console-command button{width:auto;flex:1}.console-main #console-command-help{font-size:11px}}
-.console-main>.row:first-child{margin-bottom:16px}
+.console-heading{margin-bottom:16px}
 .console-log{overflow-anchor:none}
 .live-item-result>.row{align-items:baseline;gap:6px}
 .live-item-result .chip{font-size:10px;white-space:normal}
+
+.console-heading #console-open-popout{margin-inline-start:auto}
+.console-popout{background:var(--bg)}
+.console-popout .console-workspace{display:block}
+.console-popout .console-main{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  height:100dvh;
+  min-height:260px;
+  padding:12px;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  background:var(--bg);
+}
+.console-popout .console-heading{align-items:flex-start;gap:6px 10px;margin:0}
+.console-popout .console-heading h1{font-size:16px;margin:0}
+.console-popout .console-heading p{margin:2px 0 0;overflow-wrap:anywhere}
+.console-popout .console-heading .chip{padding:3px 7px}
+.console-popout .console-filters{display:flex;gap:8px}
+.console-popout .console-filters label{font-size:11px;gap:2px}
+.console-popout #console-older{flex:none;width:auto;min-height:34px}
+.console-popout select,.console-popout input{min-height:34px;padding:5px 8px}
+.console-popout .console-log{flex:1;min-height:0;height:auto;margin:0;padding:4px 8px;border-radius:10px}
+.console-popout .console-line{grid-template-columns:57px minmax(0,1fr);gap:6px;padding:6px 4px}
+.console-popout .console-line time{font-size:11px;font-variant-numeric:tabular-nums}
+.console-popout .console-item-place{margin-top:1px}
+.console-popout .console-own-live{
+  background:color-mix(in srgb,var(--ok) 12%,transparent);
+  box-shadow:inset 2px 0 var(--ok);
+}
+.console-popout .console-main>.err,.console-popout #console-command-error{margin:0;overflow-wrap:anywhere}
+.console-popout #console-compose{
+  max-height:42dvh;
+  overflow:auto;
+  padding:4px 6px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:10px;
+}
+.console-popout #console-compose summary{cursor:pointer;padding:4px;font-weight:680}
+.console-popout .console-command{margin:6px 0;gap:6px}
+.console-popout .console-command label{flex-basis:100%;gap:3px;font-size:11px}
+.console-popout .console-command button{min-height:34px;padding:5px 8px}
+.console-popout #console-command-help{margin:6px 0;font-size:11px}
+.console-popout .console-command-menu{max-height:120px}

@@ -280,3 +280,114 @@ def test_missing_login_shows_recovery_and_returns_to_round(actors,artifact_dir):
     page.get_by_role('button',name='Anmelden',exact=True).click()
     expect(page.get_by_role('heading',level=1)).to_have_text('Zurück zur Konsole')
     expect(page.locator('#ap-console')).to_be_visible()
+
+
+def test_console_popout_native_pip_and_browser_fallback(actors, artifact_dir):
+    from .test_players import login
+    from .test_preferences import set_preference
+
+    alice, bob, spectator = actors.alice, actors.bob, actors.admin
+    with FakeAP(game=GAME, names=('Alice', 'Bob'), seed='BROWSER_TEST') as server:
+        register(alice, 'Alice'); register(bob, 'Bob'); upload_world(alice)
+        create_lobby(alice, 'Kompakte Live-Konsole'); join_lobby(bob, 'Kompakte Live-Konsole')
+        select_game(alice); select_game(bob); mark_ready(alice, 'Alice'); mark_ready(bob, 'Bob')
+        alice.reload(); alice.get_by_role('button', name='Seed generieren', exact=True).click()
+        host = generated(alice)
+        host.get_by_label('Serveradresse', exact=True).fill('127.0.0.1')
+        host.get_by_label('Port', exact=True).fill(str(server.port))
+        host.get_by_role('button', name='Verbindung speichern', exact=True).click()
+        expect(alice.locator('#console-log')).to_contain_text('Progression Key')
+        opener = alice.get_by_role('link', name='Popout öffnen')
+        popout_url = opener.get_attribute('href')
+        assert alice.evaluate('!!window.documentPictureInPicture')
+        opener.click()
+        pip_log = """() => window.documentPictureInPicture.window?.document.querySelector('iframe')
+            ?.contentDocument?.getElementById('console-log')"""
+        alice.wait_for_function(f"() => ({pip_log})()?.textContent.includes('Progression Key')")
+        assert alice.evaluate(f"() => !({pip_log})().querySelector('.console-own-live')")
+        assert len(server.clients) == 1
+        reader = server.clients[0]
+        server.send(reader, [dict(cmd='PrintJSON', type='Chat', team=0, slot=2,
+                                  message='PiP ist live', data=[dict(text='Bob: PiP ist live')])])
+        alice.wait_for_function(f"() => ({pip_log})()?.textContent.includes('PiP ist live')")
+        expect(alice.locator('#console-log')).to_contain_text('PiP ist live')
+        alice.evaluate('window.documentPictureInPicture.window.close()')
+        assert server.clients == [reader]
+
+        alice.evaluate("Object.defineProperty(window, 'documentPictureInPicture', {value: undefined})")
+        with alice.expect_popup() as opened:
+            opener.click()
+        popup = opened.value
+        popup.set_viewport_size(dict(width=360, height=550))
+        expect(popup.get_by_role('heading', name='Archipelago Live-Konsole')).to_be_visible()
+        assert popup.evaluate('window.opener === null')
+        log = popup.locator('#console-log')
+        expect(log).to_contain_text('Progression Key')
+        expect(log.locator('.console-own-live')).to_have_count(0)
+        colors = log.locator('.console-items').first.locator('.console-player-name').evaluate_all(
+            'names => names.map(name => getComputedStyle(name).color)')
+        assert len(set(colors)) == 2
+        filters = popup.get_by_label('Nachrichtenart')
+        expect(filters.locator('option')).to_have_text(['Alle', 'Für mich', 'Items', 'Chat'])
+
+        def chat_messages(prefix, count):
+            return [dict(cmd='PrintJSON', type='Chat', team=0, slot=2, message=f'{prefix} {i}',
+                         data=[dict(text=f'Bob: {prefix} {i}')]) for i in range(count)]
+
+        server.send(reader, chat_messages('Live-Nachricht', 24))
+        expect(log).to_contain_text('Live-Nachricht 23')
+        assert log.evaluate('node => node.scrollHeight - node.scrollTop - node.clientHeight < 2')
+        log.evaluate('node => node.scrollTop = 0')
+        server.send(reader, [dict(cmd='PrintJSON', type='ItemSend', receiving=2, item=[502, 1002, 1, 1])])
+        expect(log.locator('.console-own-live')).to_contain_text('Alice → Bob: Potion')
+        assert log.evaluate('node => node.scrollTop') == 0
+        filters.select_option('for_me')
+        expect(log.locator('.console-items')).to_have_count(1)
+        expect(log).to_contain_text('Bob → Alice: Progression Key')
+        filters.select_option('items')
+        expect(log.locator('.console-items')).to_have_count(2)
+        expect(log.locator('.console-own-live')).to_have_count(0)
+        filters.select_option('chat')
+        expect(log).to_contain_text('Live-Nachricht 23')
+        expect(log.locator('.console-items')).to_have_count(0)
+        filters.select_option('all')
+        expect(log).to_contain_text('Alice → Bob: Potion')
+
+        composer = popup.get_by_label('Nachricht oder Befehl', exact=True)
+        expect(composer).to_be_hidden()
+        popup.get_by_text('Schreiben', exact=True).click()
+        composer.fill('/hint Key')
+        popup.get_by_role('button', name='Senden', exact=True).click()
+        expect(log).to_contain_text('Privater Hinweis für Alice')
+        expect(log.locator('script')).to_have_count(0)
+        assert server.commands == [('Alice', '!hint Key')]
+        assert len(server.clients) == 2
+        set_preference(bob, 'language', 'en')
+        set_preference(bob, 'theme', 'light')
+        bob.goto(popout_url)
+        expect(bob.locator('html')).to_have_attribute('data-theme', 'light')
+        expect(bob.get_by_label('Message type').locator('option')).to_have_text(['All', 'For me', 'Items', 'Chat'])
+        login(spectator, 'TestAdmin'); spectator.goto(popout_url)
+        for page in (bob, spectator):
+            expect(page.locator('#console-log')).to_contain_text('Potion')
+            expect(page.locator('#console-log')).not_to_contain_text('Privater Hinweis für Alice')
+        expect(spectator.locator('#console-compose')).to_have_count(0)
+
+        popup.emulate_media(reduced_motion='reduce')
+        for theme, width in (('light', 320), ('dark', 360)):
+            popup.set_viewport_size(dict(width=width, height=550))
+            popup.evaluate('theme => document.documentElement.dataset.theme = theme', theme)
+            assert popup.evaluate('document.documentElement.scrollWidth === innerWidth')
+            popup.screenshot(path=str(artifact_dir/f'console-popout-{theme}.png'))
+        popup.close()
+        assert len(server.clients) == 2
+        alice.bring_to_front()
+        expect(alice.locator('#console-log')).to_contain_text('Privater Hinweis für Alice')
+        with alice.expect_popup() as reopened:
+            opener.click()
+        popup = reopened.value
+        expect(popup.locator('#console-log')).to_contain_text('Privater Hinweis für Alice')
+        alice.context.clear_cookies()
+        expect(popup.locator('#console-error')).to_contain_text('Bitte melde dich erneut an')
+        expect(popup.locator('#console-log')).to_be_empty()
+        expect(popup.locator('#console-compose')).to_be_hidden()

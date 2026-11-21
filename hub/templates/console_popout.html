@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="{{ ui_prefs.language }}" data-theme="{{ ui_prefs.theme }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ _("Archipelago Live-Konsole") }} · {{ room.name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='themes.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='console.css') }}">
+  {% include "ui_configuration.html" %}
+</head>
+<body class="console-popout">
+  <main>{% include "console_workspace.html" %}</main>
+  <script src="{{ url_for('static', filename='console.js') }}"></script>
+</body>
+</html>

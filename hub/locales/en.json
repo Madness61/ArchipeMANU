@@ -2202,5 +2202,10 @@
   "m2115": "The tested individual items currently unlock no additional checks or regions.",
   "m2116": "No outstanding progression items for other players in this world.",
   "m2117": "Archipelago text client connected.",
-  "m2118": "Archipelago text client disconnected."
+  "m2118": "Archipelago text client disconnected.",
+  "m2119": "Open popout",
+  "m2120": "Write a message",
+  "m2121": "No messages for this filter.",
+  "m2122": "Click “Open popout” again to open the console in your browser.",
+  "m2123": "This popout belongs to another login. Open it again."
 }
