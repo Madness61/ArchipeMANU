@@ -9,6 +9,7 @@
   const panels = [...root.querySelectorAll('[data-round-panel]')];
   const choices = [...root.querySelectorAll('[data-round-player]')];
   const sheet = $('round-player-detail');
+  const picker = $('round-player-select');
   const liveStatus = $('round-live-status');
   const launch = $('round-server-start');
   const playerStates = new Map();
@@ -21,6 +22,7 @@
   const ratio = (done, total) => number(done) + ' / ' + number(total);
   const percent = value => value == null ? '—' : number(value) + ' %';
   const goal = value => value === true ? t('Ziel erreicht') : value === false ? t('Ziel offen') : t('Zielstatus unbekannt');
+  const observed = new Intl.DateTimeFormat(locale, {dateStyle: 'short', timeStyle: 'short'});
 
   function renderPlayer() {
     if (!selected || !sheet) return;
@@ -29,27 +31,38 @@
     sheet.style.setProperty('--player', window.HUB_UI.playerColor(sheet.dataset.slot));
     $('round-player-name').textContent = sheet.dataset.slot;
     $('round-player-game').textContent = selected.dataset.game;
-    $('round-player-checks').textContent = t('{v0} Checks · {v1}', {v0: ratio(player.checks, player.total), v1: percent(player.progress)});
-    const received = $('round-player-received');
-    if (received) received.textContent = t('Empfangene Items: ') + number(player.received);
+    $('round-player-checks').textContent = player.checks == null ? t('Checkstand unbekannt')
+      : t('{v0} Checks erledigt', {v0: player.total == null ? number(player.checks) : ratio(player.checks, player.total)});
+    $('round-player-percent').textContent = player.progress == null ? '' : percent(player.progress);
+    const track = $('round-player-track');
+    track.hidden = player.progress == null;
+    track.firstElementChild.style.width = Math.min(100, player.progress || 0) + '%';
+    const at = player.observed_at && new Date(player.observed_at);
+    let observedText = '';
+    if (at) {
+      const values = {v0: observed.format(at)};
+      observedText = player.stale ? t('Älterer Stand vom {v0}', values) : t('Zuletzt bestätigt am {v0}', values);
+    }
+    $('round-player-observed').textContent = observedText;
     const badge = $('round-player-goal');
     badge.textContent = goal(player.goal);
     badge.classList.toggle('ok', player.goal === true);
     badge.title = player.stale ? t('Dieser Fortschrittsstand ist veraltet.') : '';
-    const state = $('round-player-data-age');
-    if (state) state.textContent = player.stale ? t('Dieser Fortschrittsstand ist veraltet.') : '';
     const actions = $('round-player-analysis');
     if (actions) actions.hidden = !selected.dataset.own;
+    sheet.dataset.own = selected.dataset.own || '';
   }
 
   function selectPlayer(choice) {
     if (!choice) return;
     const changed = sheet.dataset.slot !== choice.dataset.roundPlayer;
     selected = choice;
+    picker.value = choice.dataset.roundPlayer;
     choices.forEach(button => button.setAttribute('aria-pressed', String(button === selected)));
     renderPlayer();
     if (changed) document.dispatchEvent(new Event('hub:round-player'));
   }
+  picker?.addEventListener('change', () => selectPlayer(choices.find(choice => choice.dataset.roundPlayer === picker.value)));
 
   function openView() {
     let hash = location.hash.slice(1);
@@ -67,7 +80,10 @@
     for (let details = target?.closest('details'); details; details = details.parentElement?.closest('details')) {
       details.open = true;
     }
-    if (target && !panels.includes(target)) requestAnimationFrame(() => target.scrollIntoView({block: 'start'}));
+    if (target && !panels.includes(target)) {
+      const destination = target.matches('[data-round-player]') && target.offsetParent === null ? sheet : target;
+      requestAnimationFrame(() => destination.scrollIntoView({block: 'start'}));
+    }
     if (view === 'players') document.dispatchEvent(new Event('hub:round-players-visible'));
     load();
   }
@@ -91,10 +107,7 @@
       if (!box.hidden) box.scrollIntoView({block: 'nearest'});
     }
     const player = event.target.closest('[data-round-player]');
-    if (player) {
-      selectPlayer(player);
-      if (matchMedia('(max-width: 760px)').matches) sheet.focus();
-    }
+    if (player) selectPlayer(player);
   });
   choices.forEach(choice => choice.style.setProperty('--player', window.HUB_UI.playerColor(choice.dataset.roundPlayer)));
 
@@ -108,7 +121,8 @@
     liveStatus.textContent = data.seed_matches === false
       ? t('Spieler oder Spiele des verknüpften Raums weichen von diesem Seed ab.')
       : data.updated_at
-        ? (data.stale ? t('Älterer Datenstand · ') : '') + t('Datenstand {v0}', {v0: new Date(data.updated_at).toLocaleTimeString(locale, {hour: '2-digit', minute: '2-digit'})})
+        ? data.stale ? t('Älterer Stand vom {v0}', {v0: observed.format(new Date(data.updated_at))})
+          : t('Datenstand {v0}', {v0: observed.format(new Date(data.updated_at))})
         : t('Es liegen noch keine bestätigten Fortschrittsdaten vor.');
     $('round-checks').textContent = ratio(data.checks, data.total);
     $('round-percent').textContent = percent(data.progress);

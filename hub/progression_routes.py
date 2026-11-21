@@ -2,7 +2,7 @@
 from flask import Blueprint, abort, g, jsonify, render_template, request, session
 from werkzeug.exceptions import HTTPException
 from . import auth, console_routes, db, i18n, progression
-from .services.item_finder import player_items
+from .services.item_finder import helpful_singles, player_items
 
 bp = Blueprint('progression',__name__)
 PREFIX = '/sessions/<int:sid>/builds/<int:build_id>/progression'
@@ -76,10 +76,18 @@ def items(sid,build_id):
         focus = request.args.get('focus', 'all')
         if (recipient not in {slot['slot'] for slot in db.loads(build['snapshot']).get('slots', [])}
                 or receipt not in ('all', 'received', 'not_received', 'unknown')
-                or focus not in ('all', 'needed', 'found', 'help', 'useful')):
+                or focus not in ('all', 'open', 'received', 'unknown', 'needed', 'found', 'help', 'useful')):
             abort(400)
         reveal = build_id in session.get('progression_spoilers', [])
-        return jsonify(player_items(build, own, recipient, request.args.get('q', '')[:100], receipt, reveal, page, limit, focus))
+        cached = None
+        if focus == 'useful':
+            if not reveal:
+                abort(403, 'Bitte die Fundort-Spoiler zuerst bewusst freigeben.')
+            slot = next((slot for slot in own if slot['slot'] == recipient), None)
+            if not slot:
+                abort(403, 'Du kannst nur deinen eigenen Spielslot analysieren.')
+            cached = progression.job(build, slot, g.user['id'])
+        return jsonify(player_items(build, own, recipient, request.args.get('q', '')[:100], receipt, reveal, page, limit, focus, cached))
     return jsonify(progression.find(build,own,request.args.get('q','')[:100],category,owner,status,page,limit=limit))
 
 
@@ -91,6 +99,28 @@ def own_slot(own):
     return slot
 
 
+def analysis_overview(build, own, slot, result):
+    overview = {key: result[key] for key in ('state', 'reason', 'observed_at', 'singles_complete') if key in result}
+    if result['state'] != 'ready':
+        return overview
+    reachable = result.get('reachable', [])
+    overview['reachable_count'] = len(reachable)
+    if reachable:
+        overview['next_check'] = reachable[0]['name']
+        return overview
+
+    best = next(helpful_singles(result), None)
+    if best:
+        item = best['items'][0]
+        locations = {(loc['finder'], loc['location_id']) for loc in item['locations']}
+        rows = progression.find(build, own, category='progression', limit=0, recipient_slot=slot['slot'])['rows']
+        finders = sorted({row['finder_player']['name'] for row in rows if row['receipt_status'] != 'received'
+                          and (row['finder'], row['location_id']) in locations}, key=str.casefold)
+        overview['next_item'] = dict(name=item['name'], checks=len(best['new_checks']),
+                                     regions=len(best['new_regions']), finders=finders)
+    return overview
+
+
 @bp.route(PREFIX+'/analysis',methods=['GET','POST'])
 def analysis(sid,build_id):
     _,build,own = access(sid,build_id)
@@ -98,8 +128,11 @@ def analysis(sid,build_id):
     mode = request.values.get('mode','items')
     if mode not in ('items','goal'):
         abort(400)
+    overview = request.args.get('overview') == '1'
     target = None
     kind = request.values.get('target_kind','')
+    if overview and (request.method != 'GET' or mode != 'items' or kind):
+        abort(400)
     if kind:
         if kind == 'location':
             try:
@@ -123,6 +156,8 @@ def analysis(sid,build_id):
             if not valid:
                 abort(400)
     result = progression.job(build,slot,g.user['id'],request.method=='POST',target,mode)
+    if overview:
+        return jsonify(analysis_overview(build, own, slot, result))
     if result['state']=='ready':
         verified = {(r['finder'],r['location_id']):r for r in progression.find(build,own,owner='mine',limit=0)['rows']}
         for row in result.get('singles',[]) + result.get('combinations',[]):

@@ -14,6 +14,8 @@ _lock = threading.Lock()
 _stop = threading.Event()
 _room_lock = threading.RLock()
 PUBLIC_TYPES = ap_console.PUBLIC_TYPES
+READER_TAG = 'ArchipeMANU-Reader'
+HANDSHAKE_EVENT_LIMIT = 256 * 1024
 
 
 def migrate():
@@ -65,7 +67,11 @@ class Recorder(ap_console.Client):
         self.uuid = row['uuid']
         self.request_slot_data = False
         self.automatic = bool(row['automatic'])
+        self.pending_public = None
+        self.pending_size = 0
         if self.automatic:
+            self.connect_tags = ('Tracker', READER_TAG)
+            self.report_connection_events = False  # Coverage transitions are journaled separately.
             self.user_id = next(s['player_id'] for s in self.expected if s['slot']==self.slot_name)
         self.thread.name = f"ap-recording-{self.build_id}"
 
@@ -91,16 +97,29 @@ class Recorder(ap_console.Client):
     def note(self, text, kind='system', origin='hub', values=None):
         # Recording has no chat/command surface and never publishes private replies.
         if origin=='hub' and kind=='system':
-            if self.automatic and text.startswith('Als '):
-                text='Gemeinsame Liveverbindung hergestellt. Öffentliche Meldungen werden für alle gespeichert.'
             ap_console.record(self.path,self.build_id,None,kind,dict(text=text,origin='hub'),hosted_id=self.endpoint['id'])
+
+    def serve(self):
+        try:
+            super().serve()
+        finally:
+            self.pending_public = None
 
     def packet(self, packet):
         cmd = packet.get('cmd')
-        if self.automatic and cmd=='PrintJSON' and packet.get('type') in PUBLIC_TYPES:
+        kind = packet.get('type')
+        if self.automatic and cmd == 'PrintJSON' and (kind in PUBLIC_TYPES or kind == 'ItemSend'):
             # Only explicitly public protocol types are shared. Hints, prints and
             # command replies arriving at the service slot remain private.
-            self.public_event(packet)
+            if self.state == 'connected':
+                if kind == 'ItemSend':
+                    super().packet(packet)
+                else:
+                    self.public_event(packet)
+            elif self.pending_public is not None and self.pending_size <= HANDSHAKE_EVENT_LIMIT:
+                self.pending_size += len(db.dumps(packet).encode('utf-8'))
+                if self.pending_size <= HANDSHAKE_EVENT_LIMIT:
+                    self.pending_public.append(packet)
             return
         if cmd=='RoomInfo':
             seed=str(packet.get('seed_name',''))
@@ -112,12 +131,21 @@ class Recorder(ap_console.Client):
             if packet.get('password') and not self.password:
                 raise ValueError('Der Host muss das Raumpasswort für die gemeinsame Liveansicht hinterlegen.' if self.automatic else
                                  'Für die Rundenaufzeichnung das Raumpasswort erneut eingeben. Es wird nicht gespeichert.')
-        if cmd in ('RoomInfo','Connected','ConnectionRefused','ReceivedItems','DataPackage','RoomUpdate') or (cmd=='PrintJSON' and packet.get('type')=='ItemSend'):
+        if cmd in ('RoomInfo','Connected','ConnectionRefused','ReceivedItems','DataPackage','RoomUpdate') or (cmd=='PrintJSON' and kind=='ItemSend'):
             super().packet(packet)
+        if self.automatic and cmd == 'RoomInfo':
+            # MultiServer can broadcast Join before Connected. Publish only
+            # after Connected has verified the seed slots and team.
+            self.pending_public = []
+            self.pending_size = 0
+        elif cmd == 'Connected' and self.pending_public is not None:
+            pending, self.pending_public = self.pending_public, None
+            for event in pending:
+                self.packet(event)
+            if self.pending_size > HANDSHAKE_EVENT_LIMIT:
+                self.note('Beim Verbindungsaufbau konnten nicht alle öffentlichen Meldungen aufgezeichnet werden.')
 
     def public_event(self, packet):
-        if self.state != 'connected':
-            return
         speaker = self.players.get(packet.get('slot')) if packet.get('team') == self.team else None
         if packet['type'] == 'Goal' and speaker:
             record_goal(self.path, self.build_id, self.endpoint['id'], speaker['name'])
@@ -127,9 +155,16 @@ class Recorder(ap_console.Client):
                      dict(text=': ' + packet['message'][:12000])]
         else:
             parts = self.message_parts(packet)
+        payload = dict(parts=parts, public_type=packet['type'], player_slot=speaker['name'] if speaker else None)
+        tags = packet.get('tags')
+        if (packet['type'] in ('Join', 'Part') and speaker and packet['slot'] == self.slot
+                and isinstance(tags, list) and all(tag in tags for tag in self.connect_tags)):
+            # Part on standard MultiServer has no structured tags. Keep its
+            # original text, even when the team and slot match the reader.
+            payload['connection_role'] = 'reader'
         ap_console.record(self.path,self.build_id,None,
                           'chat' if packet['type'] in ('Chat','ServerChat') else 'system',
-                          dict(parts=parts,public_type=packet['type'],player_slot=speaker['name'] if speaker else None),
+                          payload,
                           hosted_id=self.endpoint['id'])
 
     def handle_command(self, text):
@@ -175,8 +210,8 @@ def disable(build_id):
 def ensure(build, endpoint, password=None, transport='auto', force=False):
     """Register/claim one room reader, without tying it to a browser login.
 
-    The AP protocol requires a real slot for TextOnly clients. The service uses
-    a seed-verified slot solely to read; user commands never reach this client.
+    The AP protocol requires a real slot even for Tracker clients. The service
+    uses a seed-verified slot solely to read; user commands never reach it.
     """
     with _room_lock:
         now = time.time()
@@ -201,13 +236,16 @@ def ensure(build, endpoint, password=None, transport='auto', force=False):
                 if not active and row['lease_until']>now:
                     return None
             if changed or force:
+                preferred = next((s for s in slots if s['player_id'] == parent['created_by']), slots[0])
+                saved_slot = row['slot'] if row and row['automatic'] and row['hosted_id'] == endpoint['id'] else None
+                slot = saved_slot if any(s['slot'] == saved_slot for s in slots) else preferred['slot']
                 # Credentials for a previous room are never carried across endpoints.
                 conn.execute('''INSERT INTO console_recordings(build_id,hosted_id,actor_id,slot,uuid,transport,automatic,updated_at)
                     VALUES (?,?,?,?,?,?,1,?) ON CONFLICT(build_id) DO UPDATE SET hosted_id=excluded.hosted_id,
                     actor_id=excluded.actor_id,slot=excluded.slot,transport=excluded.transport,automatic=1,
                     enabled=1,generation=console_recordings.generation+1,password_required=0,
                     state='connecting',error='',lease_owner='',lease_until=0,updated_at=excluded.updated_at''',
-                    (build['id'],endpoint['id'],parent['created_by'],slots[0]['slot'],ap_console.secrets.token_hex(16),transport,now))
+                    (build['id'],endpoint['id'],parent['created_by'],slot,ap_console.secrets.token_hex(16),transport,now))
                 row = conn.execute('SELECT * FROM console_recordings WHERE build_id=?',(build['id'],)).fetchone()
             if not permitted(conn,row):
                 return None

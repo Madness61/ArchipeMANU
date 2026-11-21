@@ -253,8 +253,28 @@ class RealProgressionTests(unittest.TestCase):
                         with client.session_transaction() as session:csrf=session['_csrf']
                         return client.post(path,data=dict(_csrf=csrf,**body))
                     base=f'/sessions/{sid}/builds/{bid}/console'
+                    self.assertEqual(post(clients[0],'/login',dict(username='SiteA',password='p')).status_code,302)
+                    def events():
+                        return clients[0].get(base+'/data').json['events']
+                    wait(lambda:any(row.get('connection_role')=='reader' for row in events()))
+                    reader_event, = (row for row in events() if row.get('connection_role')=='reader')
+                    self.assertIn('NativeA (Team #1) tracking ChecksFinder has joined', reader_event['server_text'])
+                    handshake = dict(cmd='Connect', password=None, game='', name='ArchipeMANU',
+                                     uuid='real-protocol-probe', version=dict(major=0,minor=6,build=8,**{'class':'Version'}),
+                                     items_handling=0, tags=['Tracker'], slot_data=False)
+                    with ap_console.open_socket('127.0.0.1', port, False) as wire:
+                        self.assertEqual(json.loads(wire.recv(timeout=5))[0]['cmd'], 'RoomInfo')
+                        wire.send(json.dumps([handshake]))
+                        refusal, = json.loads(wire.recv(timeout=5))
+                        self.assertEqual(refusal['cmd'], 'ConnectionRefused')
+                        self.assertIn('InvalidSlot', refusal['errors'])
+                        wire.send(json.dumps([{**handshake, 'name':'NativeA', 'game':'ChecksFinder', 'tags':['AP']}]))
+                        wait(lambda:any('NativeA (Team #1) playing ChecksFinder has joined' in row['text'] for row in events()))
+                    wait(lambda:any('NativeA (Team #1) has left the game' in row['text'] for row in events()))
+                    self.assertEqual(sum(row.get('connection_role')=='reader' for row in events()), 1)
                     for client,account,slot in zip(clients,('SiteA','SiteB'),('NativeA','NativeB')):
-                        self.assertEqual(post(client,'/login',dict(username=account,password='p')).status_code,302)
+                        if client is not clients[0]:
+                            self.assertEqual(post(client,'/login',dict(username=account,password='p')).status_code,302)
                         self.assertEqual(post(client,base+'/command',dict(text='/hint')).status_code,202)
                         wait(lambda:any(row.get('packet_type')=='CommandResult' and row['actor']['slot']==slot
                                         for row in client.get(base+'/data').json['events']))
@@ -267,7 +287,8 @@ class RealProgressionTests(unittest.TestCase):
                         self.assertEqual(len(chat),1);self.assertEqual(chat[0]['visibility'],'team')
                     self.assertEqual(sum(value.thread.is_alive() for value in ap_console._clients.values()),3)
                     with self.assertRaises(ValueError):reader.handle_command('forbidden')
-                    self.report.append(dict(game='ChecksFinder x2',protocol='real MultiServer',readers=1,authorized_writers=2,private_replies=True))
+                    self.report.append(dict(game='ChecksFinder x2',protocol='real MultiServer',readers=1,authorized_writers=2,
+                                            private_replies=True, neutral_slot_rejected=True, real_same_slot_join_and_part=True))
             finally:
                 ap_console.stop_all()
                 server.terminate()

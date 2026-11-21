@@ -89,7 +89,8 @@ def observations(build, players, rows=None):
     return result
 
 
-def find(build, own, query='', category='all', owner='all', status='all', page=1, limit=50, *, recipient_slot=None):
+def find(build, own, query='', category='all', owner='all', status='all', page=1, limit=50, *,
+         recipient_slot=None, include_sends=False):
     summary, rows = placements(build)
     if rows is None:
         return dict(available=False, rows=[], total=0, pages=0, page=1)
@@ -103,14 +104,17 @@ def find(build, own, query='', category='all', owner='all', status='all', page=1
               state.get('received_complete', True), at)
         for pid, (state, at, _) in observed.items()
     }
-    journal = {}
+    found_at, delivered_at = {}, {}
     for event in db.query("""SELECT payload,observed_at FROM console_events
         WHERE build_id=? AND hosted_id=(SELECT MAX(id) FROM hosted_rooms WHERE build_id=?)
-        AND user_id IS NULL AND kind='items' ORDER BY id""", (build['id'], build['id'])):
+        AND user_id IS NULL AND kind='items'""", (build['id'], build['id'])):
         payload = db.loads(event['payload'])
         if payload.get('type') == 'item':
             key = (payload['sender'], payload['location_id'], payload['recipient'], payload['item_id'])
-            journal[key] = (event['observed_at'], payload.get('source'))
+            at = event['observed_at']
+            found_at[key] = max(at, found_at.get(key, 0))
+            if payload.get('source') == 'received_items':
+                delivered_at[key] = max(at, delivered_at.get(key, 0))
     query = query.casefold()
     answer = []
     for index, row in enumerate(rows):
@@ -119,7 +123,7 @@ def find(build, own, query='', category='all', owner='all', status='all', page=1
             continue
         if owner == 'mine' and recipient['name'] not in names:
             continue
-        if recipient_slot is not None and recipient['name'] != recipient_slot:
+        if recipient_slot is not None and recipient['name'] != recipient_slot and not (include_sends and finder['name'] == recipient_slot):
             continue
         text = ' '.join((row['item'],row['location'],finder['name'],finder['game'],recipient['name'],recipient['game']))
         if query not in text.casefold():
@@ -136,16 +140,12 @@ def find(build, own, query='', category='all', owner='all', status='all', page=1
             matched = (row['item_id'], row['location_id'], row['finder']) in items
             if matched or complete:
                 receipt, receipt_at = ('received' if matched else 'not_received'), at
-        event = journal.get((finder['name'], row['location_id'], recipient['name'], row['item_id']))
-        if event:
-            at, source = event
-            if check_at is None or at > check_at:
-                check, check_at = 'checked', at
-            if source == 'received_items' and (receipt_at is None or at > receipt_at):
-                receipt, receipt_at = 'received', at
-        # A confirmed receipt also proves the check. Older negative snapshots
-        # cannot override a later public delivery from the same saved endpoint.
-        if receipt == 'received' and (check_at is None or receipt_at >= check_at):
+        key = (finder['name'], row['location_id'], recipient['name'], row['item_id'])
+        if key in found_at and (check_at is None or found_at[key] > check_at):
+            check, check_at = 'checked', found_at[key]
+        if key in delivered_at and (receipt_at is None or delivered_at[key] > receipt_at):
+            receipt, receipt_at = 'received', delivered_at[key]
+        if receipt == 'received' and (check_at is None or (check != 'checked' and receipt_at >= check_at)):
             check, check_at = 'checked', receipt_at
         if status != 'all' and check != status:
             continue
@@ -158,49 +158,63 @@ def find(build, own, query='', category='all', owner='all', status='all', page=1
     return dict(available=True,total=len(answer),page=page,pages=pages,rows=answer[(page-1)*limit:page*limit])
 
 
-def player_items(build, own, recipient, query, receipt, reveal, page, limit, focus='all'):
-    result = find(build, own, category='progression', limit=0)
-    incoming = [row for row in result['rows'] if row['recipient_player']['name'] == recipient]
-    helping = [row for row in result['rows'] if row['finder_player']['name'] == recipient
-               and row['recipient_player']['name'] != recipient and row['receipt_status'] != 'received']
-    counts = dict(needed=sum(row['receipt_status'] != 'received' for row in incoming),
-                  found=sum(row['check_status'] == 'checked' and row['receipt_status'] != 'received' for row in incoming),
-                  help=len(helping), received=sum(row['receipt_status'] == 'received' for row in incoming),
-                  unknown=sum(row['receipt_status'] == 'unknown' for row in incoming))
-    effects = {}
-    analysis_state = 'hidden'
-    if reveal:
-        from hub.services.progression import job
-        slot = next(s for s in db.loads(build['snapshot'])['slots'] if s['slot'] == recipient)
-        analysis = job(build, slot, slot['player_id'])
-        analysis_state = analysis['state']
-        if analysis['state'] == 'ready':
-            effects = {row['items'][0]['name']: dict(checks=len(row['new_checks']), regions=len(row['new_regions']))
-                       for row in analysis.get('singles', []) if len(row['items']) == 1
-                       and row['items'][0]['count'] == 1 and (row['new_checks'] or row['new_regions'])}
-    selected = helping if focus == 'help' else incoming
-    if focus == 'help' and not reveal:
-        selected = []
+def player_item_state(row):
+    if row['receipt_status'] == 'received':
+        return 'received'
+    if row['check_status'] == 'checked':
+        return 'found'
+    if row['check_status'] == 'unchecked':
+        return 'unchecked'
+    if row['receipt_status'] == 'not_received':
+        return 'unreceived'
+    return 'unknown'
+
+
+def helpful_singles(result):
+    if result['state'] == 'ready':
+        yield from (row for row in result.get('singles', []) if len(row['items']) == 1
+                    and row['items'][0]['count'] == 1 and (row['new_checks'] or row['new_regions']))
+
+
+def player_items(build, own, recipient, query, receipt, reveal, page, limit, focus='all', analysis=None):
+    result = find(build, own, category='progression', limit=0, recipient_slot=recipient, include_sends=reveal)
+    effects = {row['items'][0]['name']: dict(checks=len(row['new_checks']), regions=len(row['new_regions']))
+               for row in helpful_singles(analysis)} if analysis else {}
     groups = {}
+    counts = dict(open=0, received=0, unknown=0)
+    if reveal:
+        counts['help'] = 0
     query = query.casefold()
-    for row in selected:
-        if focus in ('needed', 'useful') and row['receipt_status'] == 'received':
-            continue
-        if focus == 'found' and (row['check_status'] != 'checked' or row['receipt_status'] == 'received'):
-            continue
-        if focus == 'useful' and row['item'] not in effects:
-            continue
+    for row in result['rows']:
+        state = player_item_state(row)
+        view = 'open' if state in ('found', 'unchecked', 'unreceived') else state
+        owner = row['recipient_player']['name']
         name = row['item']
+        if owner != recipient:
+            if state == 'received':
+                continue
+            counts['help'] += 1
+            if focus != 'help':
+                continue
+        else:
+            counts[view] += 1
+            if focus not in ('all', view) and not (
+                    (focus == 'needed' and state != 'received')
+                    or (focus == 'found' and state == 'found')
+                    or (focus == 'useful' and state != 'received' and name in effects)):
+                continue
         if query not in name.casefold():
             continue
-        key = (row['recipient'], row['item_id'])
-        group = groups.setdefault(key, dict(name=name, total=0, received=0, not_received=0, unknown=0,
-                                            found=0, recipient=row['recipient_player']['name']))
+        group = groups.setdefault((row['recipient'], row['item_id']), dict(
+            name=name, total=0, received=0, not_received=0, unknown=0, found=0, recipient=owner))
         group['total'] += 1
         group[row['receipt_status']] += 1
-        group['found'] += int(row['check_status'] == 'checked' and row['receipt_status'] != 'received')
-        if name in effects and focus != 'help':
+        group['found'] += int(state == 'found')
+        if focus == 'useful':
             group['effect'] = effects[name]
+        if focus != 'all':
+            states = group.setdefault('states', {})
+            states[state] = states.get(state, 0) + 1
         if reveal and receipt in ('all', row['receipt_status']):
             group.setdefault('copies', []).append(dict(
                 finder=row['finder_player']['name'], game=row['finder_player']['game'], location=row['location'],
@@ -209,9 +223,11 @@ def player_items(build, own, recipient, query, receipt, reveal, page, limit, foc
     rows = sorted((group for group in groups.values() if receipt == 'all' or group[receipt]),
                   key=lambda group: (-group.get('effect', {}).get('checks', 0),
                                      -group.get('effect', {}).get('regions', 0),
-                                     -group['found'], group['received'] == group['total'], group['name'].casefold()))
+                                     not group['found'],
+                                     not group.get('states', {}).get('unchecked'),
+                                     group['name'].casefold(), group['name'], group['recipient']))
     pages = max(1, (len(rows) + limit - 1) // limit)
     page = min(page, pages)
     return dict(available=result['available'], revealed=reveal, total=len(rows), page=page, pages=pages,
-                counts=counts if reveal else {key: value for key, value in counts.items() if key != 'help'},
-                helpful=len(effects), analysis_state=analysis_state, rows=rows[(page - 1) * limit:page * limit])
+                counts=counts, analysis_state=analysis['state'] if analysis else 'hidden',
+                helpful=len(effects), rows=rows[(page - 1) * limit:page * limit])

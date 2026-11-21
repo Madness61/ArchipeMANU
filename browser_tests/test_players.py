@@ -4,6 +4,7 @@ import json
 from contextlib import closing
 import re
 import sqlite3
+from urllib.parse import urlsplit
 import zipfile
 
 from playwright.sync_api import expect
@@ -41,19 +42,23 @@ def trust_uploader(page):
     # This fixture explicitly grants trust via the real admin controls.
     from .test_preferences import set_preference
     if page.locator('html').get_attribute('lang') != 'de':
-        set_preference(page,'language','de')
-    if not page.context.request.get('/admin').ok:
-        administrator=page.context.browser.new_context(base_url=page.url.split('/')[0]+'//'+page.url.split('/')[2])
-        try:
-            admin=administrator.new_page()
-            login(admin,'TestAdmin')
-            admin.goto('/admin')
-            account=page.locator('.profile-link').inner_text().splitlines()[0]
-            row=admin.locator('tr').filter(has=admin.get_by_role('cell',name=account,exact=True))
-            trust=row.get_by_role('button',name='Als vertrauenswürdig markieren',exact=True)
-            if trust.count(): trust.click()
-        finally:
-            administrator.close()
+        set_preference(page, 'language', 'de')
+    if page.context.request.get('/admin').ok:
+        return
+    url = urlsplit(page.url)
+    base_url = f'{url.scheme}://{url.netloc}'
+    account = page.locator('.profile-link > span').last.evaluate('name => name.firstChild.textContent')
+    with page.context.browser.new_context(base_url=base_url) as administrator:
+        administrator.route('**/*', lambda route: route.continue_() if route.request.url.startswith(base_url + '/') else route.abort())
+        admin = administrator.new_page()
+        login(admin, 'TestAdmin')
+        admin.goto('/admin')
+        row = admin.get_by_role('row').filter(has=admin.get_by_role('cell', name=account, exact=True))
+        expect(row).to_have_count(1)
+        grant = row.get_by_role('button', name='Als vertrauenswürdig markieren', exact=True)
+        if grant.count():
+            grant.click()
+        expect(row.get_by_role('button', name='Vertrauen entziehen', exact=True)).to_be_visible()
 
 
 def upload_world(page):

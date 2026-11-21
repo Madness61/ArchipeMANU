@@ -1,5 +1,7 @@
 """Complete central UX against inert generator and local AP protocol fixtures."""
 import json
+import time
+from urllib.parse import parse_qs, urlsplit
 from playwright.sync_api import expect
 
 from .fake_ap import FakeAP
@@ -42,8 +44,10 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         navigations=[]
         a.on('request',lambda req:navigations.append(req.url) if req.is_navigation_request() else None)
         area(a,'Spieler & Items')
+        a.locator('.round-team-status summary').click()
         expect(a.locator('#round-checks')).to_have_text('2 / 10',timeout=15000)
         expect(a.locator('#round-percent')).to_have_text('20 %')
+        a.locator('.round-team-status summary').click()
         expect(a.locator('[data-round-view]')).to_have_text(['Live','Spieler & Items','Mehr'])
         expect(a.locator('#round-chart, #round-events')).to_have_count(0)
         assert 'SECRET FUTURE LOCATION' not in a.content()
@@ -59,18 +63,51 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         assert not navigations
         expect(a.locator('[data-round-player]')).to_have_count(2)
         expect(a.locator('#round-player-name')).to_have_text('Alice')
-        expect(a.locator('#round-player-received')).to_contain_text('1')
+        expect(a.locator('#round-player-checks')).to_have_text('1 / 5 Checks erledigt')
+        expect(a.locator('#round-player-percent')).to_have_text('20 %')
         expect(a.locator('#round-item-list')).to_contain_text('Key')
         expect(a.locator('#round-item-list')).not_to_contain_text('Chest')
+        assert not a.locator('.round-item-source').count()
         a.locator('[data-round-player="Bob"]').click()
         expect(a.locator('#round-player-name')).to_have_text('Bob')
         expect(a.locator('#round-player-analysis')).to_be_hidden()
-        a.locator('[data-item-view="needed"]').click()
+        help_tab = a.locator('[data-round-item-view="help"]')
+        expect(help_tab).to_be_hidden()
         expect(a.locator('#round-item-list')).to_contain_text('Noch nicht erhalten')
         a.locator('#round-item-spoilers').click()
+        expect(a.locator('.round-item-source')).to_have_text('In der Welt von Alice')
         a.locator('#round-item-list summary').click()
         expect(a.locator('#round-item-list')).to_contain_text('Chest')
         expect(a.locator('#round-item-list details')).to_contain_text('Alice')
+        expect(help_tab).to_be_visible()
+        expect(a.locator('[data-round-item-view="useful"]')).to_be_hidden()
+        help_tab.click()
+        expect(a.locator('#round-item-list').get_by_role('link', name='Für Alice')).to_be_visible()
+
+        analysis_requests = []
+        a.on('request', lambda request: analysis_requests.append((request.method, request.url))
+             if urlsplit(request.url).path.endswith('/progression/analysis') else None)
+
+        def cached_analysis(route):
+            request = route.request
+            if 'overview=1' in request.url:
+                route.fulfill(json=dict(state='ready', reachable_count=2, next_check='Old Fortress',
+                                        observed_at=time.time(), singles_complete=True))
+            else:
+                route.continue_()
+        a.route('**/progression/analysis?*', cached_analysis)
+        a.locator('[data-round-player="Alice"]').click()
+        expect(a.locator('#round-analysis-suggestion')).to_have_text('Prüfe Old Fortress.')
+        expect(a.locator('#round-analysis-context')).to_contain_text('2 offene Checks laut Spiellogik')
+        a.locator('#round-analysis-open').click()
+        expect(a.locator('#progression-panel')).to_be_visible()
+        a.locator('#progression-close').click()
+        assert all(method == 'GET' and 'slot=Alice' in url for method, url in analysis_requests)
+        a.locator('[data-round-item-view="received"]').click()
+        expect(a.locator('#round-item-result-status')).to_have_text('Noch kein Empfang eines Progression-Items bestätigt.')
+        a.locator('[data-round-item-view="open"]').click()
+        expect(a.locator('#round-item-list')).to_contain_text('Key')
+        expect(a.get_by_role('searchbox', name='Progression-Items suchen')).to_be_hidden()
         for width in (1440,768,390,2560):
             a.set_viewport_size(dict(width=width,height=1000))
             for label in ('Live','Spieler & Items','Mehr'):
@@ -83,16 +120,44 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         area(a,'Spieler & Items')
         a.locator('#round-item-spoilers').click()
         expect(a.locator('#round-item-list details')).to_have_count(0)
+        expect(a.locator('.round-item-source')).to_have_count(0)
+        expect(a.locator('#round-analysis-suggestion')).to_have_text('Logikhilfe für dein gemeldetes Inventar.')
         set_preference(a, 'language', 'en')
         expect(a.locator('[data-round-view="players"]')).to_have_text('Players & items')
-        expect(a.get_by_role('button',name='Still needed',exact=False)).to_be_visible()
         set_preference(a, 'theme', 'light')
         a.set_viewport_size(dict(width=390,height=900))
         expect(a.locator('#round-item-list')).to_contain_text('Key')
-        expect(a.get_by_label('Item name', exact=True)).to_have_css('background-color', 'rgb(248, 250, 255)')
-        expect(a.locator('[data-round-player="Bob"]')).to_have_css('background-color', 'rgb(229, 234, 245)')
+        a.get_by_role('combobox', name='Select a player').select_option('Bob')
+        expect(a.locator('#round-player-name')).to_have_text('Bob')
+        expect(a.locator('#round-player-analysis')).to_be_hidden()
         assert a.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
         a.screenshot(path=str(artifact_dir/'players-and-items-light-en-390.png'),full_page=True)
+
+        names = ['A long progression item from a far away region'] + [f'Key {index:02}' for index in range(1, 15)]
+        def many_items(route):
+            args = parse_qs(urlsplit(route.request.url).query)
+            query = args.get('q', [''])[0]
+            page = int(args['page'][0])
+            matches = [name for name in names if query in name]
+            rows = [dict(name=name, total=1, states={'found': 1} if name == names[0] else {'unchecked': 1})
+                    for name in matches[(page - 1) * 10:page * 10]]
+            route.fulfill(json=dict(revealed=False, available=True, counts=dict(open=len(names), received=7, unknown=3),
+                                    rows=rows, page=page, pages=max(1, (len(matches) + 9) // 10), total=len(matches)))
+        a.route('**/progression/items?*', many_items)
+        a.get_by_role('combobox', name='Select a player').select_option('Alice')
+        search = a.get_by_role('searchbox', name='Search progression items')
+        expect(search).to_have_css('background-color', 'rgb(248, 250, 255)')
+        expect(a.locator('#round-item-list').get_by_role('listitem')).to_have_count(10)
+        expect(a.locator('#round-item-list')).to_contain_text('Found · receipt unconfirmed')
+        assert a.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+        a.screenshot(path=str(artifact_dir/'players-and-items-many-light-en-390.png'),full_page=True)
+        a.locator('#round-item-next').click()
+        expect(a.locator('#round-item-page')).to_have_text('Page 2 of 2')
+        search.fill('14')
+        matches = a.locator('#round-item-list').get_by_role('listitem')
+        expect(matches).to_have_count(1)
+        expect(matches.first).to_contain_text('Key 14')
+        a.unroute('**/progression/items?*', many_items)
         a.set_viewport_size(dict(width=1440,height=1000))
         set_preference(a, 'theme', 'system')
         set_preference(a, 'language', 'de')
