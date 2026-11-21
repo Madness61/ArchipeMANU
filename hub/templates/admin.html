@@ -10,6 +10,9 @@
   {% else %}<span class="chip">{{ _("noch nie") }}</span>{% endif %}</span></p>
 
 <h2>{{ _("APWorlds") }}</h2>
+{% if pending_worlds %}<section class="panel" id="pending-worlds"><h3>{{ _('Zur Freigabe eingereicht') }}</h3>
+{% for world in pending_worlds %}<div class="row spread"><p><strong>{{ world.display_name }}</strong> · {{ world.version }} · {{ world.username }}</p><a href="{{ url_for('admin_download_apworld',sha256=world.sha256) }}">{{ _('APWorld herunterladen') }}</a>
+<form method="post" action="{{ url_for('admin_activate_apworld',sha256=world.sha256) }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button>{{ _('Aktivieren') }}</button></form></div>{% endfor %}</section>{% endif %}
 <p class="muted small">{{ _("Neue Uploads aktivieren ihre Version automatisch; vorherige Uploads werden nicht gelöscht.") }}</p>
 <form method="post" action="{{ url_for('admin_upload') }}" enctype="multipart/form-data" class="panel row">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
@@ -96,6 +99,7 @@
 {% endif %}
 
 <h2 id="accounts">{{ _("Accounts verwalten") }}</h2>
+<p class="small muted">{{ _('Die Vertrauensberechtigung erlaubt die Aktivierung von APWorld-Code.') }}</p>
 <p class="muted small">{{ _("Beim Löschen werden Anmeldung und Teilnahme entfernt. Gemeinsame Runden, Seeds, Vorlagen, Anleitungen und Spiel-Uploads bleiben erhalten und werden dir übertragen. Bereits exportierte Seeds behalten ihre bisherigen Slotnamen. Dein eigenes Admin-Konto kannst du hier nicht löschen.") }}</p>
 <p class="muted small">{{ _("Neue Spieler erstellen ihr Konto selbst mit Benutzername und Passwort.") }}</p>
 <p class="muted small">{{ _("Persönliche Einrichtungscodes nur an den jeweiligen Kontobesitzer weitergeben. Nach der Passwortvergabe werden seine bisherigen Sitzungen beendet.") }}</p>
@@ -104,12 +108,14 @@
     <tr><th>{{ _("Name") }}</th><th>{{ _("Slot") }}</th><th>{{ _("Rolle") }}</th><th>{{ _("Rechte") }}</th><th>{{ _("Kontoeinrichtung") }}</th><th>{{ _("Löschen") }}</th></tr>
     {% for u in users %}
     <tr>
-      <td>{{ u.username }}</td><td>{{ u.slot_name }}</td><td>{{ _('Admin') if u.is_admin else _('Spieler') }}</td>
+      <td>{{ u.username }}</td><td>{{ u.slot_name }}</td><td>{{ _('Admin') if u.is_admin else _('Vertrauenswürdig') if u.is_trusted else _('Spieler') }}</td>
       <td>{% if u.id != g.user.id %}
         <form method="post" action="{{ url_for('admin_toggle', uid=u.id) }}" class="inline">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
           <button class="linkish small">{{ _('Admin entziehen') if u.is_admin else _('Zum Admin machen') }}</button></form>
-      {% endif %}</td>
+      {% endif %}{% if not u.is_admin %}<form method="post" action="{{ url_for('admin_trust',uid=u.id) }}" class="inline">
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="trusted" value="{{ '0' if u.is_trusted else '1' }}">
+        <button class="linkish small">{{ _('Vertrauen entziehen') if u.is_trusted else _('Als vertrauenswürdig markieren') }}</button></form>{% endif %}</td>
       <td><form method="post" action="{{ url_for('admin_setup_account', uid=u.id) }}" class="inline">
         <input type="hidden" name="_csrf" value="{{ csrf_token }}">
         <button>{{ _('Passwort wiederherstellen') if u.password_hash else _('Einrichtungscode erzeugen') }}</button>

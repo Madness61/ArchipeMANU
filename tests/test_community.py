@@ -266,9 +266,12 @@ class CommunityTests(unittest.TestCase):
         self.assertIn(b"Vorlagen f",page.data)
         self.assertIn(b"Standard",page.data)
 
-    def test_member_upload_activates_and_loads_without_admin_approval(self):
+    def test_trusted_member_upload_activates_and_loads(self):
         self.login(self.host,"Host")
         self.login(self.friend,"Friend")
+        with self.app.app_context():
+            uid = db.query("SELECT id FROM users WHERE username='Friend'",one=True)['id']
+        self.assertEqual(self.post(self.host, f"/admin/users/{uid}/trust", {"trusted":"1"}).status_code,302)
         payload=world_bytes()
         result=self.post(self.friend,"/games/community/add",{
             "name":"Test World","source_url":"https://example.com/releases",
@@ -312,6 +315,8 @@ class CommunityTests(unittest.TestCase):
 
     def test_member_upload_preserves_uppercase_module_from_archive(self):
         self.login(self.friend, "Friend")
+        with self.app.app_context():
+            db.execute("UPDATE users SET is_trusted=1 WHERE username='Friend'")
         stream = io.BytesIO()
         with zipfile.ZipFile(stream, "w") as archive:
             archive.writestr("RE4R/__init__.py", "# Inert fixture; never imported")
@@ -363,6 +368,8 @@ class CommunityTests(unittest.TestCase):
     def test_member_version_update_preserves_archives_and_can_restore_old_version(self):
         self.login(self.host, "Host")
         self.login(self.friend, "Friend")
+        with self.app.app_context():
+            db.execute("UPDATE users SET is_trusted=1 WHERE username='Friend'")
         payloads = [world_bytes("1.0"), world_bytes("2.0")]
         for payload in payloads:
             response = self.post(self.friend, "/games/community/add", {
@@ -384,6 +391,38 @@ class CommunityTests(unittest.TestCase):
             self.assertEqual(response.status_code, 302)
         self.assertEqual((config.APWORLDS / "test_world.apworld").read_bytes(), payloads[0])
         self.assertEqual(ap_bridge.start_extract.call_count, 3)
+
+    def test_untrusted_upload_is_archived_until_approved_and_grant_is_independent(self):
+        self.login(self.host, "Host")
+        self.login(self.friend, "Friend")
+        with self.app.app_context():
+            uid = db.query("SELECT id FROM users WHERE username='Friend'",one=True)['id']
+            self.assertEqual(db.query("SELECT is_trusted FROM users WHERE id=?", (uid,),one=True)['is_trusted'],0)
+        response = self.post(self.friend, "/games/community/add", {
+            "is_trusted":"1", "apworld":(io.BytesIO(world_bytes()),"test_world.apworld")
+        }, content_type="multipart/form-data")
+        self.assertEqual(response.status_code,302)
+        with self.app.app_context():
+            row = db.query("SELECT * FROM community_games",one=True)
+            sha = row['sha256']
+            self.assertEqual(row['approved'],0)
+            self.assertTrue(ap_bridge.archived_apworld(sha).is_file())
+        self.assertFalse((config.APWORLDS/"test_world.apworld").exists())
+        ap_bridge.start_extract.assert_not_called()
+        self.assertEqual(self.post(self.friend,f"/games/community/{sha}/approve").status_code,403)
+        self.assertEqual(self.post(self.friend,f"/admin/users/{uid}/trust",{"trusted":"1"}).status_code,403)
+        self.assertEqual(self.host.post(f"/admin/users/{uid}/trust",data={"trusted":"1"}).status_code,403)
+        self.assertEqual(self.post(self.host,f"/admin/users/{uid}/trust",{"trusted":"1"}).status_code,302)
+        self.assertEqual(self.friend.get("/admin").status_code,403)
+        self.assertEqual(self.post(self.friend,"/admin/apworlds",{"files":(io.BytesIO(world_bytes("2")),"world.apworld")},
+                                   content_type="multipart/form-data").status_code,403)
+        with patch.dict(os.environ,{"HUB_TRUSTED_APWORLDS":"1"}):
+            self.assertEqual(self.post(self.friend,f"/games/community/{sha}/approve").status_code,302)
+        self.assertTrue((config.APWORLDS/"test_world.apworld").exists())
+        self.assertEqual(self.post(self.host,f"/admin/users/{uid}/trust",{"trusted":"0"}).status_code,302)
+        self.assertEqual(self.post(self.friend,f"/games/community/{sha}/approve").status_code,403)
+        with self.app.app_context():
+            self.assertEqual(db.query("SELECT is_admin FROM users WHERE id=?",(uid,),one=True)['is_admin'],0)
 
     def test_admin_upload_and_activation_start_loading_without_confirmation(self):
         self.login(self.host, "Host")

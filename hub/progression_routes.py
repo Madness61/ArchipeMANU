@@ -2,7 +2,7 @@
 from flask import Blueprint, abort, g, jsonify, render_template, request, session
 from werkzeug.exceptions import HTTPException
 from . import auth, console_routes, db, i18n, progression
-from .services.item_finder import player_items
+from .services.item_finder import helpful_singles, player_items
 
 bp = Blueprint('progression',__name__)
 PREFIX = '/sessions/<int:sid>/builds/<int:build_id>/progression'
@@ -76,10 +76,18 @@ def items(sid,build_id):
         focus = request.args.get('focus', 'all')
         if (recipient not in {slot['slot'] for slot in db.loads(build['snapshot']).get('slots', [])}
                 or receipt not in ('all', 'received', 'not_received', 'unknown')
-                or focus not in ('all', 'open', 'received', 'unknown')):
+                or focus not in ('all', 'open', 'received', 'unknown', 'needed', 'found', 'help', 'useful')):
             abort(400)
         reveal = build_id in session.get('progression_spoilers', [])
-        return jsonify(player_items(build, own, recipient, request.args.get('q', '')[:100], receipt, reveal, page, limit, focus))
+        cached = None
+        if focus == 'useful':
+            if not reveal:
+                abort(403, 'Bitte die Fundort-Spoiler zuerst bewusst freigeben.')
+            slot = next((slot for slot in own if slot['slot'] == recipient), None)
+            if not slot:
+                abort(403, 'Du kannst nur deinen eigenen Spielslot analysieren.')
+            cached = progression.job(build, slot, g.user['id'])
+        return jsonify(player_items(build, own, recipient, request.args.get('q', '')[:100], receipt, reveal, page, limit, focus, cached))
     return jsonify(progression.find(build,own,request.args.get('q','')[:100],category,owner,status,page,limit=limit))
 
 
@@ -101,8 +109,7 @@ def analysis_overview(build, own, slot, result):
         overview['next_check'] = reachable[0]['name']
         return overview
 
-    best = next((row for row in result.get('singles', []) if len(row['items']) == 1
-                 and row['items'][0]['count'] == 1 and (row['new_checks'] or row['new_regions'])), None)
+    best = next(helpful_singles(result), None)
     if best:
         item = best['items'][0]
         locations = {(loc['finder'], loc['location_id']) for loc in item['locations']}

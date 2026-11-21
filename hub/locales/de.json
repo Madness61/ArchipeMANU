@@ -2184,5 +2184,21 @@
   "m2096": "AP-Slot des Hintergrundlesers",
   "m2097": "Verbindungsversuche",
   "m2098": "Letzter Verbindungsfehler",
-  "m2099": "Beim Verbindungsaufbau konnten nicht alle öffentlichen Meldungen aufgezeichnet werden."
+  "m2099": "Beim Verbindungsaufbau konnten nicht alle öffentlichen Meldungen aufgezeichnet werden.",
+  "m2100": "Vertrauenswürdig",
+  "m2101": "Vertrauen entziehen",
+  "m2102": "Als vertrauenswürdig markieren",
+  "m2103": "Administratoren sind automatisch vertrauenswürdig.",
+  "m2104": "APWorld zur Adminfreigabe eingereicht.",
+  "m2105": "Vertrauenswürdige Benutzer und Admins aktivieren APWorlds direkt. Andere Uploads werden zur Adminfreigabe archiviert.",
+  "m2106": "Aktivierung durch vertrauenswürdige Benutzer",
+  "m2107": "Für andere",
+  "m2108": "Hilft jetzt",
+  "m2109": "Dieser Fortschrittsstand ist veraltet.",
+  "m2111": "Für {v0}",
+  "m2112": "Noch keine aktuelle Analyse vorhanden. Über „Was bringt mich weiter?“ lässt sie sich für deinen Slot berechnen.",
+  "m2113": "Zur Freigabe eingereicht",
+  "m2114": "Die Vertrauensberechtigung erlaubt die Aktivierung von APWorld-Code.",
+  "m2115": "Die geprüften Einzelitems ermöglichen aktuell keine zusätzlichen Checks oder Regionen.",
+  "m2116": "Keine offenen Progression-Items für andere Spieler in dieser Welt."
 }

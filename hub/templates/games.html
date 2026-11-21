@@ -57,10 +57,10 @@
           <a class="btn small" href="{{ url_for('community.download_yaml', sha256=version.sha256) }}">{{ _("YAML herunterladen") }}</a>
         {% endif %}
         {% if not version.active %}
-          <form method="post" action="{{ url_for('community.approve', sha256=version.sha256) }}" class="inline">
+          {% if g.user.is_admin or g.user.is_trusted %}<form method="post" action="{{ url_for('community.approve', sha256=version.sha256) }}" class="inline">
             <input type="hidden" name="_csrf" value="{{ csrf_token }}">
             <button class="primary">{{ _("Aktivieren") }}</button>
-          </form>
+          </form>{% else %}<span class="small muted">{{ _('Aktivierung durch vertrauenswürdige Benutzer') }}</span>{% endif %}
         {% endif %}
       </div>
       {% endfor %}

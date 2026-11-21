@@ -71,12 +71,18 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         a.locator('[data-round-player="Bob"]').click()
         expect(a.locator('#round-player-name')).to_have_text('Bob')
         expect(a.locator('#round-player-analysis')).to_be_hidden()
+        help_tab = a.locator('[data-round-item-view="help"]')
+        expect(help_tab).to_be_hidden()
         expect(a.locator('#round-item-list')).to_contain_text('Noch nicht erhalten')
         a.locator('#round-item-spoilers').click()
         expect(a.locator('.round-item-source')).to_have_text('In der Welt von Alice')
         a.locator('#round-item-list summary').click()
         expect(a.locator('#round-item-list')).to_contain_text('Chest')
         expect(a.locator('#round-item-list details')).to_contain_text('Alice')
+        expect(help_tab).to_be_visible()
+        expect(a.locator('[data-round-item-view="useful"]')).to_be_hidden()
+        help_tab.click()
+        expect(a.locator('#round-item-list').get_by_role('link', name='Für Alice')).to_be_visible()
 
         analysis_requests = []
         a.on('request', lambda request: analysis_requests.append((request.method, request.url))

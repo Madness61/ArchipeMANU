@@ -74,7 +74,7 @@ class FinderTests(unittest.TestCase):
                        (self.bid, 'Host', self.hid, 1, db.dumps(inventory), time.time()))
         url = self.url + '/items?recipient=Host'
         grouped = self.friend.get(url).json['rows']
-        self.assertEqual(grouped, [dict(name='Sword', total=2, received=1, not_received=1, unknown=0)])
+        self.assertEqual(grouped, [dict(name='Sword', total=2, received=1, not_received=1, unknown=0,found=0,recipient='Host')])
         self.assertEqual(self.friend.get(url + '&q=Cave').json['total'], 0)
         self.assertEqual(self.friend.get(url + '&receipt=not_received').json['rows'], grouped)
         self.assertEqual(self.friend.get(url + '&receipt=unknown').json['rows'], [])
@@ -91,6 +91,46 @@ class FinderTests(unittest.TestCase):
             snapshot['race'] = True
             db.execute('UPDATE seed_builds SET snapshot=? WHERE id=?', (db.dumps(snapshot), self.bid))
         self.assertEqual(self.friend.get(url).status_code, 403)
+
+    def test_help_and_found_views_are_spoiler_gated_and_never_start_analysis(self):
+        from hub.services.console_journal import record
+        with self.app.app_context():
+            record(config.DB_PATH, self.bid,None,'items',
+                dict(type='item',sender='Friend',recipient='Host',sender_game='Game B',recipient_game='Game A',
+                     item_id=51,location_id=20,source='live'),hosted_id=self.hid)
+        url = self.url+'/items?recipient=Friend&focus=help'
+        with patch.object(progression._pool,'submit') as submit:
+            hidden=self.client.get(url).json
+            self.assertEqual(hidden['rows'],[])
+            self.assertNotIn('help',hidden['counts'])
+            self.grant()
+            help_rows=self.client.get(url).json['rows']
+            self.assertEqual(help_rows[0]['recipient'],'Host')
+            self.assertEqual(help_rows[0]['found'],1)
+            found=self.client.get(self.url+'/items?recipient=Host&focus=found').json
+            self.assertEqual(found['rows'][0]['name'],'Sword')
+            self.assertTrue(all(copy['check_status']=='checked' for copy in found['rows'][0]['copies']))
+            submit.assert_not_called()
+
+    def test_useful_items_require_owned_slot_and_spoiler_consent(self):
+        url = self.url + '/items?recipient=Host'
+        useful = url + '&focus=useful'
+        self.grant(self.friend)
+        with patch.object(progression, 'job', return_value=dict(state='ready', singles=[
+                dict(items=[dict(name='Sword', count=1)], new_checks=[10], new_regions=['Town'])
+        ])) as job:
+            self.assertEqual(self.client.get(useful).status_code, 403)
+            self.assertEqual(self.friend.get(useful).status_code, 403)
+            self.grant()
+            self.assertEqual(self.client.get(url + '&focus=open').status_code, 200)
+            job.assert_not_called()
+            data = self.client.get(useful).json
+            self.assertEqual(data['analysis_state'], 'ready')
+            self.assertEqual(data['rows'][0]['effect'], dict(checks=1, regions=1))
+            job.assert_called_once()
+            self.assertEqual(job.call_args.args[1]['slot'], 'Host')
+            self.assertEqual(job.call_args.args[2:], (1,))
+
     def test_observed_checks_and_exact_receipts_are_distinct_and_copies_stay_separate(self):
         now=time.time()
         with self.app.app_context():

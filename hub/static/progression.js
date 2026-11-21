@@ -162,6 +162,7 @@
     const list = new Intl.ListFormat(locale);
     const date = new Intl.DateTimeFormat(locale, {dateStyle: 'short', timeStyle: 'short'});
     const pageSize = 10;
+    const players = new Map([...document.querySelectorAll('[data-round-player]')].map(choice => [choice.dataset.roundPlayer, choice.id]));
     const states = {
       found: t('Gefunden · Empfang offen'), unchecked: t('Check noch offen'),
       unreceived: t('Noch nicht erhalten'), received: t('Empfang bestätigt'),
@@ -174,10 +175,12 @@
     const empty = {
       open: t('Keine offenen Progression-Items bestätigt.'),
       received: t('Noch kein Empfang eines Progression-Items bestätigt.'),
-      unknown: t('Für alle Progression-Items liegt ein bestätigter Fund- oder Empfangsstand vor.')
+      unknown: t('Für alle Progression-Items liegt ein bestätigter Fund- oder Empfangsstand vor.'),
+      help: t('Keine offenen Progression-Items für andere Spieler in dieser Welt.')
     };
     let focus = 'open', playerPage = 1, chooseInitialView = true, version = '', itemKey = '', queryTimer;
     let itemRequest = 0, overviewRequest = 0, overviewTimer, expires = Infinity, moveToResults = false;
+    let overviewState;
     const visible = () => !panel.closest('[data-round-panel]').hidden && !document.hidden;
 
     function formatFinders(finders) {
@@ -187,7 +190,7 @@
 
     function itemRow(group, expanded) {
       const row = node('li', null, 'round-item');
-      row.dataset.item = group.name;
+      row.dataset.item = JSON.stringify([group.recipient, group.name]);
       const heading = node('div', null, 'round-item-main');
       heading.append(node('strong', group.name + (group.total > 1 ? ' × ' + number.format(group.total) : '')));
       const counts = node('div', null, 'row round-item-counts');
@@ -197,9 +200,25 @@
       }
       heading.append(counts);
       row.append(heading);
+      if (focus === 'help') {
+        const label = t('Für {v0}', {v0: group.recipient});
+        const recipient = node('p', null, 'muted round-item-source');
+        if (players.has(group.recipient)) {
+          const link = node('a', label);
+          link.href = '#' + players.get(group.recipient);
+          recipient.append(link);
+        } else {
+          recipient.textContent = label;
+        }
+        row.append(recipient);
+      }
+      if (group.effect) row.append(node('p', t('Ein Exemplar könnte +{v0} Checks und +{v1} Bereiche öffnen.',
+        {v0: number.format(group.effect.checks), v1: number.format(group.effect.regions)}), 'muted round-item-source'));
       if (group.copies?.length) {
-        const finders = [...new Set(group.copies.map(copy => copy.finder))];
-        row.append(node('p', t('In der Welt von {v0}', {v0: formatFinders(finders)}), 'muted round-item-source'));
+        if (focus !== 'help') {
+          const finders = [...new Set(group.copies.map(copy => copy.finder))];
+          row.append(node('p', t('In der Welt von {v0}', {v0: formatFinders(finders)}), 'muted round-item-source'));
+        }
         const locations = node('details');
         locations.open = expanded;
         locations.append(node('summary', t('Fundorte')));
@@ -208,8 +227,16 @@
           const copies = node('ul');
           for (const copy of group.copies) {
             const item = node('li');
-            const status = [copy.finder, inlineStatus[copy.check_status], receiptLabels[copy.status]];
-            item.append(node('strong', copy.location), node('small', status.join(' · ')));
+            const status = [inlineStatus[copy.check_status], receiptLabels[copy.status]];
+            const detail = node('small');
+            if (focus !== 'help' && players.has(copy.finder)) {
+              const link = node('a', copy.finder);
+              link.href = '#' + players.get(copy.finder);
+              detail.append(link, ' · ');
+            }
+            detail.append(status.join(' · '));
+            if (copy.at) detail.title = t('Datenstand {v0}', {v0: date.format(copy.at * 1000)});
+            item.append(node('strong', copy.location), detail);
             copies.append(item);
           }
           locations.append(copies);
@@ -251,7 +278,7 @@
         }
         if (chooseInitialView) {
           chooseInitialView = false;
-          const initial = ['open', 'unknown', 'received'].find(value => data.counts[value] > 0);
+          const initial = ['open', 'unknown', 'received', 'help'].find(value => data.counts[value] > 0);
           if (initial && initial !== focus) {
             setFocus(initial);
             loadPlayerItems();
@@ -260,16 +287,25 @@
         }
         const expanded = new Set([...results.querySelectorAll('details[open]')].map(detail => detail.closest('li').dataset.item));
         const focused = document.activeElement.closest?.('.round-item')?.dataset.item;
-        results.replaceChildren(...data.rows.map(group => itemRow(group, expanded.has(group.name))));
+        results.replaceChildren(...data.rows.map(group => itemRow(group, expanded.has(JSON.stringify([group.recipient, group.name])))));
         if (focused) [...results.children].find(row => row.dataset.item === focused)?.querySelector('summary')?.focus({preventScroll:true});
-        for (const button of views) button.firstElementChild.textContent = number.format(data.counts[button.dataset.roundItemView]);
+        for (const button of views) {
+          const view = button.dataset.roundItemView;
+          const count = view === 'useful' ? data.helpful : data.counts[view];
+          button.firstElementChild.textContent = count == null || (view === 'useful' && focus !== view) ? '' : number.format(count);
+          if (view === 'help') button.hidden = !revealed || (!count && focus !== view);
+          if (view === 'useful') button.hidden = !revealed || !sheet.dataset.own;
+        }
         playerPage = data.page;
         const hasItems = Object.values(data.counts).some(Boolean);
         message.textContent = !data.available ? reasons.placements_missing : !hasItems ? t('Keine Progression-Items für diesen Slot gespeichert.')
-          : data.total ? '' : query ? t('Keine passenden Progression-Items.') : empty[focus];
+          : data.total ? '' : query ? t('Keine passenden Progression-Items.')
+          : focus !== 'useful' ? empty[focus]
+          : data.analysis_state === 'ready' ? t('Die geprüften Einzelitems ermöglichen aktuell keine zusätzlichen Checks oder Regionen.')
+          : t('Noch keine aktuelle Analyse vorhanden. Über „Was bringt mich weiter?“ lässt sie sich für deinen Slot berechnen.');
         tools.hidden = !data.available || !hasItems;
         playerForm.hidden = !query && data.total <= pageSize;
-        spoiler.hidden = tools.hidden;
+        spoiler.hidden = !data.available;
         spoiler.textContent = revealed ? t('Fundorte ausblenden') : t('Fundorte zeigen (Spoiler)');
         pagination.hidden = data.pages <= 1;
         previous.disabled = playerPage <= 1;
@@ -342,6 +378,11 @@
         const data = await api('/analysis?' + params);
         if (request !== overviewRequest || !revealed) return;
         renderOverview(data);
+        if (focus === 'useful' && data.state !== overviewState) {
+          itemKey = '';
+          loadPlayerItems();
+        }
+        overviewState = data.state;
         if (data.state === 'loading') overviewTimer = setTimeout(loadOverview, 1500);
       } catch (error) {
         if (request === overviewRequest) renderOverview({state: 'unsupported'});
@@ -400,7 +441,14 @@
     });
     document.addEventListener('hub:progression-consent', () => {
       if (!revealed) {
-        results.querySelectorAll('details, .round-item-source').forEach(details => details.remove());
+        if (focus === 'help' || focus === 'useful') {
+          setFocus('open');
+          chooseInitialView = true;
+          clearItems();
+        } else {
+          results.querySelectorAll('details, .round-item-source').forEach(details => details.remove());
+        }
+        views.filter(button => ['help', 'useful'].includes(button.dataset.roundItemView)).forEach(button => { button.hidden = true; });
         spoiler.textContent = t('Fundorte zeigen (Spoiler)');
       }
       itemKey = '';
@@ -408,7 +456,13 @@
       loadPlayerItems();
       loadOverview(true);
     });
-    document.addEventListener('hub:progression-closed', () => loadOverview());
+    document.addEventListener('hub:progression-closed', () => {
+      loadOverview();
+      if (focus === 'useful') {
+        itemKey = '';
+        loadPlayerItems();
+      }
+    });
     document.addEventListener('hub:round-data', event => {
       const updated = JSON.stringify(event.detail);
       if (updated !== version) {

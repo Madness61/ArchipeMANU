@@ -4,6 +4,7 @@ import json
 from contextlib import closing
 import re
 import sqlite3
+from urllib.parse import urlsplit
 import zipfile
 
 from playwright.sync_api import expect
@@ -37,7 +38,31 @@ def login(page,name,password=PASSWORD):
     page.get_by_role("button",name="Anmelden",exact=True).click()
 
 
+def trust_uploader(page):
+    # This fixture explicitly grants trust via the real admin controls.
+    from .test_preferences import set_preference
+    if page.locator('html').get_attribute('lang') != 'de':
+        set_preference(page, 'language', 'de')
+    if page.context.request.get('/admin').ok:
+        return
+    url = urlsplit(page.url)
+    base_url = f'{url.scheme}://{url.netloc}'
+    account = page.locator('.profile-link > span').last.evaluate('name => name.firstChild.textContent')
+    with page.context.browser.new_context(base_url=base_url) as administrator:
+        administrator.route('**/*', lambda route: route.continue_() if route.request.url.startswith(base_url + '/') else route.abort())
+        admin = administrator.new_page()
+        login(admin, 'TestAdmin')
+        admin.goto('/admin')
+        row = admin.get_by_role('row').filter(has=admin.get_by_role('cell', name=account, exact=True))
+        expect(row).to_have_count(1)
+        grant = row.get_by_role('button', name='Als vertrauenswürdig markieren', exact=True)
+        if grant.count():
+            grant.click()
+        expect(row.get_by_role('button', name='Vertrauen entziehen', exact=True)).to_be_visible()
+
+
 def upload_world(page):
+    trust_uploader(page)
     page.goto("/games")
     page.get_by_role("link",name="+ Spiel hinzufügen",exact=True).click()
     page.get_by_label("Custom APWorld *",exact=True).set_input_files({

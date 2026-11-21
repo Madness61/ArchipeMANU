@@ -2184,5 +2184,21 @@
   "m2096": "Background reader's AP slot",
   "m2097": "Connection attempts",
   "m2098": "Last connection error",
-  "m2099": "Some public messages could not be recorded while connecting."
+  "m2099": "Some public messages could not be recorded while connecting.",
+  "m2100": "Trusted",
+  "m2101": "Revoke trust",
+  "m2102": "Mark as trusted",
+  "m2103": "Administrators are automatically trusted.",
+  "m2104": "APWorld submitted for administrator approval.",
+  "m2105": "Trusted users and administrators activate APWorlds directly. Other uploads are archived for administrator approval.",
+  "m2106": "Activation by trusted users",
+  "m2107": "For others",
+  "m2108": "Helps now",
+  "m2109": "This progress snapshot is outdated.",
+  "m2111": "For {v0}",
+  "m2112": "No current analysis available. Use “What helps me progress?” to calculate it for your slot.",
+  "m2113": "Submitted for approval",
+  "m2114": "Trusted status allows activation of APWorld code.",
+  "m2115": "The tested individual items currently unlock no additional checks or regions.",
+  "m2116": "No outstanding progression items for other players in this world."
 }

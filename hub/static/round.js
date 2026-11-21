@@ -41,13 +41,13 @@
     let observedText = '';
     if (at) {
       const values = {v0: observed.format(at)};
-      const older = root.dataset.phase !== 'completed' && Date.now() - at > 300000;
-      observedText = older ? t('Älterer Stand vom {v0}', values) : t('Zuletzt bestätigt am {v0}', values);
+      observedText = player.stale ? t('Älterer Stand vom {v0}', values) : t('Zuletzt bestätigt am {v0}', values);
     }
     $('round-player-observed').textContent = observedText;
     const badge = $('round-player-goal');
     badge.textContent = goal(player.goal);
     badge.classList.toggle('ok', player.goal === true);
+    badge.title = player.stale ? t('Dieser Fortschrittsstand ist veraltet.') : '';
     const actions = $('round-player-analysis');
     if (actions) actions.hidden = !selected.dataset.own;
     sheet.dataset.own = selected.dataset.own || '';
@@ -80,7 +80,10 @@
     for (let details = target?.closest('details'); details; details = details.parentElement?.closest('details')) {
       details.open = true;
     }
-    if (target && !panels.includes(target)) requestAnimationFrame(() => target.scrollIntoView({block: 'start'}));
+    if (target && !panels.includes(target)) {
+      const destination = target.matches('[data-round-player]') && target.offsetParent === null ? sheet : target;
+      requestAnimationFrame(() => destination.scrollIntoView({block: 'start'}));
+    }
     if (view === 'players') document.dispatchEvent(new Event('hub:round-players-visible'));
     load();
   }
@@ -118,7 +121,8 @@
     liveStatus.textContent = data.seed_matches === false
       ? t('Spieler oder Spiele des verknüpften Raums weichen von diesem Seed ab.')
       : data.updated_at
-        ? t('Datenstand {v0}', {v0: observed.format(new Date(data.updated_at))})
+        ? data.stale ? t('Älterer Stand vom {v0}', {v0: observed.format(new Date(data.updated_at))})
+          : t('Datenstand {v0}', {v0: observed.format(new Date(data.updated_at))})
         : t('Es liegen noch keine bestätigten Fortschrittsdaten vor.');
     $('round-checks').textContent = ratio(data.checks, data.total);
     $('round-percent').textContent = percent(data.progress);
@@ -128,6 +132,7 @@
       const player = playerStates.get(choice.dataset.roundPlayer) || {};
       choice.querySelector('[data-player-summary]').textContent = ratio(player.checks, player.total);
       choice.querySelector('[data-player-goal]').textContent = goal(player.goal);
+      choice.title = player.stale ? t('Dieser Fortschrittsstand ist veraltet.') : '';
       choice.querySelector('[data-player-bar]').style.width = Math.min(100, player.progress || 0) + '%';
     }
     renderPlayer();
@@ -157,6 +162,9 @@
     await load();
     if (!authLost && (root.dataset.phase !== 'completed' || !playerStates.size)) setTimeout(poll, 8000);
   }
+  document.addEventListener('hub:console-state', event => {
+    if (event.detail.events?.some(entry => entry.kind === 'items' || entry.packet_type === 'Goal')) load();
+  });
   selectPlayer(selected);
   openView();
   if (root.dataset.live) setTimeout(poll, 8000);

@@ -49,6 +49,8 @@
           {% for value, label in [('open', _('Offen')), ('received', _('Erhalten')), ('unknown', _('Unklar'))] %}
           <button type="button" data-round-item-view="{{ value }}" aria-pressed="{{ 'true' if loop.first else 'false' }}" aria-controls="round-item-list">{{ label }} <span></span></button>
           {% endfor %}
+          <button type="button" data-round-item-view="help" aria-pressed="false" aria-controls="round-item-list" hidden>{{ _('Für andere') }} <span></span></button>
+          {% if own %}<button type="button" data-round-item-view="useful" aria-pressed="false" aria-controls="round-item-list" hidden>{{ _('Hilft jetzt') }} <span></span></button>{% endif %}
         </div>
         <form id="round-item-filters" role="search">
           <input name="q" type="search" maxlength="100" autocomplete="off" aria-label="{{ _('Progression-Items suchen') }}" placeholder="{{ _('Item suchen …') }}">

@@ -706,5 +706,12 @@
       "GET",
       "POST"
     ]
+  },
+  {
+    "rule": "/admin/users/<int:uid>/trust",
+    "endpoint": "admin_trust",
+    "methods": [
+      "POST"
+    ]
   }
 ]
