@@ -5,7 +5,7 @@ from flask import Blueprint, abort, current_app, g, jsonify, make_response, rend
 from werkzeug.exceptions import HTTPException
 
 from . import ap_console, auth, config, db, live_routes, live_store, i18n, recording, connection_diagnostics
-from .services.console_journal import identities
+from .services.console_journal import identities, set_slot_color
 
 bp = Blueprint("console", __name__)
 PREFIX = "/sessions/<int:sid>/builds/<int:build_id>/console"
@@ -149,6 +149,23 @@ def data(sid, build_id):
                    limit=100, journal_limit=None)
     response.headers['Cache-Control'] = 'no-store'
     return response
+
+
+@bp.post(PREFIX + "/slot-color")
+def slot_color(sid, build_id):
+    _, _, own = access(sid, build_id, mutate=True)
+    slot = request.form.get("slot")
+    if slot not in {entry["slot"] for entry in own}:
+        abort(403)
+    selection = request.form.get("color")
+    if selection not in ("", "1", "2", "3", "4", "5", "6", "7", "8"):
+        abort(400, "Ungültige Slotfarbe.")
+    limited = auth.consume_attempt("console-slot-color", str(g.user["id"]), 150)
+    if limited:
+        return limited
+    color = int(selection) if selection else None
+    set_slot_color(build_id, slot, color)
+    return jsonify(color=color)
 
 
 @bp.route(PREFIX + '/recording/start', methods=['POST'])

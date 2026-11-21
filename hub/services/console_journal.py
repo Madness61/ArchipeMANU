@@ -33,6 +33,12 @@ def migrate():
             state TEXT NOT NULL, heartbeat REAL NOT NULL, connected_at REAL, last_contact REAL
         );
         CREATE INDEX IF NOT EXISTS console_stream_scope ON console_streams(build_id,hosted_id,state);
+        CREATE TABLE IF NOT EXISTS console_slot_colors(
+            build_id INTEGER NOT NULL REFERENCES seed_builds(id) ON DELETE CASCADE,
+            slot TEXT NOT NULL,
+            color INTEGER NOT NULL CHECK(color BETWEEN 1 AND 8),
+            PRIMARY KEY(build_id,slot)
+        );
         """)
         if "hosted_id" not in {r["name"] for r in conn.execute("PRAGMA table_info(console_events)")}:
             conn.execute("ALTER TABLE console_events ADD COLUMN hosted_id INTEGER REFERENCES hosted_rooms(id) ON DELETE CASCADE")
@@ -92,6 +98,14 @@ def render_payload(payload, packages):
     return payload.get("text", "")
 
 
+def set_slot_color(build_id, slot, color):
+    if color is None:
+        db.execute("DELETE FROM console_slot_colors WHERE build_id=? AND slot=?", (build_id, slot))
+    else:
+        db.execute("""INSERT INTO console_slot_colors(build_id,slot,color) VALUES (?,?,?)
+                      ON CONFLICT(build_id,slot) DO UPDATE SET color=excluded.color""", (build_id, slot, color))
+
+
 def identities(build_id):
     conn = db.get()
     build = conn.execute('SELECT snapshot FROM seed_builds WHERE id=?',(build_id,)).fetchone()
@@ -100,8 +114,11 @@ def identities(build_id):
     users = {row['id']:row['username'] for row in conn.execute("""SELECT id,username FROM users
         WHERE id IN (SELECT json_extract(value,'$.player_id') FROM json_each(NULLIF(?, ''), '$.slots'))""",
         (build['snapshot'],))}
+    colors = {row['slot']: row['color'] for row in conn.execute(
+        "SELECT slot,color FROM console_slot_colors WHERE build_id=?", (build_id,))}
     return [dict(slot=slot['slot'],game=slot['game_name'],user_id=slot.get('player_id'),
-                 username=users.get(slot.get('player_id'),''),anchor=f'console-player-{index}')
+                 username=users.get(slot.get('player_id'),''),anchor=f'console-player-{index}',
+                 color=colors.get(slot['slot']))
             for index,slot in enumerate(db.loads(build['snapshot']).get('slots',[]))]
 
 

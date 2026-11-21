@@ -2207,5 +2207,17 @@
   "m2120": "Write a message",
   "m2121": "No messages for this filter.",
   "m2122": "Click “Open popout” again to open the console in your browser.",
-  "m2123": "This popout belongs to another login. Open it again."
+  "m2123": "This popout belongs to another login. Open it again.",
+  "m2124": "Choose slot colour",
+  "m2125": "Slot colour for {v0}",
+  "m2126": "Invalid slot colour.",
+  "m2127": "Automatic",
+  "m2128": "Violet",
+  "m2129": "Teal",
+  "m2130": "Orange",
+  "m2131": "Pink",
+  "m2132": "Blue",
+  "m2133": "Ochre",
+  "m2134": "Green",
+  "m2135": "Lilac"
 }

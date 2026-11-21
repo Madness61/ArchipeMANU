@@ -64,6 +64,28 @@
       <p class="small" id="console-server-row" {% if not endpoint %}hidden{% endif %}>{{ _('Server') }} <code id="console-server-address">{% if endpoint %}{{ endpoint.host }}:{{ endpoint.port }}{% endif %}</code></p>
       <p class="small muted" id="console-auto-port" hidden>{{ _('Port wird automatisch aktualisiert.') }}</p>
       {% if not archived %}<p class="small muted" id="console-no-server" {% if endpoint %}hidden{% endif %}>{{ _('Der Host muss zuerst Server und Port hinterlegen.') }}{% if console_embedded and manage %} <a href="#round-host-connection">{{ _('Verbindung einrichten') }}</a>{% endif %}</p>{% endif %}
+      {% if own and not archived %}
+      <details class="console-slot-colors">
+        <summary>{{ _('Slotfarbe wählen') }}</summary>
+        {% for player in own %}
+        <label class="console-slot-color">
+          <strong class="console-player-name">{{ player.slot }}</strong>
+          <select data-console-slot-color="{{ player.slot }}" aria-label="{{ _('Slotfarbe für {v0}', v0=player.slot) }}" disabled>
+            <option value="">{{ _('Automatisch') }}</option>
+            <option value="1">{{ _('Violett') }}</option>
+            <option value="2">{{ _('Türkis') }}</option>
+            <option value="3">{{ _('Orange') }}</option>
+            <option value="4">{{ _('Rosa') }}</option>
+            <option value="5">{{ _('Blau') }}</option>
+            <option value="6">{{ _('Ocker') }}</option>
+            <option value="7">{{ _('Grün') }}</option>
+            <option value="8">{{ _('Lila') }}</option>
+          </select>
+        </label>
+        {% endfor %}
+        <p id="console-slot-color-status" class="small muted" role="status" hidden></p>
+      </details>
+      {% endif %}
       <details id="console-player-list"><summary>{{ _('Spieler und Benutzerkonten') }}</summary><ul id="console-players" class="console-players"></ul></details>
       <details class="console-diagnostics"><summary>{{ _('Verbindungsdiagnose') }}</summary><div id="console-diagnostics" class="small muted"></div></details>
       {% if g.user and (g.user.is_admin or room.created_by==g.user.id) and not archived %}

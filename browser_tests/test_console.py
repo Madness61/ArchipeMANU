@@ -296,6 +296,7 @@ def test_console_popout_native_pip_and_browser_fallback(actors, artifact_dir):
         host.get_by_label('Serveradresse', exact=True).fill('127.0.0.1')
         host.get_by_label('Port', exact=True).fill(str(server.port))
         host.get_by_role('button', name='Verbindung speichern', exact=True).click()
+        expect(alice.locator('#console-state')).to_contain_text('Mit Archipelago verbunden', timeout=20000)
         expect(alice.locator('#console-log')).to_contain_text('Progression Key')
         opener = alice.get_by_role('link', name='Popout öffnen')
         popout_url = opener.get_attribute('href')
@@ -327,6 +328,22 @@ def test_console_popout_native_pip_and_browser_fallback(actors, artifact_dir):
         colors = log.locator('.console-items').first.locator('.console-player-name').evaluate_all(
             'names => names.map(name => getComputedStyle(name).color)')
         assert len(set(colors)) == 2
+        alice.get_by_text('Slotfarbe wählen', exact=True).click()
+        color_picker = alice.get_by_label('Slotfarbe für Alice', exact=True)
+        expect(alice.get_by_label('Slotfarbe für Bob', exact=True)).to_have_count(0)
+        expect(color_picker).to_have_value('')
+        color_picker.select_option(label='Rosa')
+        expect(alice.locator('#console-slot-color-status')).to_have_text('Gespeichert.')
+        expect(alice.locator('#console-log .console-items').first.get_by_text('Alice', exact=True)).to_have_css(
+            'color', 'rgb(239, 162, 195)')
+        expect(log.locator('.console-items').first.get_by_text('Alice', exact=True)).to_have_css(
+            'color', 'rgb(239, 162, 195)')
+        assert server.clients == [reader]
+        alice.set_viewport_size(dict(width=390, height=844))
+        expect(color_picker).to_be_visible()
+        assert alice.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        alice.locator('.console-slot-colors').screenshot(path=str(artifact_dir/'slot-colour-mobile.png'))
+        alice.set_viewport_size(dict(width=1365, height=950))
         filters = popup.get_by_label('Nachrichtenart')
         expect(filters.locator('option')).to_have_text(['Alle', 'Für mich', 'Items', 'Chat'])
 
@@ -367,6 +384,8 @@ def test_console_popout_native_pip_and_browser_fallback(actors, artifact_dir):
         bob.goto(popout_url)
         expect(bob.locator('html')).to_have_attribute('data-theme', 'light')
         expect(bob.get_by_label('Message type').locator('option')).to_have_text(['All', 'For me', 'Items', 'Chat'])
+        expect(bob.locator('#console-log .console-items').first.get_by_text('Alice', exact=True)).to_have_css(
+            'color', 'rgb(170, 51, 111)')
         login(spectator, 'TestAdmin'); spectator.goto(popout_url)
         for page in (bob, spectator):
             expect(page.locator('#console-log')).to_contain_text('Potion')
@@ -383,6 +402,9 @@ def test_console_popout_native_pip_and_browser_fallback(actors, artifact_dir):
         assert len(server.clients) == 2
         alice.bring_to_front()
         expect(alice.locator('#console-log')).to_contain_text('Privater Hinweis für Alice')
+        alice.reload()
+        expect(alice.get_by_label('Slotfarbe für Alice', exact=True)).to_have_value('4')
+        alice.evaluate("Object.defineProperty(window, 'documentPictureInPicture', {value: undefined})")
         with alice.expect_popup() as reopened:
             opener.click()
         popup = reopened.value

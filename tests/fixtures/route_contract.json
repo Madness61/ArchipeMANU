@@ -587,6 +587,13 @@
     ]
   },
   {
+    "rule": "/sessions/<int:sid>/builds/<int:build_id>/console/slot-color",
+    "endpoint": "console.slot_color",
+    "methods": [
+      "POST"
+    ]
+  },
+  {
     "rule": "/sessions/<int:sid>/builds/<int:build_id>/console/recording/start",
     "endpoint": "console.recording_start",
     "methods": [

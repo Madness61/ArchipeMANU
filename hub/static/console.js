@@ -72,10 +72,27 @@
   const startingRoom = data => data?.room_connection?.state !== 'connected'
     && ['checking','starting'].includes(data?.room_start?.state);
   let players=new Map(),playerPattern=null,playerSignature='';
+  const slotColorChoices = root.querySelectorAll('[data-console-slot-color]');
+  const slotColorStatus = document.getElementById('console-slot-color-status');
+  const pendingSlotColors = new Set();
+  const slotColorValue = player => 'var(--' + player.anchor + '-color)';
+  function paintSlotColor(player) {
+    const color = player.color ? 'var(--player-color-' + player.color + ')' : window.HUB_UI.playerColor(player.slot);
+    root.style.setProperty('--' + player.anchor + '-color', color);
+  }
+  function syncSlotColorChoice(choice) {
+    if (pendingSlotColors.has(choice)) return;
+    const player = players.get(choice.dataset.consoleSlotColor);
+    choice.disabled = authLost || !player;
+    if (!player) return;
+    choice.value = player.color ?? '';
+    choice.closest('label').style.setProperty('--player', slotColorValue(player));
+  }
   function playerNode(name){
-    const player=compact?null:players.get(name),link=document.createElement(player?'a':'strong');
-    link.textContent=name;link.className='console-player-name';link.style.setProperty('--player',window.HUB_UI.playerColor(name));
-    if(player){
+    const player=players.get(name),isLink=player&&!compact,link=document.createElement(isLink?'a':'strong');
+    link.textContent=name;link.className='console-player-name';
+    link.style.setProperty('--player', player ? slotColorValue(player) : window.HUB_UI.playerColor(name));
+    if(isLink){
       const roundPlayer = document.getElementById(player.anchor.replace('console-', 'round-'));
       link.href='#'+(roundPlayer?.id||player.anchor);link.dataset.userId=player.user_id;link.title=player.username;
       if(!roundPlayer)link.addEventListener('click',()=>{document.getElementById('console-player-list').open=true;});
@@ -85,11 +102,14 @@
   function identify(values=[]){
     const signature=JSON.stringify(values);if(signature===playerSignature)return;playerSignature=signature;
     players=new Map(values.map(p=>[p.slot,p]));
+    values.forEach(paintSlotColor);
+    slotColorChoices.forEach(syncSlotColorChoice);
     const names=[...players.keys()].sort((a,b)=>b.length-a.length).map(name=>name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
     playerPattern=names.length?new RegExp('(?<![\\p{L}\\p{N}_])('+names.join('|')+')(?![\\p{L}\\p{N}_])','gu'):null;
     const list=document.getElementById('console-players');
     if(list)list.replaceChildren(...values.map(p=>{const row=document.createElement('li');row.id=p.anchor;
       const name=document.createElement('strong'),account=document.createElement('small');name.textContent=p.slot;
+      name.className='console-player-name';name.style.setProperty('--player',slotColorValue(p));
       account.textContent=p.username+' · '+p.game;row.append(name,account);return row;}));
   }
   function messageText(target,content){
@@ -149,7 +169,7 @@
     const data = await response.json().catch(() => ({error:response.status === 429 ? window.HUB_I18N.t('Zu viele Anfragen. Bitte kurz warten.') : window.HUB_I18N.t('Die Anfrage konnte nicht verarbeitet werden. Bitte gegebenenfalls erneut anmelden.')}));
     if(response.status===401){authLost=true;window.HUB_AUTH_REQUIRED?.(data.login_url);}
     if (!response.ok) {
-      const message = window.HUB_I18N.t(data.error || 'Die Anfrage ist fehlgeschlagen.');
+      const message = data.error ? window.HUB_I18N.t(data.error) : window.HUB_I18N.t('Die Anfrage ist fehlgeschlagen.');
       if (compact && (response.status === 401 || !form && [403,404,409].includes(response.status))) {
         revokePopout();
         fail(message);
@@ -286,6 +306,28 @@
     try { await api(path,form); await load(); return true; }
     catch(e) { showError(e.message); return false; }
   }
+  slotColorChoices.forEach(choice => choice.addEventListener('change', async () => {
+    const slot = choice.dataset.consoleSlotColor;
+    const values = new URLSearchParams({slot, color: choice.value});
+    pendingSlotColors.add(choice);
+    choice.disabled = true;
+    slotColorStatus.hidden = true;
+    try {
+      const {color} = await api('/slot-color', values);
+      const player = players.get(slot);
+      player.color = color;
+      paintSlotColor(player);
+      slotColorStatus.textContent = window.HUB_I18N.t('Gespeichert.');
+      slotColorStatus.classList.remove('err');
+    } catch (e) {
+      slotColorStatus.textContent = e.message;
+      slotColorStatus.classList.add('err');
+    } finally {
+      pendingSlotColors.delete(choice);
+      syncSlotColorChoice(choice);
+      slotColorStatus.hidden = false;
+    }
+  }));
   document.getElementById('recording-start')?.addEventListener('submit',async event=>{
     event.preventDefault();const form=event.currentTarget,values=new FormData(form),button=form.querySelector('button[type=submit]');
     form.elements.password.value='';button.disabled=true;

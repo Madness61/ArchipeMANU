@@ -169,6 +169,33 @@ class ConsoleTests(unittest.TestCase):
         for suffix in ("", "?popout=1", "/data", "/commands"):
             self.assertEqual(self.client.get(self.url+suffix).status_code,403)
         self.assertEqual(self.post(self.url+"/connect",{}).status_code,403)
+        self.assertEqual(self.post(self.url+"/slot-color", {"slot":"Host", "color":"4"}).status_code,403)
+
+    def test_slot_colors_migrate_and_allow_only_the_owner_to_change_a_slot(self):
+        with self.app.app_context():
+            db.execute("DROP TABLE console_slot_colors")
+            ap_console.record(self.path/"hub.db", self.bid, None, "chat", {"text":"Existing journal"})
+            ap_console.migrate()
+            ap_console.migrate()
+        self.assertEqual(self.state()["events"][0]["text"], "Existing journal")
+
+        def colors(client=None):
+            return {player["slot"]: player["color"] for player in self.state(client)["players"]}
+
+        url = self.url+"/slot-color"
+        self.assertEqual(colors(), {"Host": None, "Friend": None})
+        self.assertEqual(self.client.post(url, data={"slot":"Host", "color":"4"}).status_code, 403)
+        self.assertEqual(self.post(url, {"slot":"Host", "color":"4"}, client=self.friend).status_code, 403)
+        self.assertEqual(self.post(url, {"slot":"Host", "color":"9"}).status_code, 400)
+        self.assertEqual(self.post(url, {"slot":"Host", "color":"4"}).get_json(), {"color":4})
+        self.assertEqual(self.post(url, {"slot":"Friend", "color":"5"}, client=self.friend).status_code, 200)
+        self.assertEqual(colors(self.friend), {"Host":4, "Friend":5})
+        self.assertEqual(self.post(url, {"slot":"Host", "color":"6"}).get_json(), {"color":6})
+        self.assertEqual(self.post(url, {"slot":"Host", "color":""}).get_json(), {"color":None})
+        self.assertEqual(colors(), {"Host":None, "Friend":5})
+        with self.app.app_context():
+            db.execute("UPDATE seed_builds SET completed_at='today' WHERE id=?", (self.bid,))
+        self.assertEqual(self.post(url, {"slot":"Host", "color":"4"}).status_code, 409)
 
     def test_journal_pagination_retention_and_address_change(self):
         with self.app.app_context():
