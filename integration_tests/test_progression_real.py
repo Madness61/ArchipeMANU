@@ -256,9 +256,7 @@ class RealProgressionTests(unittest.TestCase):
                     self.assertEqual(post(clients[0],'/login',dict(username='SiteA',password='p')).status_code,302)
                     def events():
                         return clients[0].get(base+'/data').json['events']
-                    wait(lambda:any(row.get('connection_role')=='reader' for row in events()))
-                    reader_event, = (row for row in events() if row.get('connection_role')=='reader')
-                    self.assertIn('NativeA (Team #1) tracking ChecksFinder has joined', reader_event['server_text'])
+                    self.assertEqual(sum('Itemaufzeichnung gestartet' in row['text'] for row in events()), 1)
                     handshake = dict(cmd='Connect', password=None, game='', name='ArchipeMANU',
                                      uuid='real-protocol-probe', version=dict(major=0,minor=6,build=8,**{'class':'Version'}),
                                      items_handling=0, tags=['Tracker'], slot_data=False)
@@ -270,8 +268,24 @@ class RealProgressionTests(unittest.TestCase):
                         self.assertIn('InvalidSlot', refusal['errors'])
                         wire.send(json.dumps([{**handshake, 'name':'NativeA', 'game':'ChecksFinder', 'tags':['AP']}]))
                         wait(lambda:any('NativeA (Team #1) playing ChecksFinder has joined' in row['text'] for row in events()))
+                        previous = reader.connected_at
+                        reader.wire.close(1012)
+                        presence = {}
+                        deadline = time.monotonic() + 15
+                        while presence.keys() != {'Join', 'Part'} and time.monotonic() < deadline:
+                            for packet in json.loads(wire.recv(timeout=max(.1, deadline-time.monotonic()))):
+                                if ap_console.reader_presence(packet):
+                                    presence[packet['type']] = packet
+                        self.assertEqual(set(presence), {'Join', 'Part'})
+                        self.assertCountEqual(presence['Join']['tags'], ['Tracker', 'ArchipeMANU-Reader'])
+                        self.assertIn('NativeA (Team #1) tracking ChecksFinder has joined', presence['Join']['data'][0]['text'])
+                        self.assertNotIn('tags', presence['Part'])
+                        self.assertIn('NativeA (Team #1) has stopped tracking the game', presence['Part']['data'][0]['text'])
+                        wait(lambda: reader.catalog_ready and reader.connected_at > previous)
                     wait(lambda:any('NativeA (Team #1) has left the game' in row['text'] for row in events()))
-                    self.assertEqual(sum(row.get('connection_role')=='reader' for row in events()), 1)
+                    self.assertFalse(any(ap_console.READER_TAGS[1] in row['text'] or row.get('connection_role') == 'reader'
+                                         for row in events()))
+                    self.assertEqual(sum('Itemaufzeichnung unterbrochen' in row['text'] for row in events()), 1)
                     for client,account,slot in zip(clients,('SiteA','SiteB'),('NativeA','NativeB')):
                         if client is not clients[0]:
                             self.assertEqual(post(client,'/login',dict(username=account,password='p')).status_code,302)

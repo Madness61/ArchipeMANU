@@ -14,7 +14,6 @@ _lock = threading.Lock()
 _stop = threading.Event()
 _room_lock = threading.RLock()
 PUBLIC_TYPES = ap_console.PUBLIC_TYPES
-READER_TAG = 'ArchipeMANU-Reader'
 HANDSHAKE_EVENT_LIMIT = 256 * 1024
 
 
@@ -60,6 +59,10 @@ def permitted(conn, row):
 
 
 class Recorder(ap_console.Client):
+    connect_tags = ap_console.READER_TAGS
+    report_connection_events = False  # Coverage transitions are journaled separately.
+    coverage_recovery_seconds = 8
+
     def __init__(self, row, build, endpoint, password):
         super().__init__(config.DB_PATH.resolve(),build,row['actor_id'],None,dict(endpoint),row['slot'],password,
                          {'auto':None,'ws':False,'wss':True}[row['transport']])
@@ -70,8 +73,6 @@ class Recorder(ap_console.Client):
         self.pending_public = None
         self.pending_size = 0
         if self.automatic:
-            self.connect_tags = ('Tracker', READER_TAG)
-            self.report_connection_events = False  # Coverage transitions are journaled separately.
             self.user_id = next(s['player_id'] for s in self.expected if s['slot']==self.slot_name)
         self.thread.name = f"ap-recording-{self.build_id}"
 
@@ -109,6 +110,8 @@ class Recorder(ap_console.Client):
         cmd = packet.get('cmd')
         kind = packet.get('type')
         if self.automatic and cmd == 'PrintJSON' and (kind in PUBLIC_TYPES or kind == 'ItemSend'):
+            if ap_console.reader_presence(packet):
+                return  # The coverage journal and connection state represent the service.
             # Only explicitly public protocol types are shared. Hints, prints and
             # command replies arriving at the service slot remain private.
             if self.state == 'connected':
@@ -156,12 +159,6 @@ class Recorder(ap_console.Client):
         else:
             parts = self.message_parts(packet)
         payload = dict(parts=parts, public_type=packet['type'], player_slot=speaker['name'] if speaker else None)
-        tags = packet.get('tags')
-        if (packet['type'] in ('Join', 'Part') and speaker and packet['slot'] == self.slot
-                and isinstance(tags, list) and all(tag in tags for tag in self.connect_tags)):
-            # Part on standard MultiServer has no structured tags. Keep its
-            # original text, even when the team and slot match the reader.
-            payload['connection_role'] = 'reader'
         ap_console.record(self.path,self.build_id,None,
                           'chat' if packet['type'] in ('Chat','ServerChat') else 'system',
                           payload,
@@ -219,16 +216,19 @@ def ensure(build, endpoint, password=None, transport='auto', force=False):
         with db.transaction() as conn:
             conn.execute('BEGIN IMMEDIATE')
             parent = conn.execute('SELECT created_by FROM sessions WHERE id=?',(build['session_id'],)).fetchone()
-            slots = db.loads(build['snapshot']).get('slots',[])
-            if not parent or not slots or build['completed_at'] or build['status']!='succeeded' or db.loads(build['snapshot']).get('race'):
+            snapshot = db.loads(build['snapshot'])
+            slots = snapshot.get('slots', [])
+            if not parent or not slots or build['completed_at'] or build['status']!='succeeded' or snapshot.get('race'):
                 return None
             row = conn.execute('SELECT * FROM console_recordings WHERE build_id=?',(build['id'],)).fetchone()
             if row and row['lease_owner']!=ap_console.PROCESS_ID and row['lease_until']>now:
                 return None
-            changed = not row or row['hosted_id']!=endpoint['id'] or not row['automatic']
-            if row and not changed and not force:
-                if not row['enabled']:
-                    return None
+            same_room = row is not None and row['hosted_id'] == endpoint['id']
+            saved_slot = row['slot'] if same_room and any(s['slot'] == row['slot'] for s in slots) else None
+            changed = not same_room or not row['automatic'] or saved_slot is None
+            if same_room and not row['enabled'] and not force:
+                return None
+            if not changed and not force:
                 if active and active.thread.is_alive():
                     return active
                 if row['state']=='action_required':
@@ -237,15 +237,19 @@ def ensure(build, endpoint, password=None, transport='auto', force=False):
                     return None
             if changed or force:
                 preferred = next((s for s in slots if s['player_id'] == parent['created_by']), slots[0])
-                saved_slot = row['slot'] if row and row['automatic'] and row['hosted_id'] == endpoint['id'] else None
-                slot = saved_slot if any(s['slot'] == saved_slot for s in slots) else preferred['slot']
                 # Credentials for a previous room are never carried across endpoints.
-                conn.execute('''INSERT INTO console_recordings(build_id,hosted_id,actor_id,slot,uuid,transport,automatic,updated_at)
-                    VALUES (?,?,?,?,?,?,1,?) ON CONFLICT(build_id) DO UPDATE SET hosted_id=excluded.hosted_id,
+                if same_room and not force:
+                    transport = row['transport']
+                    if password is None and active and active.endpoint['id'] == endpoint['id']:
+                        password = active.password
+                password_required = int(same_room and row['password_required'] and password is None)
+                conn.execute('''INSERT INTO console_recordings(build_id,hosted_id,actor_id,slot,uuid,transport,automatic,password_required,updated_at)
+                    VALUES (?,?,?,?,?,?,1,?,?) ON CONFLICT(build_id) DO UPDATE SET hosted_id=excluded.hosted_id,
                     actor_id=excluded.actor_id,slot=excluded.slot,transport=excluded.transport,automatic=1,
-                    enabled=1,generation=console_recordings.generation+1,password_required=0,
+                    enabled=1,generation=console_recordings.generation+1,password_required=excluded.password_required,
                     state='connecting',error='',lease_owner='',lease_until=0,updated_at=excluded.updated_at''',
-                    (build['id'],endpoint['id'],parent['created_by'],slot,ap_console.secrets.token_hex(16),transport,now))
+                    (build['id'],endpoint['id'],parent['created_by'],saved_slot or preferred['slot'],
+                     ap_console.secrets.token_hex(16),transport,password_required,now))
                 row = conn.execute('SELECT * FROM console_recordings WHERE build_id=?',(build['id'],)).fetchone()
             if not permitted(conn,row):
                 return None

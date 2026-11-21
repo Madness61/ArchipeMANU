@@ -68,26 +68,71 @@ class SharedRoomTests(unittest.TestCase):
     def test_reader_tag_and_same_slot_public_events_during_authentication(self):
         self.server.announce_joins = True
         self.server.before_connected = [
-            dict(cmd='PrintJSON', type=kind, team=0, slot=1, tags=tags, data=[dict(text=text)])
-            for kind, tags, text in (
-                ('Join', ['AP'], 'Real player joined the same slot'),
-                ('Join', ['Tracker'], 'Another tracker joined the same slot'),
-                ('Part', [], 'Unidentified client left the same slot'),
+            dict(cmd='PrintJSON', type=kind, team=0, slot=1, data=[dict(text=text)], **extra)
+            for kind, extra, text in (
+                ('Join', {'tags': ['AP']}, 'Real player joined the same slot'),
+                ('Join', {'tags': ['Tracker']}, 'Another tracker joined the same slot'),
+                ('Part', {}, "Host (Team #1) has stopped tracking the game. Client(0.6.8), ['Tracker']."),
+                ('Part', {}, "Host (Team #1) has left the game. Client(0.6.8), ['AP']."),
             )
         ]
+        reader_part = "Host (Team #1) has stopped tracking the game. Client(0.6.8), ['ArchipeMANU-Reader', 'Tracker']."
+        self.server.before_connected.append(dict(cmd='PrintJSON', type='Part', team=0, slot=1,
+                                                  data=[dict(text=reader_part)]))
         reader = self.room()
         self.wait_for(lambda: reader.state == 'connected' and reader.catalog_ready)
         connect = next(packet for packet in self.server.packets if packet['cmd'] == 'Connect')
         self.assertCountEqual(connect['tags'], ['Tracker', 'ArchipeMANU-Reader'])
         for client in (self.client, self.friend):
             events = self.state(client)['events']
-            service, = (entry for entry in events if entry.get('connection_role') == 'reader')
-            self.assertEqual(service['text'], 'Gemeinsamer Hintergrundleser verbunden.')
-            self.assertIn('Host tracking has joined.', service['server_text'])
-            for packet in self.server.before_connected:
+            self.assertEqual(sum('Itemaufzeichnung gestartet' in entry['text'] for entry in events), 1)
+            self.assertFalse(any(entry.get('connection_role') == 'reader' or
+                                 entry['text'] in ('Host tracking has joined.', reader_part) for entry in events))
+            for packet in self.server.before_connected[:-1]:
                 event, = (entry for entry in events if entry['text'] == packet['data'][0]['text'])
                 self.assertNotIn('connection_role', event)
                 self.assertEqual(event['visibility'], 'team')
+
+    def test_old_textonly_join_remains_readable_as_text_client(self):
+        original = "Friend (Team #1) viewing Test World has joined. Client(0.6.8), ['TextOnly']."
+        with self.app.app_context():
+            endpoint = db.query('SELECT id FROM hosted_rooms', one=True)['id']
+        ap_console.record(self.path/'hub.db', self.bid, None, 'system',
+                          dict(parts=[dict(text=original)], public_type='Join', player_slot='Friend'), hosted_id=endpoint)
+        event, = self.state()['events']
+        self.assertEqual(event['connection_role'], 'text_client')
+        self.assertEqual(event['server_text'], original)
+        self.assertEqual(event['text'], 'Archipelago-Textclient verbunden.')
+
+    def test_saved_reader_slot_survives_legacy_upgrade_and_restart(self):
+        with self.app.app_context():
+            endpoint = db.query('SELECT id FROM hosted_rooms', one=True)['id']
+            db.execute('''INSERT INTO console_recordings(build_id,hosted_id,actor_id,slot,uuid,transport,updated_at)
+                          VALUES (?,?,1,'Friend','saved-reader','ws',0)''', (self.bid, endpoint))
+        first = self.room()
+        self.wait_for(lambda: first.catalog_ready)
+        self.assertEqual((first.slot_name, first.uuid, first.automatic), ('Friend', 'saved-reader', True))
+        ap_console.stop_all()
+        with self.app.app_context():
+            db.execute('UPDATE console_recordings SET lease_until=0')
+        recording.resume_due(automatic=True)
+        reader = recording.worker(self.bid)
+        self.wait_for(lambda: reader.catalog_ready)
+        connections = [packet for packet in self.server.packets if packet['cmd'] == 'Connect']
+        self.assertEqual(len(connections), 2)
+        for packet in connections:
+            self.assertEqual((packet['name'], packet['uuid']), ('Friend', 'saved-reader'))
+            self.assertCountEqual(packet['tags'], ['Tracker', 'ArchipeMANU-Reader'])
+
+    def test_invalid_saved_reader_slot_is_reselected_from_seed(self):
+        with self.app.app_context():
+            endpoint = db.query('SELECT id FROM hosted_rooms', one=True)['id']
+            db.execute('''INSERT INTO console_recordings(build_id,hosted_id,actor_id,slot,uuid,transport,automatic,state,updated_at)
+                          VALUES (?,?,1,'Missing slot','saved-reader','ws',1,'action_required',0)''', (self.bid, endpoint))
+        reader = self.room()
+        self.assertIsNotNone(reader)
+        self.wait_for(lambda: reader.catalog_ready)
+        self.assertEqual(reader.slot_name, 'Host')
 
     def test_reader_prefers_the_hosts_verified_slot_over_seed_order(self):
         with self.app.app_context():
@@ -108,7 +153,8 @@ class SharedRoomTests(unittest.TestCase):
             return original(host, port, secure)
 
         with patch.object(ap_console, 'connect_transport', side_effect=connect), \
-                patch.object(ap_console, 'RETRY_BASE', .01), patch.object(ap_console, 'RETRY_MAX', .03):
+                patch.object(ap_console, 'RETRY_BASE', .01), patch.object(ap_console, 'RETRY_MAX', .03), \
+                patch.object(ap_console, 'GUARD_SECONDS', .1), patch.object(recording.Recorder, 'coverage_recovery_seconds', .2):
             reader = self.room()
             self.wait_for(lambda: reader.state == 'connected' and reader.catalog_ready)
             failed = True
@@ -124,9 +170,27 @@ class SharedRoomTests(unittest.TestCase):
                                  for row in data['events']))
             failed = False
             self.wait_for(lambda: reader.state == 'connected' and reader.catalog_ready)
+            self.wait_for(lambda: self.state()['recording']['state'] == 'active')
             data = self.state()
             self.assertEqual(data['room_connection']['retry_attempt'], 0)
             self.assertEqual(sum('Itemaufzeichnung fortgesetzt' in row['text'] for row in data['events']), 1)
+
+    def test_short_lived_reconnects_keep_single_gap_until_stable(self):
+        self.server.announce_joins = True
+        with patch.object(ap_console, 'RETRY_BASE', .01), patch.object(ap_console, 'GUARD_SECONDS', .1), \
+                patch.object(recording.Recorder, 'coverage_recovery_seconds', 2):
+            reader = self.room()
+            self.wait_for(lambda: reader.catalog_ready)
+            for _ in range(3):
+                previous = reader.connected_at
+                self.server.interrupt()
+                self.wait_for(lambda: reader.catalog_ready and reader.connected_at > previous)
+            self.wait_for(lambda: self.state()['recording']['state'] == 'active')
+            events = self.state()['events']
+            for notice in ('Itemaufzeichnung gestartet', 'Itemaufzeichnung unterbrochen', 'Itemaufzeichnung fortgesetzt'):
+                self.assertEqual(sum(notice in entry['text'] for entry in events), 1)
+            self.assertFalse(any(entry.get('connection_role') == 'reader' or 'tracking has joined' in entry['text']
+                                 for entry in events))
 
     def test_automatic_commands_reject_foreign_slots_and_spectator_writes(self):
         reader=self.room();self.wait_for(lambda:reader.state=='connected')
@@ -278,7 +342,9 @@ class RecordingTests(unittest.TestCase):
         self.assertEqual(self.post(self.url+'/recording/start',dict(slot='Friend',consent='1'),client=self.friend).status_code,403)
         current=self.enable()
         self.assertEqual(current.slot_name,'Host')
-        self.assertFalse(next(p for p in self.server.packets if p['cmd']=='Connect')['slot_data'])
+        hello = next(p for p in self.server.packets if p['cmd']=='Connect')
+        self.assertFalse(hello['slot_data'])
+        self.assertCountEqual(hello['tags'], ['Tracker', 'ArchipeMANU-Reader'])
         self.post('/logout',{})
         self.assertTrue(current.valid())
         self.server.interrupt()

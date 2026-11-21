@@ -115,10 +115,13 @@ bestehenden Spoilerfreigabe enthält diese Antwort konkrete Fundorte.
   `items_handling=7`, `slot_data=true` und die Protokollversion 0.6.8.
   Eigene Slotdaten persönlicher Verbindungen bleiben im Arbeitsspeicher und
   werden nicht im gemeinsamen Protokoll veröffentlicht. Es gibt keine aktive
-  Universal-Logikberechnung. Der automatische gemeinsame Leser nutzt
-  `Tracker` und `ArchipeMANU-Reader` auf einem echten Seed-Slot und fordert
-  keine Slotdaten an. Eindeutig getaggte Verbindungsereignisse enthalten
-  `connection_role: "reader"` und die Originalmeldung in `server_text`.
+  Universal-Logikberechnung. Gemeinsame und alte explizite Aufzeichnungen nutzen
+  `Tracker` und `ArchipeMANU-Reader` auf einem echten Seed-Slot und fordern
+  keine Slotdaten an. Der Server veröffentlicht Join und Part weiterhin unter
+  dem Seed-Slot. Der Hub verarbeitet eindeutig markierte Reader-Verbindungen
+  über Status und Aufzeichnungshinweise. Historische Einträge mit `connection_role: "reader"`
+  behalten `server_text`. Reine `TextOnly`-Beitritte und -Abgänge erscheinen als
+  `connection_role: "text_client"` mit der Originalmeldung in `server_text`.
   Kein APWorld-Import im Webprozess und kein Shellzugriff über Befehle.
 - Vor Befehlen werden Seedname, Spielerslots, Spiele und der eigene Slot geprüft.
   Lokale Seeds verwenden Team 0. Abweichende Räume werden abgelehnt.
