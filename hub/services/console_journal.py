@@ -1,9 +1,14 @@
 """Persistent console events, pagination and translated display."""
 from contextlib import contextmanager
+import re
 import sqlite3
 import time
 from hub import db, i18n
 from hub.integrations.console_commands import COMMANDS
+
+_TEXT_CLIENT_PRESENCE = re.compile(
+    r"(?: has joined\.| has stopped viewing the game\.) Client\(\d+\.\d+\.\d+\), \['TextOnly'\]\.$"
+)
 
 def migrate():
     with db.transaction() as conn:
@@ -159,6 +164,12 @@ def events(build_id, user_id, after=0, kind="all", before=0, *, players=None):
             entry['server_text'] = text
             entry['text'] = (i18n.t('Gemeinsamer Hintergrundleser verbunden.') if payload['public_type'] == 'Join'
                              else i18n.t('Gemeinsamer Hintergrundleser getrennt.'))
+        elif payload.get('public_type') in ('Join', 'Part') and _TEXT_CLIENT_PRESENCE.search(text):
+            # Older Hub readers and external TextOnly clients have identical wire identities.
+            entry['connection_role'] = 'text_client'
+            entry['server_text'] = text
+            entry['text'] = (i18n.t('Archipelago-Textclient verbunden.') if payload['public_type'] == 'Join'
+                             else i18n.t('Archipelago-Textclient getrennt.'))
         if row['user_id'] is not None:
             actor = next((p for p in players if p['user_id']==row['user_id'] and p['slot']==payload.get('actor_slot')),None)
             entry['actor'] = actor

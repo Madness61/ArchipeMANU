@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 import queue
 import random
+import re
 import secrets
 import socket
 import sqlite3
@@ -28,6 +29,11 @@ RETRY_MAX = 60
 GUARD_SECONDS = 5
 PING_SECONDS = 25
 PUBLIC_TYPES = frozenset(('Chat','ServerChat','Join','Part','TagsChanged','Goal','Countdown','Release','Collect','ItemCheat'))
+READER_TAGS = ('Tracker', 'ArchipeMANU-Reader')
+_READER_PART = re.compile(
+    r" has stopped tracking the game\. Client\(\d+\.\d+\.\d+\), "
+    r"\[(?:'Tracker', 'ArchipeMANU-Reader'|'ArchipeMANU-Reader', 'Tracker')\]\.$"
+)
 _clients = {}
 _lock = threading.RLock()
 _wire_logger = logging.getLogger("hub.ap_console.wire")
@@ -83,6 +89,19 @@ def matches_seed(expected, actual):
     return not expected or actual in (expected, expected.removeprefix('AP_'))
 
 
+def reader_presence(packet):
+    if packet.get('cmd') != 'PrintJSON' or packet.get('type') not in ('Join', 'Part'):
+        return False
+    if 'tags' in packet:
+        tags = packet['tags']
+        return isinstance(tags, list) and all(tag in tags for tag in READER_TAGS)
+    # MultiServer 0.6.8 includes the tags of departing clients only in the text.
+    parts = packet.get('data')
+    return (packet['type'] == 'Part' and isinstance(parts, list) and len(parts) == 1
+            and isinstance(parts[0], dict) and isinstance(parts[0].get('text'), str)
+            and bool(_READER_PART.search(parts[0]['text'])))
+
+
 def connection_error(exc):
     """Useful diagnostics without echoing packets, passwords or server text."""
     if isinstance(exc, ssl.SSLCertVerificationError):
@@ -117,6 +136,7 @@ def network_item(value):
 class Client:
     connect_tags = ("TextOnly",)
     report_connection_events = True
+    coverage_recovery_seconds = 0
 
     def __init__(self, path, build, user_id, token_hash, endpoint, slot, password, secure):
         self.path, self.build_id, self.user_id = Path(path), build["id"], user_id
@@ -215,11 +235,16 @@ class Client:
             active_sql = "SELECT 1 FROM console_streams WHERE build_id=? AND hosted_id=? AND state='connected' AND heartbeat>?"
             before = conn.execute(active_sql, (*scope, fresh_after)).fetchone()
             previous = conn.execute('SELECT 1 FROM console_streams WHERE build_id=? AND hosted_id=? AND connected_at IS NOT NULL', scope).fetchone()
+            state = self.state
+            if (state == 'connected' and not before and previous and self.stable_since is not None
+                    and time.monotonic() - self.stable_since < self.coverage_recovery_seconds):
+                # Keep one gap open while sockets authenticate and drop in quick succession.
+                state = 'recovering'
             conn.execute('''INSERT INTO console_streams(id,build_id,hosted_id,state,heartbeat,connected_at,last_contact)
                 VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,
                 heartbeat=excluded.heartbeat,connected_at=COALESCE(console_streams.connected_at,excluded.connected_at),
                 last_contact=excluded.last_contact''',
-                (self.stream_id,*scope,self.state,now,self.connected_at,self.last_contact))
+                (self.stream_id,*scope,state,now,self.connected_at,self.last_contact))
             after = conn.execute(active_sql, (*scope, fresh_after)).fetchone()
             message = None
             if before and not after:
@@ -481,7 +506,7 @@ class Client:
                 item = network_item(packet["item"])
                 self.delivery(item, integer(packet['receiving']), 'live')
             else:
-                if self.managed and packet.get('type') in PUBLIC_TYPES:
+                if reader_presence(packet) or (self.managed and packet.get('type') in PUBLIC_TYPES):
                     return  # The sole room reader journals public events once.
                 parts = self.message_parts(packet)
                 # Hints and command replies stay private; only structured ItemSend is shared.

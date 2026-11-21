@@ -2200,5 +2200,7 @@
   "m2113": "Submitted for approval",
   "m2114": "Trusted status allows activation of APWorld code.",
   "m2115": "The tested individual items currently unlock no additional checks or regions.",
-  "m2116": "No outstanding progression items for other players in this world."
+  "m2116": "No outstanding progression items for other players in this world.",
+  "m2117": "Archipelago text client connected.",
+  "m2118": "Archipelago text client disconnected."
 }

@@ -107,7 +107,7 @@
         route.append(sender,document.createTextNode(' → '),recipient,document.createTextNode(': '),item);
         const place=document.createElement('small');place.className='console-item-place';place.textContent=entry.delivery.location.name+' · '+entry.delivery.sender.game;
         text.append(route,place);
-      }else if(entry.connection_role==='reader'){
+      }else if(entry.connection_role==='reader' || entry.connection_role==='text_client'){
         text.textContent=entry.text;
         text.title=entry.server_text;
         text.className='muted';

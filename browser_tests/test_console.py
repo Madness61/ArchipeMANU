@@ -38,7 +38,7 @@ def test_shared_reader_inline_finder_and_spectator(actors,artifact_dir):
         b.goto(url);login(viewer,'TestAdmin');viewer.goto(url)
         for page in (a,b,viewer):
             expect(page.locator('#console-log')).to_contain_text('Progression Key')
-            expect(page.locator('#console-log')).to_contain_text('Gemeinsamer Hintergrundleser verbunden.')
+            expect(page.locator('#console-log').get_by_text('Itemaufzeichnung gestartet', exact=False)).to_have_count(1)
             expect(page.locator('#console-log')).not_to_contain_text('Alice tracking has joined.')
             expect(page.locator('#console-connect')).to_have_count(0)
         assert len(server.clients)==1
@@ -199,6 +199,7 @@ def test_official_room_port_rotation_updates_console_and_copy_address_without_re
         alice.get_by_label('Nachricht oder Befehl',exact=True).fill('Entwurf bleibt beim Portwechsel')
         publish(second.port,61)
         expect(alice.locator('#console-log')).to_contain_text('neuen Port',timeout=20000)
+        expect(alice.locator('#console-log').get_by_text('Itemaufzeichnung unterbrochen', exact=False)).to_have_count(1)
         expect(alice.locator('#console-log').get_by_text('Itemaufzeichnung fortgesetzt', exact=False)).to_have_count(1, timeout=20000)
         expect(alice.locator('#console-state')).to_have_text('Mit Archipelago verbunden · WS')
         expect(alice.locator('#console-server-address')).to_have_text(f'archipelago.gg:{second.port}')
@@ -206,7 +207,8 @@ def test_official_room_port_rotation_updates_console_and_copy_address_without_re
         expect(alice.locator('#host-address')).to_have_text(f'archipelago.gg:{second.port}')
         expect(alice.locator('.console-items')).to_have_count(1)
         expect(alice.get_by_label('Nachricht oder Befehl',exact=True)).to_have_value('Entwurf bleibt beim Portwechsel')
-        assert len([p for p in second.packets if p['cmd']=='Connect'])==1
+        login, = [p for p in second.packets if p['cmd']=='Connect']
+        assert set(login['tags']) == {'Tracker', 'ArchipeMANU-Reader'}
         assert not any(p['cmd']=='Say' for p in second.packets)
         alice.screenshot(path=str(artifact_dir/'automatic-port-desktop.png'),full_page=True)
         alice.set_viewport_size(dict(width=390,height=844))
@@ -217,6 +219,7 @@ def test_official_room_port_rotation_updates_console_and_copy_address_without_re
 def test_opening_round_wakes_official_room_once_and_connects_to_new_port(actors, live_server, artifact_dir):
     alice, bob = actors.alice, actors.bob
     with FakeAP(game=GAME, names=('Alice', 'Bob'), seed='BROWSER_TEST') as server:
+        server.announce_joins = True
         def publish(**stage):
             pending = live_server.root / 'live-stage-pending.json'
             pending.write_text(json.dumps(stage), encoding='utf-8')
@@ -240,11 +243,13 @@ def test_opening_round_wakes_official_room_once_and_connects_to_new_port(actors,
         for page in (alice, bob):
             expect(page.locator('#console-state')).to_contain_text('Mit Archipelago verbunden', timeout=20000)
             expect(page.locator('#console-log')).to_contain_text('Progression Key')
+            expect(page.locator('#console-log')).not_to_contain_text('Alice tracking has joined.')
             expect(page.locator('#console-server-address')).to_have_text(f'archipelago.gg:{server.port}')
         calls = (live_server.root / 'live-api-calls.jsonl').read_text(encoding='utf-8').splitlines()
         assert [json.loads(line)['identifier'] for line in calls if json.loads(line)['endpoint'] == 'wake'] == [
             'AAECAwQFBgcICQoLDA0ODw']
-        assert len([packet for packet in server.packets if packet['cmd'] == 'Connect']) == 1
+        login, = [packet for packet in server.packets if packet['cmd'] == 'Connect']
+        assert set(login['tags']) == {'Tracker', 'ArchipeMANU-Reader'}
 
 
 def test_missing_login_shows_recovery_and_returns_to_round(actors,artifact_dir):
