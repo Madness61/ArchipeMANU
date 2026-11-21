@@ -18,24 +18,29 @@
   <article class="panel round-player-sheet" id="round-player-detail" aria-labelledby="round-player-name" tabindex="-1">
     <header><div><h3 id="round-player-name">{{ initial_slot.slot }}</h3><p class="small muted" id="round-player-game">{{ initial_slot.game_name }}</p></div><span class="chip" id="round-player-goal">{{ _('Zielstatus unbekannt') }}</span></header>
     <div class="row round-player-facts"><span id="round-player-checks"></span>{% if not race %}<span id="round-player-received"></span>{% endif %}</div>
+    <p id="round-player-data-age" class="small muted" role="status"></p>
     {% if race %}<p class="muted">{{ _("Die Spielerübersicht zeigt im Race-Modus nur Checks und Ziele.") }}</p>
     {% elif progression_enabled|default(false) %}
     <section id="round-player-items" aria-labelledby="round-item-title">
       <h4 id="round-item-title">{{ _("Progression-Items") }}</h4>
-      <p class="small muted">{{ _("Die APWorld klassifiziert diese Items als Progression. Die Spielzielprüfung bewertet die Notwendigkeit einzelner Exemplare.") }}</p>
+      <p class="small muted" id="round-item-context">{{ _("Fehlende Items zuerst. Unbekannter Empfang bleibt ausdrücklich gekennzeichnet.") }}</p>
       {% if own %}<div id="round-player-analysis" class="row" hidden>
         <button type="button" class="small" data-progression-open="next" data-round-analysis>{{ _("Was bringt mich weiter?") }}</button>
         <button type="button" class="small" data-progression-open="goal" data-round-analysis>{{ _("Spielziel prüfen") }}</button>
       </div>{% endif %}
-      <form id="round-item-filters" class="row">
-        <label>{{ _("Itemname") }}<input name="q" type="search" maxlength="100" autocomplete="off"></label>
-        <label>{{ _("Empfang") }}<select name="receipt" aria-label="{{ _('Empfang') }}"><option value="all">{{ _("Alle Zustände") }}</option><option value="not_received">{{ _("Ausstehend") }}</option><option value="received">{{ _("Erhalten") }}</option><option value="unknown">{{ _("Unbekannt") }}</option></select></label>
-        <button type="submit">{{ _("Suchen") }}</button>
+      <nav class="round-item-views" aria-label="{{ _('Items einordnen') }}">
+        {% for value,label in [('needed',_('Fehlt noch')),('found',_('Gefunden, Empfang offen')),('help',_('Für andere')),('useful',_('Hilft jetzt')),('all',_('Alle'))] %}
+        <button type="button" data-item-view="{{ value }}" aria-pressed="{{ 'true' if value=='needed' else 'false' }}">{{ label }}<span data-view-count="{{ value }}"></span></button>
+        {% endfor %}
+      </nav>
+      <form id="round-item-filters">
+        <label class="sr-only" for="round-item-query">{{ _("Itemname") }}</label><input id="round-item-query" name="q" type="search" maxlength="100" autocomplete="off" placeholder="{{ _('Itemname suchen …') }}">
       </form>
       <div class="row spread round-item-toolbar"><p class="small muted" id="round-item-result-status" role="status"></p>
         <button type="button" class="small" id="round-item-spoilers">{{ _("Fundort-Spoiler bewusst freigeben") }}</button>
       </div>
       <ul id="round-item-list" aria-label="{{ _('Progression-Items') }}"></ul>
+      <details class="round-item-explanation"><summary>{{ _('Wie werden Items eingeordnet?') }}</summary><p class="small muted">{{ _("Die APWorld klassifiziert diese Items als Progression. Die Spielzielprüfung bewertet die Notwendigkeit einzelner Exemplare.") }}</p><p class="small muted">{{ _('Hilft jetzt verwendet eine vorhandene Analyse deines gemeldeten Inventars. Für andere Spieler wird ausschließlich deren bereits berechneter Stand angezeigt.') }}</p></details>
       <div class="row" id="round-item-pagination" hidden><button type="button" id="round-item-previous">{{ _("Zurück") }}</button><span class="small" id="round-item-page"></span><button type="button" id="round-item-next">{{ _("Weiter") }}</button></div>
     </section>
     {% endif %}

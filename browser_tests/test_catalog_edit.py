@@ -3,13 +3,14 @@ import json
 from playwright.sync_api import expect
 from .fixtures import world_bytes, GAME
 from .test_players import register
-from .test_players import upload_world
+from .test_players import upload_world, trust_uploader
 from .test_preferences import set_preference
 
 
 def test_game_metadata_upload_edit_filters_and_full_width(actors, live_server, artifact_dir):
     page = actors.alice
     register(page, "CatalogOwner")
+    trust_uploader(page)
     for width in (1440, 2560, 3840):
         page.set_viewport_size({"width": width, "height": 1080})
         bounds = page.locator("main.inner").bounding_box()

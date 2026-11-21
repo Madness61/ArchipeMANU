@@ -3,7 +3,7 @@
 {% block content %}
 <p class="small"><a href="{{ url_for('games') }}">{{ _("← Spielebibliothek") }}</a></p>
 <div class="row spread"><h1>{{ _("Neues Spiel hinzufügen") }}</h1><span class="chip">{{ _("Für alle Spieler") }}</span></div>
-<p class="muted">{{ _("Alle angemeldeten Mitspieler können eine Custom APWorld hochladen. Sie wird sofort archiviert, aktiviert und automatisch eingelesen. Eine Admin-Freigabe ist nicht erforderlich.") }}</p>
+<p class="muted">{{ _("Vertrauenswürdige Benutzer und Admins aktivieren APWorlds direkt. Andere Uploads werden zur Adminfreigabe archiviert.") }}</p>
 <form method="post" action="{{ url_for('community.game_add') }}" enctype="multipart/form-data" class="panel stack" style="margin-top:18px">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <div class="grid">

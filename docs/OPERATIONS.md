@@ -24,7 +24,7 @@ Setup installiert standardmäßig Archipelago 0.6.8 unter `%USERPROFILE%\.ap-yam
 | `HUB_EXTRACT_TIMEOUT` | Extraktionslimit in Sekunden, Standard 600 |
 | `HUB_TRUSTED_APWORLDS=0` | Benutzerdefinierten APWorld-Code sperren; beim Windows-Start `-NoCustomWorlds` benutzen |
 
-Der private Nutzerkreis darf eigene APWorlds automatisch aktivieren. Diese Archive enthalten ausführbaren Python-Code mit Hostrechten. Es gibt keine Sandbox. Das Netzwerk-Setup selbst liefert kein HTTPS. Außerhalb localhost Zugangsdaten über HTTPS transportieren. `HUB_PASSWORD`/`HUB_INVITE_CODE` werden für die Anmeldung nicht mehr verwendet.
+Admins und Benutzer mit Vertrauensberechtigung dürfen APWorlds direkt aktivieren. Andere Uploads werden zunächst archiviert und erscheinen in der Adminfreigabe. Bestehende Konten erhalten beim Update die zusätzliche Berechtigung mit Standardwert 0. Admins gelten automatisch als vertrauenswürdig. APWorlds enthalten ausführbaren Python-Code mit Hostrechten. Außerhalb localhost Zugangsdaten über HTTPS transportieren. `HUB_PASSWORD`/`HUB_INVITE_CODE` werden für die Anmeldung nicht mehr verwendet.
 
 ## Konten und Wiederherstellung
 

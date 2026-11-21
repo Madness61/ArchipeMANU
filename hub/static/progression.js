@@ -152,7 +152,7 @@
     const receiptLabels = {
       received: t('Bestätigt erhalten'), not_received: t('Noch nicht erhalten'), unknown: t('Empfang unbekannt')
     };
-    let playerPage = 1, requestNumber = 0, lastVersion, loading = false;
+    let playerPage = 1, requestNumber = 0, lastVersion, loading = false, focus = 'needed', searchTimer;
     let requestedSlot = '';
     const visible = () => !panel.closest('[data-round-panel]').hidden;
 
@@ -161,12 +161,16 @@
       row.dataset.item = group.name;
       const heading = node('div', null, 'row spread');
       heading.append(node('strong', group.name + (group.total > 1 ? ' × ' + group.total : '')));
+      if(focus==='help') heading.append(node('span',t('Für {v0}',{v0:group.recipient}),'round-item-recipient'));
       const counts = node('div', null, 'row round-item-counts');
       for (const [status, label] of Object.entries(receiptLabels)) {
         if (group[status]) counts.append(node('span', group[status] + ' ' + label, 'chip ' + (status === 'received' ? 'ok' : '')));
       }
       heading.append(counts);
       row.append(heading);
+      if(group.found) row.append(node('p',t('{v0} gefunden · Empfang noch offen',{v0:group.found}),'round-item-delivery'));
+      if(group.effect) row.append(node('p',t('+{v0} Checks · +{v1} Regionen mit einem Exemplar',
+        {v0:group.effect.checks,v1:group.effect.regions}),'round-item-effect'));
       if (group.copies?.length) {
         const locations = node('details');
         locations.open = expanded;
@@ -175,7 +179,10 @@
         for (const copy of group.copies) {
           const item = node('li');
           const status = inlineStatus[copy.check_status] + ' · ' + receiptLabels[copy.status];
-          item.append(node('strong', copy.location), node('small', copy.finder + ' · ' + copy.game + ' · ' + status));
+          const finder=node('a',copy.finder);
+          const target=[...document.querySelectorAll('[data-round-player]')].find(choice=>choice.dataset.roundPlayer===copy.finder);
+          if(target) finder.href='#'+target.id;
+          item.append(node('strong', copy.location), finder, node('small', copy.game + ' · ' + status));
           copies.append(item);
         }
         locations.append(copies);
@@ -199,6 +206,7 @@
       params.set('recipient', slot);
       params.set('page', playerPage);
       params.set('limit', '12');
+      params.set('focus', focus);
       loading = true;
       try {
         const data = await api('/items?' + params);
@@ -210,9 +218,24 @@
         const expanded = new Set([...results.querySelectorAll('details[open]')].map(detail => detail.closest('li').dataset.item));
         results.replaceChildren(...data.rows.map(group => itemRow(group, expanded.has(group.name))));
         playerPage = data.page;
+        const contexts={
+          needed:t('Fehlende Items zuerst. Unbekannter Empfang bleibt ausdrücklich gekennzeichnet.'),
+          found:t('Der Fund ist bestätigt. Der Empfang ist bisher nicht bestätigt.'),
+          help:t('Hier liegen Progression-Items für andere Spieler. Fundorte erfordern deine Spoilerfreigabe.'),
+          useful:t('Zusätzliche Checks und Regionen laut vorhandener Inventaranalyse.'),
+          all:t('Alle Progression-Items dieses Spielers, einschließlich bestätigter Empfänge.')
+        };
+        $('round-item-context').textContent=contexts[focus];
+        for(const badge of panel.querySelectorAll('[data-view-count]')){
+          const count=badge.dataset.viewCount==='all'?null:badge.dataset.viewCount==='useful'?data.helpful:data.counts?.[badge.dataset.viewCount];
+          badge.textContent=count==null?'':String(count);
+        }
         message.textContent = !data.available ? reasons.placements_missing
+          : focus==='help'&&!revealed ? t('Gib die Fundort-Spoiler frei, um Hilfe zwischen Spielern zu sehen.')
+          : focus==='useful'&&data.analysis_state==='ready'&&!data.helpful ? t('Die geprüften Einzelitems ermöglichen aktuell keine zusätzlichen Checks oder Regionen.')
+          : focus==='useful'&&!data.helpful ? t('Noch keine aktuelle Analyse vorhanden. Über „Was bringt mich weiter?“ lässt sie sich für deinen Slot berechnen.')
           : data.total ? t('{v0} Treffer', {v0: data.total.toLocaleString(window.HUB_I18N.locale)})
-          : t('Keine passenden Progression-Items.');
+          : focus==='needed' ? t('Alle erfassten Progression-Items sind bestätigt empfangen.') : t('Keine passenden Progression-Items.');
         spoiler.hidden = !data.available;
         spoiler.textContent = revealed ? t('Spoiler wieder sperren') : t('Fundort-Spoiler bewusst freigeben');
         pagination.hidden = data.pages <= 1;
@@ -226,7 +249,17 @@
       }
     }
     playerForm.addEventListener('submit', event => { event.preventDefault(); loadPlayerItems(true); });
-    playerForm.elements.receipt.addEventListener('change', () => loadPlayerItems(true));
+    playerForm.elements.q.addEventListener('input',()=>{
+      clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadPlayerItems(true),300);
+    });
+    for(const button of panel.querySelectorAll('[data-item-view]')){
+      button.addEventListener('click',()=>{
+        focus=button.dataset.itemView;
+        for(const tab of panel.querySelectorAll('[data-item-view]'))tab.setAttribute('aria-pressed',String(tab===button));
+        loadPlayerItems(true);
+      });
+    }
+    root.addEventListener('close',()=>loadPlayerItems());
     spoiler.addEventListener('click', async () => {
       spoiler.disabled = true;
       try {

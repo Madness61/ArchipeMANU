@@ -19,6 +19,17 @@ from auth_helpers import PASSWORD_HASH, TEST_PASSWORD
 
 
 class AuthTests(unittest.TestCase):
+    def test_trust_migration_is_additive_and_keeps_credentials(self):
+        self.existing_admin()
+        with self.app.app_context():
+            before=dict(db.query("SELECT * FROM users ORDER BY id LIMIT 1",one=True))
+            db.execute("ALTER TABLE users DROP COLUMN is_trusted")
+            auth.migrate()
+            auth.migrate()
+            after=dict(db.query("SELECT * FROM users ORDER BY id LIMIT 1",one=True))
+            self.assertEqual(after.pop('is_trusted'),0)
+            before.pop('is_trusted')
+            self.assertEqual(after,before)
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
@@ -65,10 +76,11 @@ class AuthTests(unittest.TestCase):
 
     def test_registration_hashes_password_and_never_grants_admin(self):
         self.existing_admin()
-        response = self.register(is_admin="1", role="admin")
+        response = self.register(is_admin="1", role="admin", is_trusted="1")
         self.assertEqual(response.status_code,302)
         user = self.user("Player")
         self.assertEqual(user["is_admin"],0)
+        self.assertEqual(user["is_trusted"],0)
         self.assertTrue(user["password_hash"].startswith("scrypt:"))
         self.assertNotEqual(user["password_hash"],TEST_PASSWORD)
         self.assertTrue(check_password_hash(user["password_hash"],TEST_PASSWORD))

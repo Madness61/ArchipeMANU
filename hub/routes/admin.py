@@ -17,6 +17,8 @@ def admin():
     seeds = db.query("""SELECT b.id,b.session_id,b.status,b.created_at,s.name AS session_name
         FROM seed_builds b JOIN sessions s ON s.id=b.session_id ORDER BY b.id DESC""")
     return render_template("admin.html", apworlds=ap_bridge.list_apworlds(),
+                           pending_worlds=db.query("""SELECT cg.*,u.username FROM community_games cg
+                               JOIN users u ON u.id=cg.created_by WHERE approved=0 ORDER BY cg.created_at"""),
                            admin_rounds=rounds, admin_seeds=seeds,
                            apworld_versions=ap_bridge.list_apworld_versions(), users=users,
                            failed=ap_bridge.index().get("failed", {}), status=ap_bridge.extract_status(),
@@ -90,6 +92,7 @@ def admin_activate_apworld(sha256):
     try:
         with ap_bridge.ap_lock:
             info = ap_bridge.activate_apworld(sha256)
+            db.execute("UPDATE community_games SET approved=1 WHERE sha256=?", (sha256,))
         flash(f"{info['module']}: gewählte APWorld-Version aktiviert.", "info")
         ap_bridge.start_extract()
     except ValueError as exc:
@@ -125,6 +128,22 @@ def admin_toggle(uid):
     else:
         db.execute("UPDATE users SET is_admin = 1 - is_admin WHERE id = ?", (uid,))
     return redirect(url_for("admin"))
+
+
+@app.route("/admin/users/<int:uid>/trust", methods=["POST"])
+@admin_required
+def admin_trust(uid):
+    value = request.form.get("trusted")
+    if value not in ("0", "1"):
+        abort(400)
+    user = db.query("SELECT * FROM users WHERE id=?", (uid,), one=True)
+    if not user:
+        abort(404)
+    if user["is_admin"]:
+        abort(409, "Administratoren sind automatisch vertrauenswürdig.")
+    with ap_bridge.ap_lock:
+        db.execute("UPDATE users SET is_trusted=? WHERE id=?", (int(value), uid))
+    return redirect(url_for("admin", _anchor="accounts"))
 
 
 @app.route("/admin/status")

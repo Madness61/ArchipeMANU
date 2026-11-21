@@ -41,7 +41,7 @@
 #round-player-items { border-top:1px solid var(--line) }
 #round-player-items h4 { margin:14px 0 4px }
 #round-player-analysis { margin-bottom:14px }
-#round-item-filters { display:grid; grid-template-columns:minmax(120px, 1.15fr) minmax(110px, 1fr) auto; align-items:end }
+#round-item-filters { margin-top:16px }
 #round-item-filters :is(input, select) { width:100%; min-width:0 }
 .round-item-toolbar { margin:12px 0 4px }
 .round-item-toolbar p { margin:0; flex:1 }
@@ -57,6 +57,19 @@
   .round-player-list { max-height:245px }
 }
 @media(max-width:460px) {
-  #round-item-filters { grid-template-columns:repeat(2, minmax(0, 1fr)) }
-  #round-item-filters button { grid-column:1/-1 }
+  .round-item-views { gap:4px }
 }
+.round-item-views{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--line);padding:8px 0 12px}
+.round-item-views button{font-size:13px;min-height:42px;padding:8px 10px;background:transparent;border-color:transparent}
+.round-item-views button[aria-pressed=true]{border-color:var(--accent);background:var(--chip);color:var(--accent-hover)}
+.round-item-views button span{font-variant-numeric:tabular-nums;color:var(--muted)}
+.round-item-recipient{color:var(--player);font-size:14px}
+.round-item-delivery,.round-item-effect{font-size:14px;margin:8px 0 0}
+.round-item-effect{color:var(--ok)}
+.round-item-explanation{border-top:1px solid var(--line);padding-top:14px;margin-top:12px}
+.round-player-sheet{font-size:16px}
+.round-player-sheet .small,.round-player-choice small{font-size:13px}
+.round-player-choice{padding:14px}
+.round-item details{font-size:14px}
+.round-item-counts .chip{font-size:12px}
+.console-line{font-size:14px}

@@ -1,7 +1,7 @@
 """Shared game library for all logged-in group members.
 
-Uploads from authenticated group members are activated automatically. Archive
-validation never imports code; option extraction runs in the background.
+Trusted members activate uploads. Other members submit archives for review.
+Archive validation never imports code.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 import yaml
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, send_file, url_for
 
-from . import ap_bridge, apworld_library, config, db, game_catalog
+from . import ap_bridge, apworld_library, auth, config, db, game_catalog
 
 bp = Blueprint("community", __name__)
 YAML_LIMIT = 512 * 1024
@@ -205,7 +205,6 @@ def valid_yaml(data: bytes, game_name: str):
 @bp.route("/games/community/add", methods=["GET", "POST"])
 def game_add():
     if g.user is None:
-        from . import auth
         return auth.login_required_response()
     if request.method == "GET":
         return render_template("community_add.html")
@@ -240,9 +239,11 @@ def game_add():
         if has_metadata and existing_module and not existing_module["can_edit_metadata"]:
             raise ValueError("Katalogangaben bestehender Spiele können nur der Uploader oder ein Admin ändern.")
         with ap_bridge.ap_lock:
+            actor = db.query("SELECT * FROM users WHERE id=?", (g.user["id"],), one=True)
+            activate = auth.trusted(actor)
             if db.query("SELECT 1 FROM community_games WHERE sha256=?", (info["sha256"],), one=True):
                 raise ValueError("Diese APWorld-Version ist bereits in der Bibliothek vorhanden.")
-            apworld_library.store(data, source_url=source, activate=True)
+            apworld_library.store(data, source_url=source, activate=activate)
             yaml_relative = ""
             if yaml_data:
                 folder = config.DATA / "community" / info["sha256"]
@@ -252,17 +253,20 @@ def game_add():
                 yaml_relative = info["sha256"]
             db.execute("""INSERT INTO community_games
                      (sha256,module,display_name,version,created_by,yaml_file,source_url,approved,yaml_sha256)
-                     VALUES (?,?,?,?,?,?,?,1,?)""",
+                     VALUES (?,?,?,?,?,?,?,?,?)""",
                        (info["sha256"], info["module"], label, info["version"],
-                        g.user["id"], yaml_relative, source, hashlib.sha256(yaml_data).hexdigest() if yaml_data else ""))
+                        g.user["id"], yaml_relative, source, int(activate), hashlib.sha256(yaml_data).hexdigest() if yaml_data else ""))
             # New APWorld versions without metadata never erase existing catalog edits.
             if has_metadata:
                 save_metadata(info["module"], metadata)
     except (ValueError, OSError) as exc:
         flash(str(exc), "error")
         return render_template("community_add.html"), 400
-    ap_bridge.start_extract()
-    flash(f"{label} aktiviert. Die Spieloptionen werden automatisch eingelesen.", "info")
+    if activate:
+        ap_bridge.start_extract()
+        flash(f"{label} aktiviert. Die Spieloptionen werden automatisch eingelesen.", "info")
+    else:
+        flash("APWorld zur Adminfreigabe eingereicht.", "info")
     return redirect(url_for("games"))
 
 
@@ -297,17 +301,25 @@ def download_apworld(sha256):
 
 @bp.route("/games/community/<sha256>/approve", methods=["POST"])
 def approve(sha256):
-    # Keep the old URL compatible; activation no longer requires admin approval.
     if not g.user:
         abort(401)
+    if not auth.trusted(g.user):
+        abort(403)
     row = db.query("SELECT * FROM community_games WHERE sha256=?", (sha256,), one=True)
     if row is None:
-        abort(404)
+        try:
+            path = ap_bridge.archived_apworld(sha256)
+            info = apworld_library.inspect_bytes(path.read_bytes())
+            row = dict(display_name=info['game'] or info['module'])
+        except ValueError:
+            abort(404)
     if not ap_bridge.trusted_custom_execution():
         flash("Aktivierung benötigt HUB_TRUSTED_APWORLDS=1. Eine Python-Sandbox ist nicht vorhanden.", "error")
         return redirect(url_for("games"))
     try:
         with ap_bridge.ap_lock:
+            if not auth.trusted(db.query("SELECT * FROM users WHERE id=?", (g.user["id"],), one=True)):
+                abort(403)
             ap_bridge.activate_apworld(sha256)
         db.execute("UPDATE community_games SET approved=1 WHERE sha256=?", (sha256,))
         ap_bridge.start_extract()

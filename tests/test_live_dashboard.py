@@ -253,6 +253,28 @@ class LiveIntegrationTests(unittest.TestCase):
             self.assertEqual(visit.call_count, 2)
         self.assertEqual(self.client.get(self.url + '/data?summary=1').json['room_start']['state'], 'error')
 
+    def test_new_room_link_and_completion_during_probe_prevent_wake(self):
+        self.seed()
+        live_store.request_wake(self.bid,self.now)
+        def closed(port,seed):
+            with self.app.app_context():
+                db.execute("UPDATE seed_builds SET completed_at='done' WHERE id=?",(self.bid,))
+            return False
+        with patch.object(live_api,'reachable',side_effect=closed),patch.object(live_api,'wake_room') as wake:
+            live_store.run_wake(ROOM_ID,self.now)
+            wake.assert_not_called()
+
+    def test_summary_marks_old_snapshot_and_version_ignores_unchanged_poll_time(self):
+        self.seed()
+        live_store.refresh(self.live_id,self.now-300)
+        first=self.client.get(self.url+'/data?summary=1').json
+        self.assertTrue(first['stale'])
+        self.assertTrue(all(p['stale'] for p in first['players']))
+        live_store.refresh(self.live_id,self.now)
+        current=self.client.get(self.url+'/data?summary=1').json
+        self.assertFalse(current['stale'])
+        self.assertEqual(current['item_version'],first['item_version'])
+
     def test_verified_goal_enters_journal_once_across_tracker_and_socket(self):
         from hub import config
         from hub.services.console_journal import record_goal

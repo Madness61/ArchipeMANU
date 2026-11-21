@@ -73,11 +73,13 @@ def items(sid,build_id):
         abort(400)
     if recipient is not None:
         receipt = request.args.get('receipt', 'all')
+        focus = request.args.get('focus', 'all')
         if (recipient not in {slot['slot'] for slot in db.loads(build['snapshot']).get('slots', [])}
-                or receipt not in ('all', 'received', 'not_received', 'unknown')):
+                or receipt not in ('all', 'received', 'not_received', 'unknown')
+                or focus not in ('all', 'needed', 'found', 'help', 'useful')):
             abort(400)
         reveal = build_id in session.get('progression_spoilers', [])
-        return jsonify(player_items(build, own, recipient, request.args.get('q', '')[:100], receipt, reveal, page, limit))
+        return jsonify(player_items(build, own, recipient, request.args.get('q', '')[:100], receipt, reveal, page, limit, focus))
     return jsonify(progression.find(build,own,request.args.get('q','')[:100],category,owner,status,page,limit=limit))
 
 

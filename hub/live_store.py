@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import math
 import threading
@@ -179,7 +180,12 @@ def run_wake(room_id, now):
         activity = live_metrics.stamp(room_data.get('last_activity'))
         timeout = live_metrics.number(room_data.get('timeout'), 1)
         paused = activity and timeout and now > datetime.fromisoformat(activity).timestamp() + timeout + 5
-        server_ready = live_api.reachable(room_data.get('last_port'), linked['seed_name'])
+        from . import recording
+        reader = recording.worker(job['build_id'])
+        server_ready = bool(reader and reader.state == 'connected' and reader.expected_seed == linked['seed_name']
+                            and reader.endpoint['room_url'].rstrip('/') == f"{live_api.ORIGIN}/room/{room_id}")
+        if not server_ready:
+            server_ready = live_api.reachable(room_data.get('last_port'), linked['seed_name'])
         with db.transaction() as conn:
             conn.execute("BEGIN IMMEDIATE")
             current = wake_eligible(conn, job['build_id'])
@@ -187,7 +193,8 @@ def run_wake(room_id, now):
                 conn.execute("DELETE FROM live_room_wake WHERE room_id=?", (room_id,))
                 return
             _update_address(conn, current, room_data, now)
-            should_wake = not server_ready and paused and attempts < 2 and now >= job['last_wake'] + WAKE_RETRY
+            should_wake = (not server_ready and (paused or not room_data.get('last_port'))
+                           and attempts < 2 and now >= job['last_wake'] + WAKE_RETRY)
             if should_wake:
                 attempts += 1
                 state = 'starting'
@@ -217,8 +224,9 @@ def run_wake(room_id, now):
         if next_check >= job['deadline'] or attempts >= 2 or exc.kind in ('wrong_seed', 'not_found', 'protected'):
             state = 'error'
     with db.transaction() as conn:
-        conn.execute("UPDATE live_room_wake SET state=?,error=?,next_check=?,lease_until=0 WHERE room_id=?",
-                     (state, error, next_check, room_id))
+        conn.execute("""UPDATE live_room_wake SET state=?,error=?,next_check=?,lease_until=0
+            WHERE room_id=? AND live_id=? AND deadline=? AND lease_until=?""",
+                     (state, error, next_check, room_id, job['live_id'], job['deadline'], now + LEASE_SECONDS))
 
 
 def seed_matches(room_info, slots):
@@ -438,6 +446,16 @@ def round_summary(linked, build):
     hosted_id = current_port['id'] if current_port else -1
     snapshots = {row['slot_name']: row for row in db.query(
         'SELECT * FROM progression_live WHERE build_id=? AND hosted_id=?', (build['id'], hosted_id))}
+    cache = db.query("SELECT payload FROM live_api_cache WHERE endpoint='tracker' AND identifier=?",
+                     (linked['tracker_id'] if matches else '',), one=True)
+    tracker_checks = live_metrics.indexed(db.loads(cache['payload']), 'player_checks_done') if cache else {}
+    deliveries = {}
+    for event in db.query("""SELECT payload,observed_at FROM console_events WHERE build_id=? AND hosted_id=?
+        AND kind='items' AND user_id IS NULL ORDER BY id""", (build['id'], hosted_id)):
+        payload = db.loads(event['payload'])
+        if payload.get('type') == 'item':
+            deliveries.setdefault(payload['sender'], {})[payload['location_id']] = (
+                event['observed_at'], payload['sender_game'])
     goals = {row['slot']: row['at'] for row in db.query("""SELECT json_extract(payload,'$.player_slot') AS slot,MAX(observed_at) AS at
         FROM console_events WHERE build_id=? AND hosted_id=? AND user_id IS NULL AND kind='system'
         AND json_extract(payload,'$.public_type')='Goal' GROUP BY slot""", (build['id'], hosted_id))}
@@ -449,6 +467,9 @@ def round_summary(linked, build):
         checks, total, goal = observed.get('checks'), observed.get('total'), observed.get('goal')
         received = observed.get('received')
         at = linked['last_success'] if observed else None
+        player_id = next((index + 1 for index, p in enumerate(room.get('players', []))
+                          if p == [name, slot['game_name']]), None)
+        checked = set(tracker_checks.get((0, player_id), {}).get('locations', []))
         local = snapshots.get(name)
         if local:
             payload = db.loads(local['payload'])
@@ -458,20 +479,32 @@ def round_summary(linked, build):
                 checks, total = len(checked), local_total
                 received = len(payload.get('received', []))
                 at = local['observed_at']
+            else:
+                checked = set(tracker_checks.get((0, player_id), {}).get('locations', []))
+        for location, (event_at, game) in deliveries.get(name, {}).items():
+            if game == slot['game_name'] and checks is not None and total is not None and event_at >= (at or 0):
+                checked.add(location)
+        if checks is not None and checked and len(checked) <= (total or 0):
+            checks = max(checks, len(checked))
         if at:
             updated.append(at)
         if name in goals and (goal is None or goals[name] >= (linked['last_success'] if observed else 0)):
             goal = True
         players.append(dict(name=name, game=slot['game_name'], checks=checks, total=total, goal=goal,
-                            progress=live_metrics.percent(checks, total), received=None if race else received))
+                            progress=live_metrics.percent(checks, total), received=None if race else received,
+                            at=iso(at), stale=not at or (not build['completed_at'] and time.time() - at > 120)))
     checks = sum(p['checks'] for p in players) if players and all(p['checks'] is not None for p in players) else None
     total = sum(p['total'] for p in players) if players and all(p['total'] is not None for p in players) else None
     last_item = None if race else db.query("""SELECT MAX(id) AS id FROM console_events
         WHERE build_id=? AND hosted_id=? AND kind='items' AND user_id IS NULL""", (build['id'], hosted_id), one=True)['id']
     return dict(players=players, checks=checks, total=total, progress=live_metrics.percent(checks, total),
                 goals=sum(p['goal'] is True for p in players), known_goals=sum(p['goal'] is not None for p in players),
-                updated_at=iso(max(updated)) if updated else None, seed_matches=matches,
-                item_version=[hosted_id, max(updated, default=None), last_item])
+                updated_at=iso(min(updated)) if updated else None, seed_matches=matches,
+                stale=any(player['stale'] for player in players),
+                item_version=[hosted_id, hashlib.sha256(db.dumps([
+                    cache['payload'] if cache else '',
+                    sorted((name, row['payload']) for name, row in snapshots.items()),
+                    last_item]).encode()).hexdigest()])
 
 
 def presentation(linked, build, window="6h", now=None):

@@ -37,7 +37,27 @@ def login(page,name,password=PASSWORD):
     page.get_by_role("button",name="Anmelden",exact=True).click()
 
 
+def trust_uploader(page):
+    # This fixture explicitly grants trust via the real admin controls.
+    from .test_preferences import set_preference
+    if page.locator('html').get_attribute('lang') != 'de':
+        set_preference(page,'language','de')
+    if not page.context.request.get('/admin').ok:
+        administrator=page.context.browser.new_context(base_url=page.url.split('/')[0]+'//'+page.url.split('/')[2])
+        try:
+            admin=administrator.new_page()
+            login(admin,'TestAdmin')
+            admin.goto('/admin')
+            account=page.locator('.profile-link').inner_text().splitlines()[0]
+            row=admin.locator('tr').filter(has=admin.get_by_role('cell',name=account,exact=True))
+            trust=row.get_by_role('button',name='Als vertrauenswürdig markieren',exact=True)
+            if trust.count(): trust.click()
+        finally:
+            administrator.close()
+
+
 def upload_world(page):
+    trust_uploader(page)
     page.goto("/games")
     page.get_by_role("link",name="+ Spiel hinzufügen",exact=True).click()
     page.get_by_label("Custom APWorld *",exact=True).set_input_files({

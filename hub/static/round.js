@@ -35,6 +35,9 @@
     const badge = $('round-player-goal');
     badge.textContent = goal(player.goal);
     badge.classList.toggle('ok', player.goal === true);
+    badge.title = player.stale ? t('Dieser Fortschrittsstand ist veraltet.') : '';
+    const state = $('round-player-data-age');
+    if (state) state.textContent = player.stale ? t('Dieser Fortschrittsstand ist veraltet.') : '';
     const actions = $('round-player-analysis');
     if (actions) actions.hidden = !selected.dataset.own;
   }
@@ -105,7 +108,7 @@
     liveStatus.textContent = data.seed_matches === false
       ? t('Spieler oder Spiele des verknüpften Raums weichen von diesem Seed ab.')
       : data.updated_at
-        ? t('Datenstand {v0}', {v0: new Date(data.updated_at).toLocaleTimeString(locale, {hour: '2-digit', minute: '2-digit'})})
+        ? (data.stale ? t('Älterer Datenstand · ') : '') + t('Datenstand {v0}', {v0: new Date(data.updated_at).toLocaleTimeString(locale, {hour: '2-digit', minute: '2-digit'})})
         : t('Es liegen noch keine bestätigten Fortschrittsdaten vor.');
     $('round-checks').textContent = ratio(data.checks, data.total);
     $('round-percent').textContent = percent(data.progress);
@@ -115,6 +118,7 @@
       const player = playerStates.get(choice.dataset.roundPlayer) || {};
       choice.querySelector('[data-player-summary]').textContent = ratio(player.checks, player.total);
       choice.querySelector('[data-player-goal]').textContent = goal(player.goal);
+      choice.title = player.stale ? t('Dieser Fortschrittsstand ist veraltet.') : '';
       choice.querySelector('[data-player-bar]').style.width = Math.min(100, player.progress || 0) + '%';
     }
     renderPlayer();
@@ -144,6 +148,9 @@
     await load();
     if (!authLost && (root.dataset.phase !== 'completed' || !playerStates.size)) setTimeout(poll, 8000);
   }
+  document.addEventListener('hub:console-state', event => {
+    if (event.detail.events?.some(entry => entry.kind === 'items' || entry.packet_type === 'Goal')) load();
+  });
   selectPlayer(selected);
   openView();
   if (root.dataset.live) setTimeout(poll, 8000);
