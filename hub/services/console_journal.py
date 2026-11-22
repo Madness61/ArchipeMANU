@@ -129,6 +129,9 @@ def events(build_id, user_id, after=0, kind="all", before=0, *, players=None):
     endpoint = conn.execute("SELECT id FROM hosted_rooms WHERE build_id=? ORDER BY id DESC LIMIT 1", (build_id,)).fetchone()
     scope += " AND (hosted_id IS NULL OR hosted_id=?)"
     args.append(endpoint["id"] if endpoint else -1)
+    scope += """ AND (user_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM console_events AS shared WHERE shared.build_id=console_events.build_id
+        AND shared.event_key=json_extract(console_events.payload,'$.hint_key') AND shared.user_id IS NULL))"""
     players = identities(build_id) if players is None else players
     own=[player['slot'] for player in players if player['user_id']==user_id]
     if kind in ('for_me','from_me','others'):
@@ -190,8 +193,11 @@ def events(build_id, user_id, after=0, kind="all", before=0, *, players=None):
         if row['user_id'] is not None:
             actor = next((p for p in players if p['user_id']==row['user_id'] and p['slot']==payload.get('actor_slot')),None)
             entry['actor'] = actor
-        if payload.get('message_type'):
-            entry['packet_type']=payload['message_type']
+        packet_type = payload.get('message_type') or payload.get('public_type')
+        if packet_type:
+            entry['packet_type'] = packet_type
+        if payload.get('hint_key'):
+            entry['hint_key'] = payload['hint_key']
         if payload.get("type") == "item":
             entry['source'] = payload.get('source', 'live')
             entry['receipt_index'] = payload.get('receipt_index')

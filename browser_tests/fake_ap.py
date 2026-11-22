@@ -9,6 +9,7 @@ class FakeAP:
         self.packets, self.clients = [], []
         self.commands = []
         self.history = {1:[[501,1001,2,1]],2:[]}
+        self.hints = {}
         self.emit_live = True
         self.suppress_empty_receipts = False
         self.announce_joins = False
@@ -108,6 +109,8 @@ class FakeAP:
                         self.send(wire,[{"cmd":"DataPackage","data":{"games":{self.game:{
                             "item_name_to_id":{"Progression Key":501,"Potion":502},
                             "location_name_to_id":{"Town":1000,"Old Fortress - Chest":1001,"Deep Cave - Boss":1002}}}}}])
+                    elif cmd == "Get":
+                        self.send(wire, [dict(cmd='Retrieved', keys={key:self.hints.get(key, []) for key in packet['keys']})])
                     elif cmd == "Say":
                         text = packet["text"]
                         self.commands.append((name,text))

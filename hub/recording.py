@@ -6,6 +6,7 @@ import threading
 import time
 
 from . import ap_console, config, db, i18n
+from .integrations.console import administrative_message, hint_key
 from .services.console_journal import record_goal
 
 LEASE_SECONDS = 20
@@ -13,7 +14,6 @@ _thread = None
 _lock = threading.Lock()
 _stop = threading.Event()
 _room_lock = threading.RLock()
-PUBLIC_TYPES = ap_console.PUBLIC_TYPES
 HANDSHAKE_EVENT_LIMIT = 256 * 1024
 
 
@@ -72,6 +72,8 @@ class Recorder(ap_console.Client):
         self.automatic = bool(row['automatic'])
         self.pending_public = None
         self.pending_size = 0
+        self.hint_keys = set()
+        self.hint_seen = None
         if self.automatic:
             self.user_id = next(s['player_id'] for s in self.expected if s['slot']==self.slot_name)
         self.thread.name = f"ap-recording-{self.build_id}"
@@ -105,24 +107,27 @@ class Recorder(ap_console.Client):
             super().serve()
         finally:
             self.pending_public = None
+            self.hint_keys.clear()
+            self.hint_seen = None
 
     def packet(self, packet):
         cmd = packet.get('cmd')
-        kind = packet.get('type')
-        if self.automatic and cmd == 'PrintJSON' and (kind in PUBLIC_TYPES or kind == 'ItemSend'):
-            if ap_console.reader_presence(packet):
+        kind = self.public_type(packet) if self.automatic and cmd == 'PrintJSON' else None
+        if kind:
+            if administrative_message(packet) or ap_console.reader_presence(packet):
                 return  # The coverage journal and connection state represent the service.
-            # Only explicitly public protocol types are shared. Hints, prints and
-            # command replies arriving at the service slot remain private.
             if self.state == 'connected':
                 if kind == 'ItemSend':
                     super().packet(packet)
                 else:
-                    self.public_event(packet)
+                    self.public_event(packet, kind)
             elif self.pending_public is not None and self.pending_size <= HANDSHAKE_EVENT_LIMIT:
                 self.pending_size += len(db.dumps(packet).encode('utf-8'))
                 if self.pending_size <= HANDSHAKE_EVENT_LIMIT:
                     self.pending_public.append(packet)
+            return
+        if self.automatic and self.state == 'connected' and cmd in ('Retrieved', 'SetReply'):
+            self.hint_snapshot(packet)
             return
         if cmd=='RoomInfo':
             seed=str(packet.get('seed_name',''))
@@ -134,7 +139,7 @@ class Recorder(ap_console.Client):
             if packet.get('password') and not self.password:
                 raise ValueError('Der Host muss das Raumpasswort für die gemeinsame Liveansicht hinterlegen.' if self.automatic else
                                  'Für die Rundenaufzeichnung das Raumpasswort erneut eingeben. Es wird nicht gespeichert.')
-        if cmd in ('RoomInfo','Connected','ConnectionRefused','ReceivedItems','DataPackage','RoomUpdate') or (cmd=='PrintJSON' and kind=='ItemSend'):
+        if cmd in ('RoomInfo','Connected','ConnectionRefused','ReceivedItems','DataPackage','RoomUpdate') or (cmd=='PrintJSON' and packet.get('type')=='ItemSend'):
             super().packet(packet)
         if self.automatic and cmd == 'RoomInfo':
             # MultiServer can broadcast Join before Connected. Publish only
@@ -147,22 +152,66 @@ class Recorder(ap_console.Client):
                 self.packet(event)
             if self.pending_size > HANDSHAKE_EVENT_LIMIT:
                 self.note('Beim Verbindungsaufbau konnten nicht alle öffentlichen Meldungen aufgezeichnet werden.')
+            keys = [f'_read_hints_{self.team}_{slot}' for slot in sorted(self.players)]
+            self.hint_keys = set(keys)
+            # Subscribe before taking the baseline so subsequent changes use the same socket.
+            self.wire.send(db.dumps([dict(cmd='SetNotify', keys=keys), dict(cmd='Get', keys=keys)]))
 
-    def public_event(self, packet):
+    def public_event(self, packet, kind):
         speaker = self.players.get(packet.get('slot')) if packet.get('team') == self.team else None
-        if packet['type'] == 'Goal' and speaker:
+        if kind == 'Goal' and speaker:
             record_goal(self.path, self.build_id, self.endpoint['id'], speaker['name'])
             return
-        if packet['type'] == 'Chat' and speaker and isinstance(packet.get('message'), str):
+        if kind == 'Chat' and speaker and isinstance(packet.get('message'), str):
             parts = [dict(text=speaker['name'], player_slot=speaker['name']),
                      dict(text=': ' + packet['message'][:12000])]
         else:
             parts = self.message_parts(packet)
-        payload = dict(parts=parts, public_type=packet['type'], player_slot=speaker['name'] if speaker else None)
+        payload = dict(parts=parts, public_type=kind, player_slot=speaker['name'] if speaker else None)
         ap_console.record(self.path,self.build_id,None,
-                          'chat' if packet['type'] in ('Chat','ServerChat') else 'system',
+                          'chat' if kind in ('Chat','ServerChat') else 'system',
                           payload,
                           hosted_id=self.endpoint['id'])
+
+    def hint_snapshot(self, packet):
+        if packet['cmd'] == 'Retrieved':
+            snapshots = packet.get('keys')
+            if self.hint_seen is None and isinstance(snapshots, dict) and snapshots.keys() == self.hint_keys:
+                self.hint_seen = {identity for hints in snapshots.values() for identity, _ in self.hint_entries(hints)}
+            return
+        if self.hint_seen is None or packet.get('key') not in self.hint_keys:
+            return
+        entries = dict(self.hint_entries(packet.get('value')))
+        new = entries.keys() - self.hint_seen
+        if not new:
+            return
+        with ap_console.connection(self.path) as conn:
+            for identity in sorted(new):
+                receiving, finding, location, item = identity
+                key = hint_key(self.endpoint['id'], self.team, *identity)
+                recipient, finder = self.players[receiving], self.players[finding]
+                parts = [dict(text='[Hint]: '), dict(text=recipient['name'], player_slot=recipient['name']),
+                         dict(text="'s "), dict(game=recipient['game'], kind='items', id=item), dict(text=' is at '),
+                         dict(game=finder['game'], kind='locations', id=location), dict(text=' in '),
+                         dict(text=finder['name'], player_slot=finder['name']), dict(text="'s World")]
+                if entries[identity]:
+                    parts.append(dict(text=' at ' + entries[identity]))
+                ap_console.record(self.path, self.build_id, None, 'system',
+                                  dict(parts=parts, public_type='Hint', hint_key=key), key,
+                                  self.endpoint['id'], transaction=conn)
+        self.hint_seen.update(new)
+
+    def hint_entries(self, values):
+        if not isinstance(values, list):
+            return
+        for hint in values:
+            if not isinstance(hint, dict) or hint.get('class') != 'Hint':
+                continue
+            identity = tuple(hint.get(field) for field in ('receiving_player', 'finding_player', 'location', 'item'))
+            if any(type(value) is not int for value in identity) or not all(slot in self.players for slot in identity[:2]):
+                continue
+            entrance = hint.get('entrance')
+            yield identity, entrance[:2000] if isinstance(entrance, str) else ''
 
     def handle_command(self, text):
         raise ValueError('Die Rundenaufzeichnung kann keine Chatnachrichten oder Befehle senden.')

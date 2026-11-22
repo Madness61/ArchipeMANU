@@ -185,6 +185,10 @@
       ids.add(entry.id);
       const line = document.createElement('div');
       line.className = 'console-line console-' + entry.kind;
+      if (entry.hint_key && entry.visibility === 'personal') line.dataset.privateHint = entry.hint_key;
+      if (entry.hint_key && entry.visibility === 'team') {
+        log.querySelectorAll(`[data-private-hint="${CSS.escape(entry.hint_key)}"]`).forEach(node => node.remove());
+      }
       if(compact){
         if(live && entry.source === 'live' && (entry.for_me || entry.from_me)) line.classList.add('console-own-live');
       }else if(entry.for_me)line.classList.add('console-for-me');
