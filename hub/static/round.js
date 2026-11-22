@@ -9,7 +9,6 @@
   const panels = [...root.querySelectorAll('[data-round-panel]')];
   const choices = [...root.querySelectorAll('[data-round-player]')];
   const sheet = $('round-player-detail');
-  const picker = $('round-player-select');
   const liveStatus = $('round-live-status');
   const launch = $('round-server-start');
   const playerStates = new Map();
@@ -30,23 +29,24 @@
     sheet.dataset.slot = selected.dataset.roundPlayer;
     sheet.style.setProperty('--player', window.HUB_UI.playerColor(sheet.dataset.slot));
     $('round-player-name').textContent = sheet.dataset.slot;
+    $('round-player-avatar').textContent = sheet.dataset.slot.slice(0, 1).toUpperCase();
     $('round-player-game').textContent = selected.dataset.game;
-    $('round-player-checks').textContent = player.checks == null ? t('Checkstand unbekannt')
-      : t('{v0} Checks erledigt', {v0: player.total == null ? number(player.checks) : ratio(player.checks, player.total)});
-    $('round-player-percent').textContent = player.progress == null ? '' : percent(player.progress);
-    const track = $('round-player-track');
-    track.hidden = player.progress == null;
-    track.firstElementChild.style.width = Math.min(100, player.progress || 0) + '%';
+    $('round-player-checks').textContent = player.checks == null ? '—'
+      : player.total == null ? number(player.checks) : ratio(player.checks, player.total);
+    $('round-player-received').textContent = number(player.received);
+    $('round-player-percent').textContent = percent(player.progress);
+    sheet.style.setProperty('--progress', Math.min(100, player.progress || 0));
     const at = player.observed_at && new Date(player.observed_at);
     let observedText = '';
     if (at) {
       const values = {v0: observed.format(at)};
-      observedText = player.stale ? t('Älterer Stand vom {v0}', values) : t('Zuletzt bestätigt am {v0}', values);
+      observedText = player.stale ? t('Älterer Stand vom {v0}', values) : '';
     }
     $('round-player-observed').textContent = observedText;
     const badge = $('round-player-goal');
     badge.textContent = goal(player.goal);
     badge.classList.toggle('ok', player.goal === true);
+    sheet.dataset.goal = player.goal === true ? 'reached' : player.goal === false ? 'open' : 'unknown';
     badge.title = player.stale ? t('Dieser Fortschrittsstand ist veraltet.') : '';
     const actions = $('round-player-analysis');
     if (actions) actions.hidden = !selected.dataset.own;
@@ -57,12 +57,10 @@
     if (!choice) return;
     const changed = sheet.dataset.slot !== choice.dataset.roundPlayer;
     selected = choice;
-    picker.value = choice.dataset.roundPlayer;
     choices.forEach(button => button.setAttribute('aria-pressed', String(button === selected)));
     renderPlayer();
     if (changed) document.dispatchEvent(new Event('hub:round-player'));
   }
-  picker?.addEventListener('change', () => selectPlayer(choices.find(choice => choice.dataset.roundPlayer === picker.value)));
 
   function openView() {
     let hash = location.hash.slice(1);
@@ -127,6 +125,7 @@
         : t('Es liegen noch keine bestätigten Fortschrittsdaten vor.');
     $('round-checks').textContent = ratio(data.checks, data.total);
     $('round-percent').textContent = percent(data.progress);
+    $('round-team-bar').style.width = Math.min(100, data.progress || 0) + '%';
     $('round-goals').textContent = data.known_goals ? ratio(data.goals, data.known_goals) : '—';
     for (const player of data.players) playerStates.set(player.name, player);
     for (const choice of choices) {
@@ -134,7 +133,9 @@
       choice.querySelector('[data-player-summary]').textContent = ratio(player.checks, player.total);
       choice.querySelector('[data-player-goal]').textContent = goal(player.goal);
       choice.title = player.stale ? t('Dieser Fortschrittsstand ist veraltet.') : '';
-      choice.querySelector('[data-player-bar]').style.width = Math.min(100, player.progress || 0) + '%';
+      choice.querySelector('[data-player-ring]').textContent = player.progress == null ? '—' : number(player.progress) + '%';
+      choice.style.setProperty('--progress', Math.min(100, player.progress || 0));
+      choice.dataset.goal = player.goal === true ? 'reached' : player.goal === false ? 'open' : 'unknown';
     }
     renderPlayer();
     document.dispatchEvent(new CustomEvent('hub:round-data', {detail: data.item_version}));
