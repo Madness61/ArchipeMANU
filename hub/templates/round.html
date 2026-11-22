@@ -27,7 +27,7 @@
     {% with endpoint=hosted,commands=console_commands,archived=build.completed_at,console_embedded=true %}{% include "console_workspace.html" %}{% endwith %}
   {% else %}{% include "round_play.html" %}{% endif %}
 {% else %}
-  <section id="round-participants" data-refresh-fragment><div class="section-head"><h2>{{ _("Mitspieler") }}</h2><a class="btn small" href="{{ url_for('session_view',sid=s.id,_anchor='play') }}" data-session-refresh>{{ _("Teilnehmer aktualisieren") }}</a></div>{% include "round_participants.html" %}</section>
+  <section id="round-participants" data-refresh-fragment><div class="section-head"><h2>{{ _("Mitspieler") }}</h2><a class="btn small" href="{{ url_for('session_view',sid=s.id,_anchor='play') }}" data-session-refresh>{{ _("Teilnehmer aktualisieren") }}</a></div>{% with show_readiness=round_phase == 'preparation' %}{% include "round_participants.html" %}{% endwith %}</section>
   {% include "round_preparation.html" %}
   {% include "round_generation.html" %}
 {% endif %}

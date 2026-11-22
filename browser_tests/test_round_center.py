@@ -1,6 +1,8 @@
 """Complete central UX against inert generator and local AP protocol fixtures."""
 import json
+import sqlite3
 import time
+from contextlib import closing
 from urllib.parse import parse_qs, urlsplit
 from playwright.sync_api import expect
 
@@ -30,6 +32,10 @@ def test_generation_failure_retry_setup_and_global_progress(actors, live_server,
         a.get_by_role('button', name='Seed generieren', exact=True).click()
         expect(a.locator('#round-setup')).to_be_visible(timeout=15000)
         generated(a)
+        b.goto('/rounds')
+        expect(b.locator('[data-round-id="1"] .round-participants')).to_contain_text('Alice')
+        expect(b.locator('[data-round-id="1"] .round-participants')).to_contain_text('Bob')
+        expect(b.locator('[data-round-id="1"] .round-participants .chip')).to_have_count(0)
         expect(a.locator('[data-round-view="setup"]')).to_have_attribute('aria-current', 'page')
         with a.expect_download() as downloaded:
             a.locator('#round-host-connection').get_by_role('link', name='Multiworld-ZIP herunterladen', exact=True).click()
@@ -52,6 +58,9 @@ def test_generation_failure_retry_setup_and_global_progress(actors, live_server,
         a.screenshot(path=str(artifact_dir / 'generation-loading-mobile.png'), full_page=True)
         expect(a.locator('#round-center')).to_have_attribute('data-build-status', 'failed', timeout=15000)
         expect(a.locator('#gen[role="alert"]')).to_contain_text('Originaldateien und Pfade')
+        b.goto('/rounds')
+        expect(b.locator('[data-round-id="1"]')).to_contain_text('Generierung fehlgeschlagen')
+        expect(b.locator('[data-round-id="1"] .round-participants .chip.ok')).to_have_count(2)
         expect(a.locator('#round-setup')).to_have_count(0)
         expect(form.locator('[name="spoiler"]')).to_have_value('3')
         expect(form.locator('[name="race"]')).to_be_checked()
@@ -262,3 +271,39 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         a.goto('/rounds')
         expect(a.locator('[data-round-id="1"]')).to_have_count(1)
         expect(a.locator('[data-round-id="1"]')).to_contain_text('Abgeschlossen')
+        expect(a.locator('[data-round-id="1"] .round-participants .chip')).to_have_count(0)
+
+
+def test_many_participants_remain_compact_and_only_preparation_shows_readiness(actors, live_server, artifact_dir):
+    a = actors.alice
+    register(a, 'Alice'); upload_world(a); create_lobby(a, 'Viele Mitspieler')
+    # Only the disposable fixture database is used to create a larger existing round.
+    with closing(sqlite3.connect(live_server.root / 'hub.db')) as conn, conn:
+        for i in range(20):
+            name = f'Player {i:02}'
+            uid = conn.execute('INSERT INTO users(username,slot_name) VALUES (?,?)', (name, name)).lastrowid
+            conn.execute('INSERT INTO lobby_members(session_id,user_id) VALUES (1,?)', (uid,))
+            conn.execute("INSERT INTO entries(session_id,user_id,game,ready,ready_hash) VALUES (1,?,'browser_test_world',0,'saved-value')", (uid,))
+        before = conn.execute('SELECT * FROM entries ORDER BY id').fetchall()
+        bid = conn.execute("INSERT INTO seed_builds(session_id,status,snapshot,created_at) VALUES (1,'succeeded',?,'today')", (json.dumps(dict(slots=[])),)).lastrowid
+    for phase in ('preparation', 'running', 'completed'):
+        with closing(sqlite3.connect(live_server.root / 'hub.db')) as conn, conn:
+            conn.execute('UPDATE sessions SET locked=? WHERE id=1', (int(phase != 'preparation'),))
+            conn.execute('UPDATE seed_builds SET completed_at=? WHERE id=?', ('today' if phase == 'completed' else None, bid))
+        for path, label in (('/rounds', 'rounds'), ('/', 'overview')):
+            a.goto(path)
+            people = a.locator('[data-round-id="1"] .round-participants')
+            expect(people.get_by_role('listitem')).to_have_count(21)
+            expect(people).to_contain_text('Alice')
+            expect(people).to_contain_text(GAME)
+            expect(people.locator('.chip')).to_have_count(21 if phase == 'preparation' else 0)
+            for width in (1440, 390):
+                a.set_viewport_size(dict(width=width, height=900))
+                assert people.evaluate('node=>node.clientHeight<=210 && node.scrollHeight>node.clientHeight')
+                assert a.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+                people.scroll_into_view_if_needed()
+                people.focus(); people.press('End')
+                expect(people.get_by_text('Player 19', exact=True)).to_be_in_viewport()
+                a.screenshot(path=str(artifact_dir / f'participants-{phase}-{label}-{width}.png'), full_page=True)
+    with closing(sqlite3.connect(live_server.root / 'hub.db')) as conn, conn:
+        assert conn.execute('SELECT * FROM entries ORDER BY id').fetchall() == before

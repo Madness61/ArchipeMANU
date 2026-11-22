@@ -1,6 +1,7 @@
 """Central round navigation and conservative personal patch attribution."""
 import io
 import json
+import re
 import zipfile
 import unittest
 from unittest.mock import patch
@@ -144,6 +145,40 @@ class RoundTests(unittest.TestCase):
         self.assertIn('Host</strong>', page)
         self.assertIn('Friend</strong>', page)
         self.assertIn('Noch kein Spiel ausgewählt', page)
+
+    def test_participant_readiness_is_only_rendered_during_preparation_without_changing_data(self):
+        bid, _ = self.seed()
+        self.post('/login', {'username':'Friend'}, client=self.app.test_client())
+        from hub.services.selection import session_entries, slot_fingerprint
+        with self.app.app_context():
+            eid = db.execute("INSERT INTO entries(session_id,user_id,game,ready) VALUES (1,1,'test_world',1)")
+            db.execute('INSERT INTO lobby_members(session_id,user_id) VALUES (1,2)')
+            fingerprint = slot_fingerprint(session_entries(1)[0])
+            db.execute('UPDATE entries SET ready_hash=? WHERE id=?', (fingerprint, eid))
+            before = [dict(row) for row in db.query('SELECT * FROM entries ORDER BY id')]
+        states = [(0, 'succeeded', None, True), (1, 'queued', None, True),
+                  (1, 'running', None, True), (1, 'failed', None, True),
+                  (1, 'succeeded', None, False), (1, 'succeeded', 'done', False)]
+        for locked, status, completed, preparing in states:
+            with self.subTest(locked=locked, status=status, completed=completed):
+                with self.app.app_context():
+                    db.execute('UPDATE sessions SET locked=? WHERE id=1', (locked,))
+                    db.execute('UPDATE seed_builds SET status=?,completed_at=? WHERE id=?', (status, completed, bid))
+                for url in ('/rounds', '/lobbies', '/'):
+                    page = self.client.get(url).get_data(as_text=True)
+                    people = re.search(r'<ul class="round-participants\b[^>]*>(.*?)</ul>', page, re.S).group(1)
+                    self.assertIn('Host</strong>', people)
+                    self.assertIn('Friend</strong>', people)
+                    self.assertIn('Test World', people)
+                    self.assertIn('Noch kein Spiel ausgewählt', people)
+                    if preparing:
+                        self.assertIn('>Bereit</span>', people)
+                        self.assertIn('>Nicht bereit</span>', people)
+                    else:
+                        self.assertNotIn('class="chip ', people)
+                        self.assertNotIn('bereit', people.lower())
+                with self.app.app_context():
+                    self.assertEqual(before, [dict(row) for row in db.query('SELECT * FROM entries ORDER BY id')])
 
     def test_host_defaults_custom_address_and_global_progress_location(self):
         bid, _ = self.seed()
