@@ -65,6 +65,43 @@ class SharedRoomTests(unittest.TestCase):
         self.assertEqual(len([p for p in self.server.packets if p['cmd']=='Connect']),3)
         self.assertTrue(recording.worker(self.bid) is reader)
 
+    def test_hint_updates_are_shared_once_after_baseline_and_private_packets_stay_scoped(self):
+        host_key, friend_key = '_read_hints_0_1', '_read_hints_0_2'
+        historic = dict(receiving_player=1, finding_player=2, item=501, location=1001, **{'class':'Hint'})
+        hint = dict(receiving_player=2, finding_player=1, item=502, location=1002, **{'class':'Hint'})
+        self.server.hints[host_key] = [historic]
+        reader = self.room()
+        self.wait_for(lambda: reader.hint_seen is not None)
+        self.assertEqual([p['keys'] for p in self.server.packets if p['cmd']=='SetNotify'], [[host_key, friend_key]])
+        self.assertEqual(self.post(self.url+'/command', dict(text='Writer ready')).status_code, 202)
+        self.wait_for(lambda: len(self.server.commands)==1)
+        writer = self.server.clients[1]
+        self.server.send(writer, [dict(cmd='PrintJSON', type='Hint', receiving=2, item=[502,1002,1,0],
+                                       data=[dict(text='Private duplicate')]),
+                                  dict(cmd='InvalidPacket', text='Personal protocol error')])
+        self.wait_for(lambda: any(row['text']=='Personal protocol error' for row in self.state()['events']))
+        self.assertTrue(any(row['text']=='Private duplicate' for row in self.state()['events']))
+        self.server.send(self.server.clients[0], [
+            dict(cmd='PrintJSON', type='Chat', team=0, slot=2, message='!hint Potion'),
+            dict(cmd='SetReply', key='unrelated', value=[hint]),
+            dict(cmd='SetReply', key=host_key, value=[historic, hint]),
+            dict(cmd='SetReply', key=friend_key, value=[dict(hint, found=True)]),
+            dict(cmd='PrintJSON', type='CommandResult', data=[dict(text='Private reader reply')]),
+            dict(cmd='PrintJSON', type='Chat', team=0, slot=2, message='!"ADMIN" /option password test-secret'),
+            dict(cmd='PrintJSON', type='AdminCommandResult', data=[dict(text='Admin test-secret')]),
+            dict(cmd='PrintJSON', data=[dict(text='Team #1 has completed all of their games! Congratulations!')]),
+        ])
+        self.wait_for(lambda: any(row.get('packet_type')=='TeamGoal' for row in self.state()['events']))
+        for client in (self.client, self.friend):
+            rows = self.state(client)['events']
+            shared, = [row for row in rows if row.get('packet_type')=='Hint']
+            self.assertEqual(shared['visibility'], 'team')
+            self.assertEqual(shared['text'], "[Hint]: Friend's Potion is at Deep Cave - Boss in Host's World")
+            self.assertLess(next(row['id'] for row in rows if row['text']=='Friend: !hint Potion'), shared['id'])
+            self.assertNotIn('test-secret', str(rows))
+            self.assertNotIn('Private reader reply', str(rows))
+        self.assertFalse(any(row.get('packet_type')=='InvalidPacket' for row in self.state(self.friend)['events']))
+
     def test_reader_tag_and_same_slot_public_events_during_authentication(self):
         self.server.announce_joins = True
         self.server.before_connected = [

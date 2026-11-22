@@ -347,6 +347,16 @@ def test_console_popout_native_pip_and_browser_fallback(actors, artifact_dir):
         filters = popup.get_by_label('Nachrichtenart')
         expect(filters.locator('option')).to_have_text(['Alle', 'Für mich', 'Items', 'Chat'])
 
+        hint = dict(receiving_player=2, finding_player=1, item=502, location=1002, **{'class':'Hint'})
+        roster = '2 players of 2 connected :: Team #1: Alice Bob'
+        server.send(reader, [dict(cmd='PrintJSON', type='Chat', team=0, slot=2, message='!hint Potion'),
+                             dict(cmd='SetReply', key='_read_hints_0_1', value=[hint]),
+                             dict(cmd='SetReply', key='_read_hints_0_2', value=[hint]),
+                             dict(cmd='PrintJSON', type='CommandResult', data=[dict(text=roster)])])
+        for console_log in (alice.locator('#console-log'), log):
+            expect(console_log.get_by_text("Bob's Potion is at Deep Cave - Boss in Alice's World", exact=False)).to_have_count(1)
+            expect(console_log.get_by_text(roster, exact=True)).to_have_count(1)
+
         def chat_messages(prefix, count):
             return [dict(cmd='PrintJSON', type='Chat', team=0, slot=2, message=f'{prefix} {i}',
                          data=[dict(text=f'Bob: {prefix} {i}')]) for i in range(count)]

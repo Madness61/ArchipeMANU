@@ -215,6 +215,9 @@ class RealProgressionTests(unittest.TestCase):
         (self.artifacts/'console-generation.log').write_bytes(generated.stdout+generated.stderr)
         self.assertEqual(generated.returncode,0,generated.stderr[-2000:])
         seed=next(output.glob('AP_*.zip'))
+        model=json.loads((output/'progression_seed.json').read_text(encoding='utf-8'))['model']
+        target=next(location for location in model['locations'] if location['player']==2 and location['item']
+                    and location['item']['player']==2 and type(location['item']['id']) is int)
         with socket.socket() as reservation:
             reservation.bind(('127.0.0.1',0));port=reservation.getsockname()[1]
         data=root/'hub-data'
@@ -222,7 +225,7 @@ class RealProgressionTests(unittest.TestCase):
                        APWORLDS=data/'apworlds',AP_SOURCE=self.source,AP_PYTHON=AP_PYTHON)
         with (self.artifacts/'console-native-server.log').open('wb') as log:
             server=subprocess.Popen([str(AP_PYTHON),str(self.source/'MultiServer.py'),str(seed),'--host','127.0.0.1',
-                                     '--port',str(port),'--disable_save'],cwd=self.source,env=env,
+                                     '--port',str(port),'--hint_cost','0','--disable_save'],cwd=self.source,env=env,
                                     stdin=subprocess.PIPE,stdout=log,stderr=subprocess.STDOUT)
             try:
                 with patch.multiple(config,**overrides),patch.object(ap_bridge,'start_extract'):
@@ -246,7 +249,7 @@ class RealProgressionTests(unittest.TestCase):
                             self.assertIsNone(server.poll(),'Native AP server stopped unexpectedly')
                             time.sleep(.05)
                         self.fail('Native AP protocol timed out: '+reader.state+' '+reader.error)
-                    wait(lambda:reader.state=='connected' and reader.catalog_ready)
+                    wait(lambda:reader.state=='connected' and reader.catalog_ready and reader.hint_seen is not None)
                     clients=[app.test_client(),app.test_client()]
                     def post(client,path,body):
                         client.get('/login')
@@ -254,6 +257,7 @@ class RealProgressionTests(unittest.TestCase):
                         return client.post(path,data=dict(_csrf=csrf,**body))
                     base=f'/sessions/{sid}/builds/{bid}/console'
                     self.assertEqual(post(clients[0],'/login',dict(username='SiteA',password='p')).status_code,302)
+                    self.assertEqual(post(clients[1],'/login',dict(username='SiteB',password='p')).status_code,302)
                     def events():
                         return clients[0].get(base+'/data').json['events']
                     self.assertEqual(sum('Itemaufzeichnung gestartet' in row['text'] for row in events()), 1)
@@ -281,17 +285,52 @@ class RealProgressionTests(unittest.TestCase):
                         self.assertIn('NativeA (Team #1) tracking ChecksFinder has joined', presence['Join']['data'][0]['text'])
                         self.assertNotIn('tags', presence['Part'])
                         self.assertIn('NativeA (Team #1) has stopped tracking the game', presence['Part']['data'][0]['text'])
-                        wait(lambda: reader.catalog_ready and reader.connected_at > previous)
+                        wait(lambda: reader.catalog_ready and reader.connected_at > previous and reader.hint_seen is not None)
                     wait(lambda:any('NativeA (Team #1) has left the game' in row['text'] for row in events()))
                     self.assertFalse(any(ap_console.READER_TAGS[1] in row['text'] or row.get('connection_role') == 'reader'
                                          for row in events()))
                     self.assertEqual(sum('Itemaufzeichnung unterbrochen' in row['text'] for row in events()), 1)
-                    for client,account,slot in zip(clients,('SiteA','SiteB'),('NativeA','NativeB')):
-                        if client is not clients[0]:
-                            self.assertEqual(post(client,'/login',dict(username=account,password='p')).status_code,302)
-                        self.assertEqual(post(client,base+'/command',dict(text='/hint')).status_code,202)
-                        wait(lambda:any(row.get('packet_type')=='CommandResult' and row['actor']['slot']==slot
+                    with ap_console.open_socket('127.0.0.1', port, False) as wire:
+                        self.assertEqual(json.loads(wire.recv(timeout=5))[0]['cmd'], 'RoomInfo')
+                        wire.send(json.dumps([{**handshake, 'name':'NativeB', 'game':'ChecksFinder', 'tags':['AP']}]))
+                        def receive(kind):
+                            deadline = time.monotonic() + 10
+                            while time.monotonic() < deadline:
+                                for packet in json.loads(wire.recv(timeout=max(.1, deadline-time.monotonic()))):
+                                    if packet.get('type')==kind or packet.get('cmd')==kind:
+                                        return packet
+                            self.fail(f'No real AP packet for {kind}')
+                        receive('Connected')
+                        item_name=target['item']['name']
+                        invalid='ThisIsNotARealChecksFinderItemABCXYZ'
+                        for text, result in ((f'!hint {item_name}','Hint'), (f'!hint {invalid}','CommandResult'),
+                                             ('!players','CommandResult')):
+                            wire.send(json.dumps([dict(cmd='Say',text=text)]))
+                            reply=receive(result)
+                            if text.endswith(invalid):
+                                external_error=reply['data'][0]['text']
+                        wire.send(json.dumps([dict(cmd='Say',text=None)]))
+                        receive('InvalidPacket')
+                        wait(lambda:any(row.get('packet_type')=='CommandResult' for row in events()))
+                        expected_hint=f"[Hint]: NativeB's {item_name} is at {target['name']} in NativeB's World"
+                        for client in clients:
+                            rows=client.get(base+'/data').json['events']
+                            hint, = [row for row in rows if row.get('packet_type')=='Hint' and row['text']==expected_hint]
+                            request, = [row for row in rows if row['text']==f'NativeB: !hint {item_name}']
+                            roster, = [row for row in rows if row.get('packet_type')=='CommandResult']
+                            self.assertEqual(hint['visibility'], 'team')
+                            self.assertEqual(roster['visibility'], 'team')
+                            self.assertLess(request['id'], hint['id'])
+                            self.assertLess(hint['id'], roster['id'])
+                            self.assertFalse(any(row['text']==external_error or row.get('packet_type')=='InvalidPacket'
+                                                 for row in rows))
+                        self.assertEqual(sum(value.thread.is_alive() for value in ap_console._clients.values()),1)
+                    for client,slot in zip(clients,('NativeA','NativeB')):
+                        self.assertEqual(post(client,base+'/command',dict(text=f'/hint {invalid}')).status_code,202)
+                        wait(lambda:any(row.get('packet_type')=='CommandResult' and row.get('actor',{}).get('slot')==slot
                                         for row in client.get(base+'/data').json['events']))
+                        self.assertTrue(any(row['text']==external_error and row['visibility']=='personal'
+                                            for row in client.get(base+'/data').json['events']))
                     own=[{row['id'] for row in client.get(base+'/data').json['events'] if row['visibility']=='personal'} for client in clients]
                     self.assertFalse(own[0]&own[1])
                     self.assertEqual(post(clients[1],base+'/command',dict(text='native shared chat')).status_code,202)
@@ -302,7 +341,8 @@ class RealProgressionTests(unittest.TestCase):
                     self.assertEqual(sum(value.thread.is_alive() for value in ap_console._clients.values()),3)
                     with self.assertRaises(ValueError):reader.handle_command('forbidden')
                     self.report.append(dict(game='ChecksFinder x2',protocol='real MultiServer',readers=1,authorized_writers=2,
-                                            private_replies=True, neutral_slot_rejected=True, real_same_slot_join_and_part=True))
+                                            shared_hint_and_roster=True, private_replies=True,
+                                            neutral_slot_rejected=True, real_same_slot_join_and_part=True))
             finally:
                 ap_console.stop_all()
                 server.terminate()

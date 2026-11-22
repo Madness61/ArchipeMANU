@@ -8,6 +8,7 @@ import queue
 import random
 import re
 import secrets
+import shlex
 import socket
 import sqlite3
 import ssl
@@ -100,6 +101,26 @@ def reader_presence(packet):
     return (packet['type'] == 'Part' and isinstance(parts, list) and len(parts) == 1
             and isinstance(parts[0], dict) and isinstance(parts[0].get('text'), str)
             and bool(_READER_PART.search(parts[0]['text'])))
+
+
+def administrative_message(packet):
+    kind = packet.get('type')
+    if kind == 'AdminCommandResult':
+        return True
+    message = packet.get('message')
+    if kind != 'Chat' or not isinstance(message, str) or '!' not in message:
+        return False
+    # AP resolves the first command token with shlex and lowercases the name.
+    # Some spellings and admin options bypass its chat password masking.
+    try:
+        words = shlex.split(message)
+    except ValueError:
+        words = message.split()
+    return bool(words and words[0].lower().startswith('!admin'))
+
+
+def hint_key(hosted_id, team, receiving, finding, location, item):
+    return f'hint:{hosted_id}:{team}:{receiving}:{finding}:{location}:{item}'
 
 
 def connection_error(exc):
@@ -508,16 +529,42 @@ class Client:
                 item = network_item(packet["item"])
                 self.delivery(item, integer(packet['receiving']), 'live')
             else:
-                if reader_presence(packet) or (self.managed and packet.get('type') in PUBLIC_TYPES):
+                if administrative_message(packet) or reader_presence(packet) or (self.managed and self.public_type(packet)):
                     return  # The sole room reader journals public events once.
                 parts = self.message_parts(packet)
-                # Hints and command replies stay private; only structured ItemSend is shared.
+                kind = packet.get('type')
+                payload = dict(parts=parts, actor_slot=self.slot_name, message_type=str(kind or '')[:64])
+                if kind == 'Hint' and 'item' in packet and 'receiving' in packet:
+                    item = network_item(packet['item'])
+                    payload['hint_key'] = hint_key(self.endpoint['id'], self.team, integer(packet['receiving']),
+                                                   item['player'], item['location'], item['item'])
                 record(self.path, self.build_id, self.user_id,
-                       "chat" if packet.get("type") == "Chat" else "system", {"parts": parts, "actor_slot": self.slot_name,
-                       "message_type":str(packet.get('type',''))[:64]},
+                       "chat" if kind == "Chat" else "system", payload,
                        hosted_id=self.endpoint["id"])
         elif cmd in ("Print", "InvalidPacket"):
-            self.note(str(packet.get("text", "Servermeldung"))[:12000], origin='server')
+            record(self.path, self.build_id, self.user_id, 'system',
+                   dict(text=str(packet.get('text', 'Servermeldung'))[:12000], origin='server',
+                        actor_slot=self.slot_name, message_type=cmd), hosted_id=self.endpoint['id'])
+
+    def public_type(self, packet):
+        kind = packet.get('type')
+        if kind in PUBLIC_TYPES or kind == 'ItemSend':
+            return kind
+        data = packet.get('data')
+        if not (isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict)):
+            return None
+        text = data[0].get('text')
+        if not isinstance(text, str):
+            return None
+        if kind is None and self.team is not None and text == f'Team #{self.team + 1} has completed all of their games! Congratulations!':
+            return 'TeamGoal'
+        if kind == 'CommandResult' and 0 < len(self.players) < 10:
+            # In small MultiServer rooms !players broadcasts this exact roster.
+            # The wire type alone also covers replies addressed to just one socket.
+            names = [re.escape(p['name']) for _, p in sorted(self.players.items()) if p['type'] == 1]
+            roster = ' '.join(rf'(?:{name}|\({name}\))' for name in names)
+            if re.fullmatch(rf'\d+ players of {len(names)} connected :: Team #{self.team + 1}: {roster}', text):
+                return kind
 
     def message_parts(self, packet):
         parts, remaining = [], 12000

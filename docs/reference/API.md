@@ -82,7 +82,7 @@ Die bisherigen Top-Level-Verbindungsfelder beschreiben aus Kompatibilitätsgrün
 die persönliche Verbindung; `room_connection` enthält den Status des gemeinsamen
 Lesers. `players` ordnet tatsächliche Slotnamen den Website-Konten zu. Persönliche
 Ereignisse enthalten bei bekannter Zuordnung `actor`; `packet_type` kennzeichnet
-typisierte persönliche Serverantworten. Öffentliche Ereignis-IDs sind für alle
+typisierte Servermeldungen. Gemeinsame Ereignis-IDs sind für alle
 Besucher gleich, Markierungen `for_me`/`from_me` bleiben benutzerspezifisch.
 Die automatische Transporterkennung erfolgt vor der Slot-Anmeldung. Bei falschem
 Raumpasswort oder abgelehnter Slot-Anmeldung wird kein anderer Transport versucht.
@@ -140,11 +140,26 @@ bestehenden Spoilerfreigabe enthält diese Antwort konkrete Fundorte.
   Startinventar; `/missing` liefert offene Checks, keine Erreichbarkeitsberechnung.
 - Strukturierte Item-Sendungen sowie öffentliche Typen `Chat`, `ServerChat`, `Join`,
   `Part`, `TagsChanged`, `Goal`, `Countdown`, `Release`, `Collect`, `ItemCheat` sind
-  gemeinsam sichtbar. Persönliche Hinweise und Befehlsantworten bleiben privat.
-  Nicht eindeutig öffentliche oder untypisierte Meldungen des Lesers werden nicht
-  geteilt; bestehende persönliche Nachrichten bleiben persönlich. Ein Wechsel der
-  gespeicherten Serververbindung trennt den alten Verlauf von der aktuellen
-  Ansicht. Im Race-Modus ist die Konsole gesperrt.
+  gemeinsam sichtbar. Dazu kommen die Teamabschlussmeldung und die von
+  MultiServer bei weniger als zehn Slots ausgesendete `!players`-Antwort (`CommandResult`).
+- Der bestehende Leser abonniert `_read_hints_{team}_{slot}` über `SetNotify`.
+  Nach der Ausgangsabfrage erscheinen neu gespeicherte `Hint`-Einträge mit Item,
+  Fundort und beteiligten Slots auch bei Anfragen aus Spielclients. Der Hub
+  erfasst dieselbe Platzierung einmal. Die Momentaufnahmen enthalten keine
+  Zeitstempel oder Reihenfolge innerhalb einer Aktualisierung. Bereits beim
+  Verbindungsaufbau vorhandene Hinweise bilden die Ausgangslage. Der Hub kann
+  verpasste Meldungen oder spätere Wiederholungen daraus nicht als Liveverlauf
+  rekonstruieren.
+- MultiServer sendet `PrintJSON/Hint` an betroffene Slots, bei `!hint` ohne
+  Argument nur an den angefragten Slot. Hinweise auf bereits gefundene Items
+  können beim Befehl ohne gespeicherten Eintrag bleiben. Die meisten `CommandResult`-
+  Antworten (etwa ungültige Itemnamen und unzureichende Hint-Punkte) und `InvalidPacket`
+  gehen nur an die auslösende Verbindung. Der Hub zeigt solche Antworten auf
+  eigenen Befehlsverbindungen persönlich an. Antworten auf fremden Verbindungen
+  kann er über das unveränderte Archipelago-Protokoll nicht abrufen. Der Hub
+  verwirft Administrationsbefehle im Chat und `AdminCommandResult`.
+- Beide Konsolenansichten lesen dasselbe Journal. Ein Wechsel der gespeicherten
+  Serververbindung trennt die Verläufe. Im Race-Modus ist die Konsole gesperrt.
   Normale Chatnachrichten gehen weiterhin in den Archipelago-Raum und können
   dort für andere verbundene Spielclients sichtbar sein.
 - Das Raumpasswort bleibt nur im Arbeitsspeicher der Verbindung; es steht nicht
