@@ -22,7 +22,7 @@ class RoundTests(unittest.TestCase):
             db.execute('UPDATE sessions SET locked=1 WHERE id=1')
         return bid, slots
 
-    def test_one_dashboard_card_three_main_links_and_old_urls(self):
+    def test_one_dashboard_card_three_main_links_and_four_round_areas(self):
         bid,slots=self.seed()
         page=self.client.get('/').get_data(as_text=True)
         self.assertEqual(page.count('data-round-id="1"'),1)
@@ -33,7 +33,10 @@ class RoundTests(unittest.TestCase):
         for url in ('/sessions/1',f'/sessions/1/builds/{bid}/play'):
             page=self.client.get(url).get_data(as_text=True)
             self.assertIn('id="round-center"',page)
-            self.assertEqual(page.count('data-round-panel='),3)
+            self.assertEqual(page.count('data-round-panel='),4)
+            for area in ('data-round-panel="play"','data-round-panel="players"','data-round-panel="setup"','data-round-panel="manage"'):
+                self.assertIn(area,page)
+            self.assertNotIn('data-round-panel="more"',page)
             self.assertIn('Spieler &amp; Items', page)
             self.assertIn('id="slot-1">Host',page)
 

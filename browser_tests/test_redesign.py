@@ -23,7 +23,7 @@ def capture(page, directory, name):
 def test_dark_platform_navigation_options_and_responsive_pages(actors, live_server, artifact_dir):
     alice, bob, admin = actors.alice, actors.bob, actors.admin
     register(alice, "Alice"); register(bob, "Bob")
-    expect(alice.locator("body")).to_have_css("background-color", "rgb(13, 19, 35)")
+    expect(alice.locator("body")).to_have_css("background-color", "rgb(17, 18, 21)")
     capture(alice, artifact_dir, "dashboard-empty")
     alice.get_by_role("button", name="Menü öffnen", exact=True).click()
     expect(alice.locator("#main-content")).to_have_js_property("inert", True)
@@ -122,10 +122,9 @@ def test_dark_platform_navigation_options_and_responsive_pages(actors, live_serv
     assert document[GAME]["death_link"] is False
     area(alice,"Spielen")
     play_url = alice.url
-    area(alice,"Mehr")
+    area(alice,"Verwaltung")
     alice.get_by_label("Archipelago-Raum für Live-Statistiken", exact=True).fill("https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw")
     alice.get_by_role("button", name="Raum verbinden", exact=True).click()
-    area(alice, "Mehr")
     alice.get_by_role("link",name="Erweiterte Statistiken öffnen",exact=True).click()
     expect(alice.locator("#kpi-checks")).to_have_text("2", timeout=15000)
     expect(alice.locator("#live-overview-players .overview-player")).to_have_count(2)
@@ -143,8 +142,9 @@ def test_dark_platform_navigation_options_and_responsive_pages(actors, live_serv
     expect(alice.locator("#slot-1")).to_have_text("Alice")
     expect(alice.get_by_role("button",name="Adresse kopieren",exact=False)).to_be_visible()
     capture(alice, artifact_dir, "play")
-    area(alice,"Mehr")
-    alice.get_by_role("link", name="Progression-Items und Seed-Analyse öffnen", exact=True).click()
+    area(alice,"Dateien & Setup")
+    alice.locator("#play-technical > summary").click()
+    alice.get_by_role("link",name="Progression-Items und Seed-Analyse öffnen",exact=True).click()
     expect(alice.locator(".progression-game[open]")).to_have_count(0)
     expect(alice.locator(".matrix")).to_have_count(0)
     capture(alice, artifact_dir, "seed-analysis")

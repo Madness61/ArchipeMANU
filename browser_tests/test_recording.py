@@ -49,7 +49,7 @@ def test_host_recording_without_open_pages_and_independent_diagnostics(actors,li
         expect(bob.locator('#console-diagnostics')).to_contain_text('Next API update')
         for mode in ('dark','light'):
             set_preference(bob,'theme',mode)
-            expect(bob.locator('#console-search')).to_have_css('background-color','rgb(248, 250, 255)' if mode=='light' else 'rgb(17, 26, 46)')
+            expect(bob.locator('#console-search')).to_have_css('background-color','rgb(248, 250, 255)' if mode=='light' else 'rgb(20, 21, 25)')
             for width in (390,768,1440,2560):
                 bob.set_viewport_size(dict(width=width,height=1000))
                 assert bob.evaluate('document.documentElement.scrollWidth<=innerWidth+1')

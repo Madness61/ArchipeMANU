@@ -1,27 +1,28 @@
-/* Theme colours live here; components consume semantic tokens directly. */
+/* Theme colours live here; components consume semantic tokens directly.
+   Dark: neutral graphite layers (bg < panel < raised) with violet used sparingly as accent. */
 :root {
   color-scheme: dark;
   --accent-text: #FFFFFF;
   --primary-hover: #5C4AC3;
-  --shadow: 0 8px 28px light-dark(#26385712, #050A1624);
-  --bg: light-dark(#F1F4FB, #0D1323);
-  --panel: light-dark(#FFFFFF, #192238);
-  --surface-raised: light-dark(#E5EAF5, #222E47);
-  --surface-input: light-dark(#F8FAFF, #111A2E);
-  --text: light-dark(#17223B, #F4F6FF);
-  --muted: light-dark(#4F607D, #AAB6D0);
-  --accent: light-dark(#6554D5, #7768EF);
-  --accent-hover: light-dark(#5140BF, #9488FF);
-  --accent-solid: light-dark(#6251CF, #6655CE);
-  --ok: light-dark(#08694D, #5EE3B1);
-  --warn: light-dark(#8D500C, #F5BC79);
-  --err: light-dark(#AD3048, #F08D9B);
-  --line: light-dark(#CBD4E5, #2C3953);
-  --input-line: light-dark(#7484A2, #5C6B88);
-  --chip: light-dark(#E6E4F7, #252D49);
-  --nav: light-dark(#F9FAFE, #101829);
-  --shadow-color: light-dark(#263857, #050A16);
-  --scrim-color: light-dark(#17223B, #030817);
+  --shadow: 0 8px 28px light-dark(#26385712, #00000052);
+  --bg: light-dark(#F1F4FB, #111215);
+  --panel: light-dark(#FFFFFF, #1A1B20);
+  --surface-raised: light-dark(#E5EAF5, #24262D);
+  --surface-input: light-dark(#F8FAFF, #141519);
+  --text: light-dark(#17223B, #ECEDF1);
+  --muted: light-dark(#4F607D, #A0A3AE);
+  --accent: light-dark(#6554D5, #9D8FFF);
+  --accent-hover: light-dark(#5140BF, #B4A9FF);
+  --accent-solid: light-dark(#6251CF, #6A58E0);
+  --ok: light-dark(#08694D, #5CD6A0);
+  --warn: light-dark(#8D500C, #F2BB72);
+  --err: light-dark(#AD3048, #F48C99);
+  --line: light-dark(#CBD4E5, #2E3038);
+  --input-line: light-dark(#7484A2, #686C79);
+  --chip: light-dark(#E6E4F7, #25262E);
+  --nav: light-dark(#F9FAFE, #0C0D10);
+  --shadow-color: light-dark(#263857, #000000);
+  --scrim-color: light-dark(#17223B, #000000);
   --player-color-1: light-dark(#6443BC, #A89CFF);
   --player-color-2: light-dark(#087157, #5EE3B1);
   --player-color-3: light-dark(#955611, #F5BC79);

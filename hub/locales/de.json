@@ -2207,5 +2207,11 @@
   "m2120": "Schreiben",
   "m2121": "Keine Meldungen für diesen Filter.",
   "m2122": "Klicke erneut auf „Popout öffnen“, um die Konsole im Browser zu öffnen.",
-  "m2123": "Dieses Popout gehört zu einer anderen Anmeldung. Öffne es erneut."
+  "m2123": "Dieses Popout gehört zu einer anderen Anmeldung. Öffne es erneut.",
+  "m2124": "Statistiken",
+  "m2125": "Dateien & Setup",
+  "m2126": "Verwaltung",
+  "m2127": "Verlauf",
+  "m2128": "Alle Dateien aus dem erzeugten ZIP. Deine sicher zugeordneten Patchdateien stehen oben unter „Mein Spiel“.",
+  "m2129": "Raumlink oder Server und Port hinterlegen, damit alle Spieler und die Live-Konsole verbinden können."
 }

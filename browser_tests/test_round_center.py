@@ -48,7 +48,7 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         expect(a.locator('#round-checks')).to_have_text('2 / 10',timeout=15000)
         expect(a.locator('#round-percent')).to_have_text('20 %')
         a.locator('.round-team-status summary').click()
-        expect(a.locator('[data-round-view]')).to_have_text(['Live','Spieler & Items','Mehr'])
+        expect(a.locator('[data-round-view]')).to_have_text(['Live','Spieler & Items','Dateien & Setup','Verwaltung'])
         expect(a.locator('#round-chart, #round-events')).to_have_count(0)
         assert 'SECRET FUTURE LOCATION' not in a.content()
         assert not any(p['cmd'] in ('Say','LocationChecks','LocationScouts','StatusUpdate') for p in server.packets)
@@ -58,7 +58,7 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         expect(a.locator('#console-state')).to_contain_text('Mit Archipelago verbunden',timeout=20000)
         expect(a.locator('#console-log')).to_contain_text('Progression Key',timeout=15000)
         assert all(p['cmd'] not in ('LocationChecks','LocationScouts','StatusUpdate','Say') for p in server.packets)
-        for label in ('Spieler & Items','Mehr','Live','Spieler & Items'):
+        for label in ('Spieler & Items','Dateien & Setup','Verwaltung','Live','Spieler & Items'):
             area(a,label)
         assert not navigations
         expect(a.locator('[data-round-player]')).to_have_count(2)
@@ -110,7 +110,7 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         expect(a.get_by_role('searchbox', name='Progression-Items suchen')).to_be_hidden()
         for width in (1440,768,390,2560):
             a.set_viewport_size(dict(width=width,height=1000))
-            for label in ('Live','Spieler & Items','Mehr'):
+            for label in ('Live','Spieler & Items','Dateien & Setup','Verwaltung'):
                 area(a,label)
                 a.locator('#main-content').evaluate('n=>{n.focus({preventScroll:true});n.blur()}')
                 a.evaluate('window.scrollTo(0,0)')

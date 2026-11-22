@@ -149,7 +149,7 @@
     const data = await response.json().catch(() => ({error:response.status === 429 ? window.HUB_I18N.t('Zu viele Anfragen. Bitte kurz warten.') : window.HUB_I18N.t('Die Anfrage konnte nicht verarbeitet werden. Bitte gegebenenfalls erneut anmelden.')}));
     if(response.status===401){authLost=true;window.HUB_AUTH_REQUIRED?.(data.login_url);}
     if (!response.ok) {
-      const message = window.HUB_I18N.t(data.error || 'Die Anfrage ist fehlgeschlagen.');
+      const message = data.error ? window.HUB_I18N.t(data.error) : window.HUB_I18N.t('Die Anfrage ist fehlgeschlagen.');
       if (compact && (response.status === 401 || !form && [403,404,409].includes(response.status))) {
         revokePopout();
         fail(message);

@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0D1323">
+  <meta name="theme-color" content="#111215">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <script>document.documentElement.classList.add('js');</script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -47,7 +47,7 @@
     <div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ icon('check' if category != 'error' else 'shield') }}<span>{{ _(message) }}</span></div>
   {% endfor %}
   {% if room is defined and build is defined and request.endpoint != 'session_view' and request.endpoint != 'mvp.play_page' %}
-  <nav class="round-detail-back" aria-label="{{ _("Zur Rundenzentrale") }}"><a class="btn small" href="{{ url_for('session_view',sid=room.id,build=build.id,_anchor='play' if request.endpoint in ['console.page','live.dashboard'] and not race else 'progress' if request.endpoint in ['live.dashboard','logic.page'] else 'more') }}">{{ icon('arrow','back-arrow') }} {{ room.name }} {{ _("· Rundenzentrale") }}</a><span class="small muted">{{ _("Seed #") }}{{ build.id }} {{ _("· Detailansicht") }}</span></nav>
+  <nav class="round-detail-back" aria-label="{{ _("Zur Rundenzentrale") }}"><a class="btn small" href="{{ url_for('session_view',sid=room.id,build=build.id,_anchor='play' if request.endpoint in ['console.page','live.dashboard'] and not race else 'progress' if request.endpoint in ['live.dashboard','logic.page'] else 'setup') }}">{{ icon('arrow','back-arrow') }} {{ room.name }} {{ _("· Rundenzentrale") }}</a><span class="small muted">{{ _("Seed #") }}{{ build.id }} {{ _("· Detailansicht") }}</span></nav>
   {% endif %}
   {% block content %}{% endblock %}
   {% if not g.user %}</div></div>{% endif %}
