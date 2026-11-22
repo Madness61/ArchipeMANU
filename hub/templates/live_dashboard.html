@@ -15,7 +15,7 @@
   <div class="live-notice" id="live-warning" role="status" hidden></div>
   <div class="live-notice" id="live-seed-warning" hidden>{{ _("Die Spieler und Spiele des Raums weichen vom lokalen Seed ab. Bitte den Raumlink prüfen. Hier werden ausschließlich die Daten des verknüpften Archipelago-Raums angezeigt.") }}</div>
   <div class="live-tabs" role="tablist" aria-label="{{ _("Live-Statistiken") }}">
-    {% for id, label in [('overview',_('Übersicht')),('players',_('Spieler')),('interactions','Interaktionen'),('history','Verlauf'),('events','Ereignisse'),('comparisons','Vergleiche')] %}
+    {% for id, label in [('overview',_('Übersicht')),('players',_('Spieler')),('interactions','Interaktionen'),('history',_('Verlauf')),('events','Ereignisse'),('comparisons','Vergleiche')] %}
     <button type="button" role="tab" id="tab-{{ id }}" aria-controls="live-{{ id }}" aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}" data-tab="{{ id }}">{{ _(label) }}</button>
     {% endfor %}
   </div>

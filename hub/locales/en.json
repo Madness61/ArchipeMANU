@@ -2207,5 +2207,11 @@
   "m2120": "Write a message",
   "m2121": "No messages for this filter.",
   "m2122": "Click “Open popout” again to open the console in your browser.",
-  "m2123": "This popout belongs to another login. Open it again."
+  "m2123": "This popout belongs to another login. Open it again.",
+  "m2124": "Statistics",
+  "m2125": "Files & setup",
+  "m2126": "Manage",
+  "m2127": "History",
+  "m2128": "All files from the generated ZIP. Your securely assigned patch files are listed above under “My game”.",
+  "m2129": "Add the room link or server and port so all players and the live console can connect."
 }

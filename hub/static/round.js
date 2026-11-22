@@ -69,6 +69,7 @@
     try { hash = decodeURIComponent(hash); } catch {}
     const target = $(hash);
     if (hash === 'progress' || hash === 'round-progress') hash = 'players';
+    if (hash === 'more' || hash === 'round-more') hash = 'manage';
     view = panels.some(panel => panel.dataset.roundPanel === hash)
       ? hash : target?.closest('[data-round-panel]')?.dataset.roundPanel || 'play';
     panels.forEach(panel => { panel.hidden = panel.dataset.roundPanel !== view; });
