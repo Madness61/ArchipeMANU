@@ -547,15 +547,18 @@
     const isGoal=mode==='goal',state=$(isGoal?'progression-goal-status':'progression-analysis-state');
     state.textContent=data.state==='ready'?t('Spielregeln und Seed stimmen überein'):data.state==='loading'?t('Die Spielregeln werden im Hintergrund geprüft …'):data.state==='idle'?t('Starte die Berechnung bei Bedarf ausdrücklich.'):data.state==='busy'?t('Die Analyse ist ausgelastet. Bitte kurz warten.'):reasons[data.reason]||reasons.worker_failed;
     if(isGoal){
+      $('progression-goal-name').textContent=data.goal_name?t('Konfiguriertes Spielziel: {v0}',{v0:data.goal_name}):t('Die genaue Zielbeschreibung ist für diesen Seed nicht zuverlässig verfügbar.');
+      state.textContent=data.goal_reached===true?t('Ziel erreicht'):data.goal_reached===false?t('Ziel offen'):t('Zielstatus unbekannt');
       $('progression-goals').replaceChildren();
-      if(data.state!=='ready')return;
-      state.textContent=data.goal_reachable?t('Spielziel mit deinem gemeldeten Inventar erreichbar'):t('Spielziel mit deinem gemeldeten Inventar noch nicht erreichbar');
-      if(!data.necessity_complete)$('progression-goals').append(node('p',t('Die Zielprüfung ist unvollständig. Fehlende Ergebnisse beweisen keine Unmöglichkeit.'),'warn small'));
-      const verdict={necessary:t('Nachweislich notwendiges Exemplar'),replaceable_copy:t('Dieses Einzel-exemplar ist ersetzbar'),unknown:t('Noch nicht zuverlässig bestimmbar')};
-      (data.necessity||[]).forEach(row=>{const box=node('article',null,'progression-item');box.append(node('h4',row.item),node('p',verdict[row.verdict]));if(row.placement)box.append(placement(row.placement));$('progression-goals').append(box);});
+      $('progression-goal-observed').textContent=data.observed_at?t('Inventarstand')+': '+observation(data.observed_at):t('Inventarstand unbekannt');
+      if(data.goal_stale)$('progression-goals').append(node('p',t('Dieser Fortschrittsstand ist veraltet.'),'small muted'));
+      const theoretical=data.state==='ready'&&typeof data.goal_reachable==='boolean'
+        ?data.goal_reachable?t('Theoretisch mit dem gemeldeten Inventar erreichbar'):t('Theoretisch mit dem gemeldeten Inventar noch nicht erreichbar')
+        :data.state==='idle'?t('Theoretische Erreichbarkeit noch nicht geprüft'):data.state==='loading'?t('Die Spielregeln werden im Hintergrund geprüft …'):reasons[data.reason]||t('Noch nicht zuverlässig bestimmbar');
+      $('progression-goals').append(node('p',theoretical));
       return;
     }
-    $('progression-observed').textContent=data.observed_at?t('Inventarstand')+': '+observation(data.observed_at):'';
+    $('progression-observed').textContent=data.observed_at?t('Inventarstand')+': '+observation(data.observed_at):t('Inventarstand unbekannt');
     $('progression-spheres').replaceChildren();
     (data.static?.spheres||[]).forEach(s=>{$('progression-spheres').append(node('p',(s.unreachable?t('Nicht erreichbar'):t('Schritt')+' '+s.number)+': '+s.locations.map(l=>l.name).join(', '),'small'));});
     $('progression-helpful').replaceChildren();$('progression-reachable').replaceChildren();
@@ -588,6 +591,7 @@
     const mode=view==='goal'?'goal':'items',form=$(mode==='goal'?'progression-goal-analyze':'progression-analyze');
     if(!form)return;
     analysisBusy=true;clearTimeout(timer);fail('');
+    const buttons=[...form.querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);
     const settings=Object.fromEntries(new FormData(form));settings.mode=mode;
     const target=mode==='items'?$('progression-target')?.value||'':'';
     if(target.startsWith('location:')){settings.target_kind='location';settings.target_id=target.slice(9);}
@@ -599,7 +603,7 @@
          (mode==='items'&&target!==($('progression-target')?.value||'')))return;
       renderAnalysis(data,mode);
       if(data.state==='loading'&&root.open)timer=setTimeout(()=>analysis(false),1200);
-    }catch(error){fail(error.message);}finally{analysisBusy=false;if(pendingAnalysis){const pending=pendingAnalysis;pendingAnalysis=null;analysis(pending.view===view&&pending.start);}}
+    }catch(error){fail(error.message);}finally{buttons.forEach(button=>button.disabled=false);analysisBusy=false;if(pendingAnalysis){const pending=pendingAnalysis;pendingAnalysis=null;analysis(pending.view===view&&pending.start);}}
   }
   ['progression-analyze','progression-goal-analyze'].forEach(id=>{
     $(id)?.addEventListener('submit',event=>{event.preventDefault();analysis(true);});
@@ -609,5 +613,6 @@
     });
   });
   $('progression-target')?.addEventListener('change',()=>analysis(false));
+  $('progression-refresh')?.addEventListener('click',()=>analysis(true));
   if(root.dataset.standalone)open('finder');
 })();

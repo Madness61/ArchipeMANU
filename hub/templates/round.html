@@ -19,6 +19,7 @@
 <a href="#{{ key }}" data-round-view="{{ key }}" aria-controls="round-{{ key }}" {% if loop.first %}aria-current="page"{% endif %}>{{ icon(symbol) }}{{ label }}</a>
 {% endfor %}
 </nav>
+{% if round_ready and live_access and slots %}{% include "round_team_summary.html" %}{% endif %}
 <section id="round-play" data-round-panel="play" aria-label="{{ _("Live") if round_ready else _("Spielen") }}">
 {% if round_ready %}
   {% if race and live_access and live_connection %}<p class="status-note" id="round-server-start" role="status" hidden></p>{% endif %}
@@ -26,6 +27,7 @@
     {% with endpoint=hosted,commands=console_commands,archived=build.completed_at,console_embedded=true %}{% include "console_workspace.html" %}{% endwith %}
   {% else %}{% include "round_play.html" %}{% endif %}
 {% else %}
+  <section id="round-participants" data-refresh-fragment><div class="section-head"><h2>{{ _("Mitspieler") }}</h2><a class="btn small" href="{{ url_for('session_view',sid=s.id,_anchor='play') }}" data-session-refresh>{{ _("Teilnehmer aktualisieren") }}</a></div>{% include "round_participants.html" %}</section>
   {% include "round_preparation.html" %}
   {% include "round_generation.html" %}
 {% endif %}
@@ -37,6 +39,7 @@
 </section>
 {% if round_ready %}
 <section id="round-setup" data-round-panel="setup" aria-label="{{ _("Dateien & Setup") }}">
+{% if manage and not build.completed_at %}<section class="panel host-panel" id="round-host-connection"><h2>{{ _("Verbindung verwalten · Host") }}</h2>{% with hosting_build=build,hosting_sid=s.id,hosting_data=hosted %}{% include "hosting_form.html" %}{% endwith %}</section>{% endif %}
 {% if console_primary %}{% include "round_play.html" %}{% endif %}
 <section class="panel" id="all-files"><h2>{{ _("Gemeinsame Spieldateien") }}</h2><a class="btn" href="{{ url_for('mvp.build_download',sid=s.id,build_id=build.id) }}">{{ _("Multiworld-ZIP herunterladen") }}</a><p class="small muted">{{ _("Alle Dateien aus dem erzeugten ZIP. Deine sicher zugeordneten Patchdateien stehen oben unter „Mein Spiel“.") }}</p><div class="stack">{% for asset in assets %}<div class="row spread play-file"><code>{{ asset.name }}</code><a class="btn small" href="{{ url_for('mvp.build_asset',sid=s.id,build_id=build.id,file_index=asset.index) }}">{{ _("Herunterladen") }}</a></div>{% endfor %}</div></section>
 <details class="panel table-wrap round-details" id="compatibility"><summary><h2>{{ _("Spielversionen dieses Seeds") }}</h2></summary><table><thead><tr><th>{{ _("Spielername") }}</th><th>{{ _("Spiel") }}</th><th>{{ _("Modul-Version") }}</th><th>{{ _("APWorld SHA-256") }}</th></tr></thead><tbody>{% for slot in slots %}<tr><td>{{ slot.slot }}</td><td>{{ slot.game_name }}</td><td>{{ slot.game_version or _('nicht angegeben') }}</td><td><code>{{ slot.apworld_sha256 or _('In Archipelago enthalten') }}</code></td></tr>{% endfor %}</tbody></table></details>
@@ -44,7 +47,6 @@
 </section>
 {% endif %}
 <section id="round-manage" data-round-panel="manage" aria-label="{{ _("Verwaltung") if manage else _("Verlauf") }}">
-{% if round_ready and manage and not build.completed_at %}<section class="panel host-panel" id="round-host-connection"><h2>{{ _("Verbindung verwalten · Host") }}</h2><p class="small muted">{{ _("Raumlink oder Server und Port hinterlegen, damit alle Spieler und die Live-Konsole verbinden können.") }}</p><p><a class="btn" href="{{ url_for('mvp.build_download',sid=s.id,build_id=build.id) }}">{{ _("Multiworld-ZIP herunterladen") }}</a></p>{% include "live_connect.html" %}{% with hosting_build=build,hosting_sid=s.id,hosting_data=hosted %}{% include "hosting_form.html" %}{% endwith %}</section>{% endif %}
 {% include "round_manage.html" %}
 </section>
 <p class="small muted" id="session-refresh-status" role="status" aria-live="polite"></p>

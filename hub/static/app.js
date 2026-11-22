@@ -427,16 +427,28 @@
     }).catch(() => { delete sel.dataset.loaded; });
   });
 
-  // New builds are recorded independently from previous generations.
-  if (document.querySelector('[data-build-status="queued"], [data-build-status="running"]')) {
-    setTimeout(() => location.reload(), 4000);
-  }
+  document.getElementById('generate-round')?.addEventListener('submit', event => {
+    if (event.defaultPrevented) return;
+    event.target.setAttribute('aria-busy', 'true');
+    const button = event.target.querySelector('button');
+    button.disabled = true;
+    button.textContent = window.HUB_I18N.t('Seed wird generiert …');
+  });
 
   // Poll while something runs on the server, then reload.
   const poll = (el, url) => {
     if (!el || !["queued", "running"].includes(el.dataset.status)) return;
-    const tick = () => fetch(url).then((r) => r.json()).then((d) => {
-      if (!["queued", "running"].includes(d.status)) location.reload(); else setTimeout(tick, 3000);
+    const tick = () => fetch(url, {cache:'no-store'}).then(async r => {
+      const data = await r.json();
+      if (r.status === 401) { window.HUB_AUTH_REQUIRED?.(data.login_url); return null; }
+      if (!r.ok) throw new Error();
+      return data;
+    }).then(d => {
+      if (!d) return;
+      if (!["queued", "running"].includes(d.status)) {
+        if (d.status === 'succeeded' && el.dataset.successUrl) history.replaceState(null, '', el.dataset.successUrl);
+        location.reload();
+      } else setTimeout(tick, 3000);
     }).catch(() => setTimeout(tick, 5000));
     setTimeout(tick, 3000);
   };

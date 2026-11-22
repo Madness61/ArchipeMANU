@@ -1,14 +1,5 @@
 {% if slots %}
 {% set initial_slot = (own or slots)|first %}
-<section class="round-team-summary" aria-labelledby="round-team-title">
-  <h2 id="round-team-title" class="visually-hidden">{{ _('Fortschritt der Runde') }}</h2>
-  <dl class="round-team-stats">
-    <div class="round-stat round-stat-main"><dt>{{ _("Gesamtfortschritt") }}</dt><dd id="round-percent">—</dd><div class="progress-track round-team-bar" aria-hidden="true"><span id="round-team-bar" style="width:0"></span></div></div>
-    <div class="round-stat"><dt>{{ _("Checks erledigt") }}</dt><dd id="round-checks">—</dd></div>
-    <div class="round-stat"><dt>{{ _("Spielziele erreicht") }}</dt><dd id="round-goals">—</dd></div>
-  </dl>
-  <p class="small muted" id="round-live-status" role="status">{{ _("Fortschritt wird geladen …") }}</p>
-</section>
 <div class="round-team">
   <div class="round-player-picker">
     <h2 class="visually-hidden">{{ _('Spieler') }}</h2>

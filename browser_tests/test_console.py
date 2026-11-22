@@ -232,9 +232,9 @@ def test_opening_round_wakes_official_room_once_and_connects_to_new_port(actors,
         alice.reload()
         alice.get_by_role('button', name='Seed generieren', exact=True).click()
         host = generated(alice)
-        host.get_by_label('Archipelago-Raum für Live-Statistiken', exact=True).fill(
+        host.get_by_label('Archipelago-Raum-Link (optional)', exact=True).fill(
             'https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw')
-        host.get_by_role('button', name='Raum verbinden', exact=True).click()
+        host.get_by_role('button', name='Verbindung speichern', exact=True).click()
         bob.goto(alice.url)
         for page in (alice, bob):
             expect(page.locator('#console-state')).to_have_text('Archipelago-Server wird gestartet …', timeout=15000)

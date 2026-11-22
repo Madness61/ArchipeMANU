@@ -2,6 +2,7 @@
 from playwright.sync_api import expect
 from .fake_ap import FakeAP
 from .fixtures import GAME
+from .fixtures import PASSWORD
 from .test_players import register,upload_world,create_lobby,join_lobby,select_game,mark_ready,generated
 
 def set_preference(page,key,value):
@@ -12,6 +13,44 @@ def set_preference(page,key,value):
     assert result.value.status==200
     if key=='language':expect(page.locator('html')).to_have_attribute('lang',value)
     else:expect(page.locator('html')).to_have_attribute('data-theme',value)
+
+
+def test_login_adopts_explicit_language_and_theme_and_restores_account_without_cookie_leak(actors, artifact_dir):
+    a, b = actors.alice, actors.bob
+    register(a, 'Alice'); register(b, 'Bob')
+    a.locator('form[action="/logout"] button').click()
+    form = a.locator('.appearance-form')
+    with a.expect_response(lambda r:r.url.endswith('/preferences') and r.request.method=='POST'):
+        form.locator('[name="theme"]').select_option('light')
+    expect(a.locator('html')).to_have_attribute('data-theme', 'light')
+    with a.expect_response(lambda r:r.url.endswith('/preferences') and r.request.method=='POST'):
+        form.locator('[name="language"]').select_option('en')
+    expect(a.locator('html')).to_have_attribute('lang', 'en')
+    a.locator('[name="username"]').fill('Alice')
+    a.locator('[name="password"]').fill(PASSWORD)
+    a.locator('form.stack button.primary').click()
+    expect(a.locator('body')).to_have_class('app-shell')
+    expect(a.locator('html')).to_have_attribute('lang', 'en')
+    expect(a.locator('html')).to_have_attribute('data-theme', 'light')
+    a.screenshot(path=str(artifact_dir/'login-preferences-desktop.png'), full_page=True)
+    a.locator('form[action="/logout"] button').click()
+    expect(a.locator('html')).to_have_attribute('lang', 'en')
+    a.set_viewport_size(dict(width=390, height=844))
+    a.screenshot(path=str(artifact_dir/'login-preferences-mobile.png'), full_page=True)
+    # Cookies from Alice do not overwrite Bob's own account settings.
+    a.locator('[name="username"]').fill('Bob')
+    a.locator('[name="password"]').fill(PASSWORD)
+    a.locator('form.stack button.primary').click()
+    expect(a.locator('body')).to_have_class('app-shell')
+    expect(a.locator('html')).to_have_attribute('lang', 'de')
+    expect(a.locator('html')).to_have_attribute('data-theme', 'dark')
+    # Alice's saved choice is restored on another browser as well.
+    b.goto('/login')
+    b.locator('[name="username"]').fill('Alice')
+    b.locator('[name="password"]').fill(PASSWORD)
+    b.locator('form.stack button.primary').click()
+    expect(b.locator('html')).to_have_attribute('lang', 'en')
+    expect(b.locator('html')).to_have_attribute('data-theme', 'light')
 
 def test_language_theme_draft_filters_and_responsive_views(actors,artifact_dir):
     a,b=actors.alice,actors.bob

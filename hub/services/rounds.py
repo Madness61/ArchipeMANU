@@ -406,7 +406,7 @@ def artifact_files(build_id: int, zip_name: str) -> list[dict]:
         return []
 
 
-def parse_room_form(form) -> tuple[str, str, int]:
+def parse_room_form(form) -> tuple[str, str, int | None]:
     """No scraping or external availability claims: only validate host-supplied connection data."""
     room_url = form.get("room_url", "").strip()
     host = form.get("host", "").strip().lower()
@@ -419,6 +419,10 @@ def parse_room_form(form) -> tuple[str, str, int]:
             raise ValueError("Unbekannter Raumlink-Pfad. Bitte den vollständigen offiziellen Raumlink prüfen.")
     if not host or not re.fullmatch(r"[a-z0-9.-]{1,253}", host) or ".." in host:
         raise ValueError("Server-Host fehlt oder enthält ungültige Zeichen.")
+    if not port and room_url and host == 'archipelago.gg' and form.get('manual_port') != '1':
+        from hub import live_api
+        live_api.room_id(room_url)
+        return room_url, host, None
     if not port.isdigit() or not 1 <= int(port) <= 65535:
         raise ValueError("Port muss zwischen 1 und 65535 liegen.")
     return room_url, host, int(port)

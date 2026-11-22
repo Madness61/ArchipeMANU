@@ -3,6 +3,7 @@ import io
 import json
 import zipfile
 import unittest
+from unittest.mock import patch
 
 import test_mvp as fixtures
 from hub import config, db, mvp, rounds
@@ -101,3 +102,65 @@ class RoundTests(unittest.TestCase):
         self.assertIn('id="ap-console"', archive)
         self.assertIn('data-archived="1"', archive)
         self.assertNotIn('id="console-command"', archive)
+
+    def test_current_generation_failure_overrides_legacy_success_and_keeps_settings(self):
+        bid, slots = self.seed()
+        with self.app.app_context():
+            failed = db.execute("INSERT INTO seed_builds(session_id,status,snapshot,log,created_at) VALUES (1,'failed',?,?,'now')",
+                                (db.dumps(dict(slots=slots, spoiler=3, race=True)), 'FileNotFoundError: missing ROM'))
+            db.execute("UPDATE sessions SET gen_status='done',gen_file='old.zip' WHERE id=1")
+        page = self.client.get('/sessions/1').get_data(as_text=True)
+        self.assertIn('data-build-status="failed"', page)
+        self.assertIn('Die Generierung ist fehlgeschlagen. Einstellungen bleiben erhalten.', page)
+        self.assertIn('Originaldateien und Pfade auf dem Generator-Rechner', page)
+        self.assertIn('value="3" selected', page)
+        self.assertIn('name="race" value="1" checked', page)
+        self.assertNotIn('id="round-setup"', page)
+        self.assertNotIn('old.zip', page)
+        self.assertEqual(self.client.get(f'/sessions/1/builds/{failed}/download').status_code, 404)
+        with self.app.app_context():
+            self.assertEqual(db.query('SELECT status FROM seed_builds WHERE id=?', (bid,), one=True)['status'], 'succeeded')
+
+    def test_generation_redirect_selects_exact_attempt_and_setup(self):
+        self.seed()
+        with patch.object(mvp, 'begin_build', return_value=(42, [])):
+            response = self.post('/sessions/1/generate', {'spoiler':'3'})
+        self.assertTrue(response.location.endswith('/sessions/1?build=42#setup'), response.location)
+
+    def test_participant_summary_validates_readiness_and_includes_unselected_members(self):
+        self.seed()
+        self.post('/login', {'username':'Friend'}, client=self.app.test_client())
+        with self.app.app_context():
+            db.execute("INSERT INTO entries(session_id,user_id,game,ready,ready_hash) VALUES (1,1,'test_world',1,'stale')")
+            db.execute('INSERT INTO lobby_members(session_id,user_id) VALUES (1,2)')
+            people = rounds.participants(1)
+        self.assertEqual(people, [dict(name='Host', game='Test World', ready=False), dict(name='Friend', game=None, ready=False)])
+        page = self.client.get('/rounds').get_data(as_text=True)
+        self.assertIn('Host</strong>', page)
+        self.assertIn('Friend</strong>', page)
+        self.assertIn('Noch kein Spiel ausgewählt', page)
+
+    def test_host_defaults_custom_address_and_global_progress_location(self):
+        bid, _ = self.seed()
+        page = self.client.get('/sessions/1').get_data(as_text=True)
+        self.assertIn('name="host" value="archipelago.gg"', page)
+        self.assertLess(page.index('id="round-team-title"'), page.index('id="round-play"'))
+        self.assertLess(page.index('id="round-host-connection"'), page.index('id="round-manage"'))
+        response = self.post(f'/sessions/1/builds/{bid}/hosting', {'host':'my-server.example','port':'1234'})
+        self.assertTrue(response.location.endswith('#play'))
+        page = self.client.get('/sessions/1').get_data(as_text=True)
+        self.assertIn('name="host" value="my-server.example"', page)
+
+    def test_room_link_can_automatically_resolve_port_without_inventing_one(self):
+        bid, _ = self.seed()
+        link = 'https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw'
+        from hub import live_routes, live_store
+        with patch.object(live_routes, 'collector'):
+            response = self.post(f'/sessions/1/builds/{bid}/hosting', {'host':'archipelago.gg','room_url':link})
+        self.assertEqual(response.status_code, 302)
+        with self.app.app_context():
+            self.assertTrue(live_store.current(bid)['auto_host'])
+            self.assertIsNone(db.query('SELECT * FROM hosted_rooms WHERE build_id=?', (bid,), one=True))
+            for form in ({'host':'custom.example','room_url':link}, {'host':'archipelago.gg','room_url':link,'manual_port':'1'}):
+                with self.assertRaises(ValueError):
+                    mvp.parse_room_form(form)

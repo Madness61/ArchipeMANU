@@ -260,6 +260,9 @@ class FinderTests(unittest.TestCase):
             self.assertEqual(self.client.get(self.url+'/analysis').json['reason'],'item_links')
             self.post(self.url+'/analysis',{})
             self.assertEqual(worker.call_count,1)
+            data['observed_at'] += 10
+            self.post(self.url+'/analysis',{})
+            self.assertEqual(worker.call_count,1, 'A newer observation of unchanged inventory must reuse the cached analysis')
             data['live']={'received':[{'item':1}]}
             self.assertEqual(self.client.get(self.url+'/analysis').json['state'],'idle')
             self.post(self.url+'/analysis',{})
@@ -270,6 +273,25 @@ class FinderTests(unittest.TestCase):
         with patch('hub.progression.subprocess.run',side_effect=subprocess.TimeoutExpired('private command',90)):
             result=progression.run_worker(dict(yamls={},manifest={}))
         self.assertEqual(result,dict(state='unsupported',reason='timeout'))
+
+    def test_goal_description_and_observed_completion_do_not_claim_theoretical_completion(self):
+        self.grant()
+        from hub import live_store
+        with self.app.app_context():
+            snapshot = db.loads(db.query('SELECT snapshot FROM seed_builds WHERE id=?', (self.bid,), one=True)['snapshot'])
+            snapshot['slots'][0]['values'] = dict(goal='collect')
+            db.execute('UPDATE seed_builds SET snapshot=? WHERE id=?', (db.dumps(snapshot), self.bid))
+        with patch.object(progression, 'job', side_effect=lambda *a:dict(state='idle')), \
+             patch.object(live_store, 'round_summary', return_value=dict(players=[dict(name='Host',goal=False,stale=False)])):
+            data = self.client.get(self.url+'/analysis?mode=goal').json
+            self.assertEqual(data['goal_name'], 'collect')
+            self.assertIs(data['goal_reached'], False)
+            self.assertNotIn('goal_reachable', data)
+            for value in ('random', {'collect':50,'boss':50}, None):
+                with self.app.app_context():
+                    snapshot['slots'][0]['values']['goal'] = value
+                    db.execute('UPDATE seed_builds SET snapshot=? WHERE id=?', (db.dumps(snapshot), self.bid))
+                self.assertIsNone(self.client.get(self.url+'/analysis?mode=goal').json['goal_name'])
 
     def test_goal_mode_requires_explicit_post_and_has_independent_cache(self):
         self.grant()

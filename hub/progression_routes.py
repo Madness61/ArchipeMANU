@@ -1,7 +1,7 @@
 """Spoiler-gated seed search and own-slot progression. Old UT routes stay retired."""
 from flask import Blueprint, abort, g, jsonify, render_template, request, session
 from werkzeug.exceptions import HTTPException
-from . import auth, console_routes, db, i18n, progression
+from . import auth, console_routes, db, i18n, progression, live_store
 from .services.item_finder import helpful_singles, player_items
 
 bp = Blueprint('progression',__name__)
@@ -156,6 +156,14 @@ def analysis(sid,build_id):
             if not valid:
                 abort(400)
     result = progression.job(build,slot,g.user['id'],request.method=='POST',target,mode)
+    if mode == 'goal':
+        # Only explicit, fixed seed options are reliable without game-specific rules.
+        goal = slot.get('values', {}).get('goal')
+        result['goal_name'] = goal if isinstance(goal, str) and goal and not goal.startswith('random') else None
+        summary = live_store.round_summary(live_store.current(build_id), build)
+        player = next((p for p in summary['players'] if p['name'] == slot['slot']), {})
+        result['goal_reached'] = player.get('goal')
+        result['goal_stale'] = player.get('stale', True)
     if overview:
         return jsonify(analysis_overview(build, own, slot, result))
     if result['state']=='ready':

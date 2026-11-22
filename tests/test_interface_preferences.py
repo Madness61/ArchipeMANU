@@ -70,6 +70,21 @@ class InterfaceTests(unittest.TestCase):
         page=self.client.get('/profile').get_data(as_text=True)
         self.assertIn('<html lang="de" data-theme="dark">',page)
 
+    def test_explicit_login_preferences_are_adopted_and_persist_across_sessions(self):
+        self.login()
+        self.post('/preferences', dict(language='de', theme='dark'))
+        self.post('/logout', {})
+        self.post('/preferences', dict(language='en', theme='light'))
+        self.login()
+        self.assertIn('<html lang="en" data-theme="light">', self.client.get('/profile').get_data(as_text=True))
+        self.post('/logout', {})
+        self.assertIn('<html lang="en" data-theme="light">', self.client.get('/login').get_data(as_text=True))
+        fresh = self.app.test_client()
+        self.post('/login', {'username':'Host'}, client=fresh)
+        self.assertIn('<html lang="en" data-theme="light">', fresh.get('/profile').get_data(as_text=True))
+        self.post('/logout', {}, client=fresh)
+        self.assertIn('<html lang="en" data-theme="light">', fresh.get('/login').get_data(as_text=True))
+
     def test_english_validation_and_dynamic_values_remain_escaped_data(self):
         self.login();self.post('/preferences',dict(language='en',theme='dark'))
         response=self.post('/preferences',dict(language='xx',theme='dark'))

@@ -151,6 +151,11 @@
   .round-player-list { display:flex; overflow-x:auto; max-height:none; padding:4px 2px 8px; scroll-snap-type:x proximity }
   .round-player-choice { flex:0 0 min(78%, 250px); scroll-snap-align:start }
 }
+.round-participants { list-style:none; padding:0; margin:12px 0 20px }
+.round-participants li { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--line) }
+.round-participants li>span:first-child { min-width:0; overflow-wrap:anywhere }
+.round-participants .chip { flex-shrink:0 }
+#gen progress { width:min(100%,320px); accent-color:var(--accent) }
 @media(max-width:520px) {
   .round-team-stats { grid-template-columns:repeat(2, minmax(0, 1fr)) }
   .round-stat-main { grid-column:1/-1 }

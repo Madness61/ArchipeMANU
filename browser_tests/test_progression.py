@@ -59,10 +59,11 @@ def test_global_finder_and_progression_fallback_languages_themes(actors,artifact
         goal_reachable=False,singles_complete=True,combinations_complete=False,necessity_complete=True,
         necessity=[dict(item='Key',verdict='necessary',placement=placed)],static=dict(spheres=[]))
     # Goal work must require its own POST; selecting the tab only reads cache.
-    goal_posts=[]
+    goal_posts=[]; item_posts=[]
     def respond(route):
         is_goal='mode=goal' in route.request.url or 'mode=goal' in (route.request.post_data or '')
         if is_goal and route.request.method=='POST':goal_posts.append(route.request.post_data)
+        if not is_goal and route.request.method=='POST':item_posts.append(route.request.post_data)
         route.fulfill(json=rendered if not is_goal or goal_posts else dict(state='idle'))
     a.route('**/progression/analysis*',respond)
     for language in ('de','en'):
@@ -72,6 +73,12 @@ def test_global_finder_and_progression_fallback_languages_themes(actors,artifact
             a.get_by_role('button',name='Was bringt mich weiter?' if language=='de' else 'What helps me progress?',exact=True).click()
             expect(panel.locator('#progression-helpful')).to_contain_text('Key')
             expect(panel.locator('#progression-helpful')).to_contain_text('+1')
+            expect(panel.locator('#progression-observed')).not_to_be_empty()
+            previous_posts = len(item_posts)
+            with a.expect_response(lambda response:'/progression/analysis' in response.url and response.request.method=='POST'):
+                panel.locator('#progression-refresh').click()
+            expect(panel.locator('#progression-refresh')).to_be_enabled()
+            assert len(item_posts) == previous_posts + 1
             single_section=panel.locator('[data-recommendation-kind="singles"]')
             expect(panel.locator('[data-recommendation-kind="combinations"]')).to_have_count(0)
             expect(single_section.locator(':scope > .progression-recommendation')).to_have_count(4)
@@ -96,7 +103,9 @@ def test_global_finder_and_progression_fallback_languages_themes(actors,artifact
                 expect(panel.locator('#progression-goals .progression-item')).to_have_count(0)
                 assert goal_posts==[]
             panel.get_by_role('button',name='Spielziel ausdrücklich prüfen' if language=='de' else 'Analyze game goal explicitly',exact=True).click()
-            expect(panel.locator('#progression-goals')).to_contain_text('Key')
+            expect(panel.locator('#progression-goals')).to_contain_text('Theoretisch' if language=='de' else 'Theoretically')
+            expect(panel.locator('#progression-goals')).not_to_contain_text('Key')
+            expect(panel.locator('#progression-goal-status')).to_have_text('Zielstatus unbekannt' if language=='de' else 'Goal status unknown')
             panel.locator('#progression-close').click()
     rendered['singles']+= [trial(['Other '+str(i)],[100+i]) for i in range(10)]
     rendered['singles_tested']=rendered['candidates_total']=len(rendered['singles'])

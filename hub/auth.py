@@ -10,7 +10,7 @@ import sqlite3
 import time
 from datetime import timedelta
 
-from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from . import config, db, yamlgen
@@ -121,6 +121,13 @@ def begin_session(user_id):
     now = time.time()
     with db.transaction() as conn:
         conn.execute("DELETE FROM auth_sessions WHERE expires_at<=?", (now,))
+        preferences = session.get('interface_preferences')
+        if (isinstance(preferences, dict) and preferences.get('language') in ('de', 'en')
+                and preferences.get('theme') in ('dark', 'light', 'system')):
+            user = conn.execute('SELECT overrides FROM users WHERE id=?', (user_id,)).fetchone()
+            values = db.loads(user['overrides'])
+            values['_interface'] = preferences
+            conn.execute('UPDATE users SET overrides=? WHERE id=?', (db.dumps(values), user_id))
         if isinstance(old, str):
             conn.execute("DELETE FROM auth_sessions WHERE token_hash=?", (digest(old),))
         conn.execute("INSERT INTO auth_sessions VALUES (?,?,?)", (digest(token), user_id, now + SESSION_SECONDS))
@@ -175,7 +182,15 @@ def login():
                                     password) if len(password) <= 1024 else False
         if user and user["password_hash"] and valid:
             begin_session(user["id"])
-            return redirect(safe_next(request.args.get("next", "")))
+            response = redirect(safe_next(request.args.get("next", "")))
+            saved = db.loads(db.query('SELECT overrides FROM users WHERE id=?', (user['id'],), one=True)['overrides']).get('_interface', {})
+            if not isinstance(saved, dict):
+                saved = {}
+            for key, default, allowed in (('language', 'de', ('de', 'en')), ('theme', 'dark', ('dark', 'light', 'system'))):
+                value = saved.get(key, default)
+                response.set_cookie('ui_' + key, value if value in allowed else default,
+                                    max_age=31536000, samesite='Lax', secure=current_app.config.get('SESSION_COOKIE_SECURE', False))
+            return response
         flash("Benutzername oder Passwort ist falsch. Bestehende Konten benötigen gegebenenfalls zuerst einen Einrichtungscode vom Host.", "error")
         return render_template("login.html"), 401
     return render_template("login.html")

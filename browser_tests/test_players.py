@@ -129,7 +129,7 @@ def area(page,name):
 
 def generated(page):
     expect(page.locator('#round-center[data-build-status="succeeded"]')).to_be_visible(timeout=15000)
-    area(page,"Verwaltung")
+    area(page,"Dateien & Setup")
     return page.locator('#round-host-connection')
 
 
