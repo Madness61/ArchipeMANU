@@ -44,10 +44,9 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         navigations=[]
         a.on('request',lambda req:navigations.append(req.url) if req.is_navigation_request() else None)
         area(a,'Spieler & Items')
-        a.locator('.round-team-status summary').click()
+        expect(a.locator('.round-team-summary')).to_be_visible()
         expect(a.locator('#round-checks')).to_have_text('2 / 10',timeout=15000)
         expect(a.locator('#round-percent')).to_have_text('20 %')
-        a.locator('.round-team-status summary').click()
         expect(a.locator('[data-round-view]')).to_have_text(['Live','Spieler & Items','Dateien & Setup','Verwaltung'])
         expect(a.locator('#round-chart, #round-events')).to_have_count(0)
         assert 'SECRET FUTURE LOCATION' not in a.content()
@@ -63,7 +62,7 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         assert not navigations
         expect(a.locator('[data-round-player]')).to_have_count(2)
         expect(a.locator('#round-player-name')).to_have_text('Alice')
-        expect(a.locator('#round-player-checks')).to_have_text('1 / 5 Checks erledigt')
+        expect(a.locator('#round-player-checks')).to_have_text('1 / 5')
         expect(a.locator('#round-player-percent')).to_have_text('20 %')
         expect(a.locator('#round-item-list')).to_contain_text('Key')
         expect(a.locator('#round-item-list')).not_to_contain_text('Chest')
@@ -127,7 +126,7 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
         set_preference(a, 'theme', 'light')
         a.set_viewport_size(dict(width=390,height=900))
         expect(a.locator('#round-item-list')).to_contain_text('Key')
-        a.get_by_role('combobox', name='Select a player').select_option('Bob')
+        a.locator('[data-round-player="Bob"]').click()
         expect(a.locator('#round-player-name')).to_have_text('Bob')
         expect(a.locator('#round-player-analysis')).to_be_hidden()
         assert a.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
@@ -144,7 +143,7 @@ def test_round_center_standards_files_progress_connection_and_completion(actors,
             route.fulfill(json=dict(revealed=False, available=True, counts=dict(open=len(names), received=7, unknown=3),
                                     rows=rows, page=page, pages=max(1, (len(matches) + 9) // 10), total=len(matches)))
         a.route('**/progression/items?*', many_items)
-        a.get_by_role('combobox', name='Select a player').select_option('Alice')
+        a.locator('[data-round-player="Alice"]').click()
         search = a.get_by_role('searchbox', name='Search progression items')
         expect(search).to_have_css('background-color', 'rgb(248, 250, 255)')
         expect(a.locator('#round-item-list').get_by_role('listitem')).to_have_count(10)

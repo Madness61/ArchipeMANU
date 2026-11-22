@@ -191,6 +191,7 @@
     function itemRow(group, expanded) {
       const row = node('li', null, 'round-item');
       row.dataset.item = JSON.stringify([group.recipient, group.name]);
+      row.dataset.state = ['found', 'unreceived', 'unchecked', 'unknown', 'received'].find(state => group.states[state]) || 'unknown';
       const heading = node('div', null, 'round-item-main');
       heading.append(node('strong', group.name + (group.total > 1 ? ' × ' + number.format(group.total) : '')));
       const counts = node('div', null, 'row round-item-counts');
