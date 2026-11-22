@@ -219,7 +219,7 @@ def test_shared_library_activation_two_player_lobby_and_seed_statistics(actors,l
     build.get_by_role("checkbox",name="Ich habe die Verbindung eingerichtet und geprüft.",exact=True).check()
     build.get_by_role("button",name="Verbindung speichern",exact=True).click()
     expect(alice.locator("#connection")).to_contain_text("archipelago.gg:38281")
-    area(alice,"Verwaltung")
+    area(alice,"Dateien & Setup")
     hosting = alice.locator("#round-host-connection .hosting-setup")
     expect(hosting).not_to_have_attribute("open", "")
     expect(hosting.get_by_label("Serveradresse", exact=True)).not_to_be_visible()
