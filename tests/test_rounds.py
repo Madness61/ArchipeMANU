@@ -127,6 +127,11 @@ class RoundTests(unittest.TestCase):
             response = self.post('/sessions/1/generate', {'spoiler':'3'})
         self.assertTrue(response.location.endswith('/sessions/1?build=42#setup'), response.location)
 
+    def test_generation_error_does_not_guess_cause_from_general_log_output(self):
+        self.assertIn('Itemverteilung', rounds.generation_error('ROM loaded successfully\nFillError: no valid placements'))
+        self.assertIn('genaue Ursache', rounds.generation_error('ROM loaded successfully\nRuntimeError: not enough memory'))
+        self.assertIn('Originaldateien', rounds.generation_error('FileNotFoundError: required ROM missing'))
+
     def test_participant_summary_validates_readiness_and_includes_unselected_members(self):
         self.seed()
         self.post('/login', {'username':'Friend'}, client=self.app.test_client())

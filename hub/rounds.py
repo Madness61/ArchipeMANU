@@ -64,12 +64,13 @@ def phase(room, build):
 
 def generation_error(log):
     text = log.lower()
-    if re.search(r'\broms?\b', text) or any(word in text for word in ('filenotfounderror', 'no such file')):
-        return 'Eine benötigte Spieldatei fehlt oder ist ungültig. Prüfe die Originaldateien und Pfade auf dem Generator-Rechner.'
-    if any(word in text for word in ('fillerror', 'not enough', 'unreachable')):
+    if 'fillerror' in text:
         return 'Archipelago konnte mit diesen Einstellungen keine gültige Itemverteilung erstellen. Prüfe die Spieleinstellungen und versuche es erneut.'
     if 'apworld-version' in text:
         return 'Eine APWorld-Version wurde geändert. Öffne die Lobby, prüfe die Spielversionen und bestätige die Einstellungen erneut.'
+    if (re.search(r'\broms?\b.*\b(missing|invalid|not found|fehlt|ungültig)\b', text)
+            or any(word in text for word in ('filenotfounderror', 'no such file'))):
+        return 'Eine benötigte Spieldatei fehlt oder ist ungültig. Prüfe die Originaldateien und Pfade auf dem Generator-Rechner.'
     return 'Archipelago hat die Generierung abgebrochen. Die genaue Ursache steht im Fehlerprotokoll. Du kannst es mit denselben Einstellungen erneut versuchen.'
 
 
