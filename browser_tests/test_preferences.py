@@ -30,7 +30,7 @@ def test_language_theme_draft_filters_and_responsive_views(actors,artifact_dir):
         set_preference(a,'language','en')
         expect(a.get_by_role('button',name='Send',exact=True)).to_be_visible()
         expect(a.locator('[data-round-view="play"]')).to_have_text('Live')
-        expect(a.locator('[data-round-view="more"]')).to_have_text('More')
+        expect(a.locator('[data-round-view="manage"]')).to_have_text('Manage')
         expect(a.locator('#console-message')).to_have_value('Mein ungesendeter Entwurf')
         expect(a.locator('#console-log')).to_contain_text('Bob → Alice: Progression Key',timeout=15000)
         a.locator('#console-kind').select_option('for_me')
@@ -77,7 +77,7 @@ def test_language_theme_draft_filters_and_responsive_views(actors,artifact_dir):
         a.emulate_media(color_scheme='light')
         expect(a.locator('body')).to_have_css('background-color','rgb(241, 244, 251)')
         a.emulate_media(color_scheme='dark')
-        expect(a.locator('body')).to_have_css('background-color','rgb(13, 19, 35)')
+        expect(a.locator('body')).to_have_css('background-color','rgb(17, 18, 21)')
         a.emulate_media(reduced_motion='reduce')
         assert a.locator('body').evaluate('n=>getComputedStyle(n).animationName')=='none'
         assert sum(p.get('cmd')=='Connect' and p.get('name')=='Alice' for p in server.packets)==1

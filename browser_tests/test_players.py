@@ -129,7 +129,7 @@ def area(page,name):
 
 def generated(page):
     expect(page.locator('#round-center[data-build-status="succeeded"]')).to_be_visible(timeout=15000)
-    area(page,"Mehr")
+    area(page,"Verwaltung")
     return page.locator('#round-host-connection')
 
 
@@ -219,7 +219,7 @@ def test_shared_library_activation_two_player_lobby_and_seed_statistics(actors,l
     build.get_by_role("checkbox",name="Ich habe die Verbindung eingerichtet und geprüft.",exact=True).check()
     build.get_by_role("button",name="Verbindung speichern",exact=True).click()
     expect(alice.locator("#connection")).to_contain_text("archipelago.gg:38281")
-    area(alice,"Mehr")
+    area(alice,"Verwaltung")
     hosting = alice.locator("#round-host-connection .hosting-setup")
     expect(hosting).not_to_have_attribute("open", "")
     expect(hosting.get_by_label("Serveradresse", exact=True)).not_to_be_visible()
@@ -256,7 +256,8 @@ def test_shared_library_activation_two_player_lobby_and_seed_statistics(actors,l
     alice.get_by_role("link",name="Jetzt spielen / Verbindung",exact=True).click()
     expect(alice.locator("#check-analysis")).to_contain_text("4 platzierte Items insgesamt")
     expect(alice.get_by_text("Exakte Check-Zahlen",exact=False)).to_have_count(0)
-    area(alice,"Mehr")
+    area(alice,"Dateien & Setup")
+    alice.locator("#play-technical > summary").click()
     alice.get_by_role("link",name="Progression-Items und Seed-Analyse öffnen",exact=True).click()
     alice.get_by_role("link",name="Spoiler anzeigen & Details erkunden",exact=True).click()
     alice.get_by_text("Itemverteilung zwischen den Spielern",exact=True).click()
@@ -268,7 +269,7 @@ def test_shared_library_activation_two_player_lobby_and_seed_statistics(actors,l
     expect(alice.get_by_role("heading",name="Items für Alice",exact=True)).to_be_visible()
     expect(alice.get_by_role("cell",name="Key",exact=True)).to_be_visible()
     bob.goto(lobby_url)
-    area(bob,"Mehr")
+    area(bob,"Verlauf")
     bob.locator("#generated-rounds").get_by_role("link",name="Seed-Analyse",exact=True).click()
     expect(bob.get_by_role("heading",name=re.compile("Seed-Analyse #"))).to_be_visible()
 
@@ -505,7 +506,7 @@ def test_refresh_preserves_draft_and_active_lobby_navigation(actors, live_server
     host.get_by_role("button",name="Verbindung speichern",exact=True).click()
     expect(alice.locator("#connection")).to_contain_text("archipelago.gg:38281")
     # A participant still on the preparation page can refresh into the new state.
-    area(bob,"Mehr")
+    area(bob,"Verlauf")
     bob.get_by_role("link",name="Runden aktualisieren",exact=True).click()
     expect(bob.locator("#connection")).to_contain_text("archipelago.gg:38281")
     expect(bob.get_by_role("button",name="Verbindung speichern",exact=True)).to_have_count(0)
@@ -527,7 +528,7 @@ def test_refresh_preserves_draft_and_active_lobby_navigation(actors, live_server
     alice.goto(lobby)
     expect(alice.locator("#session-overview")).to_contain_text("Abgeschlossen")
     expect(alice.get_by_role("button",name="Seed generieren",exact=True)).to_have_count(0)
-    area(alice,"Mehr")
+    area(alice,"Dateien & Setup")
     expect(alice.locator("#all-files").get_by_role("link",name="Multiworld-ZIP herunterladen",exact=True)).to_be_visible()
 
 
