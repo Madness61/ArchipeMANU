@@ -2228,6 +2228,8 @@
   "slot_color_green": "Grün",
   "slot_color_lilac": "Lila",
   "round_auto_port": "Automatisch mit Raumlink",
+  "round_setup_address": "Raumlink eintragen oder beim eigenen Hosting Server und Port angeben.",
+  "round_setup_save": "Verbindung speichern und zur Live-Konsole wechseln.",
   "round_auto_port_help": "Mit einem gültigen archipelago.gg-Raumlink kann der Port leer bleiben. Bei eigenen Servern oder manueller Portwahl ist er erforderlich.",
   "round_generating": "Seed wird generiert …",
   "round_generation_file": "Eine benötigte Spieldatei fehlt oder ist ungültig. Prüfe die Originaldateien und Pfade auf dem Generator-Rechner.",

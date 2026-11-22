@@ -2228,6 +2228,8 @@
   "slot_color_green": "Green",
   "slot_color_lilac": "Lilac",
   "round_auto_port": "Automatic with room link",
+  "round_setup_address": "Enter the room link, or your server address and port if you host it yourself.",
+  "round_setup_save": "Save the connection and continue to the live console.",
   "round_auto_port_help": "With a valid archipelago.gg room link, you can leave the port empty. A port is required for custom servers or manual port selection.",
   "round_generating": "Generating seed …",
   "round_generation_file": "A required game file is missing or invalid. Check the original files and paths on the generator computer.",

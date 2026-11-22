@@ -155,6 +155,8 @@
 .round-participants li { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--line) }
 .round-participants li>span:first-child { min-width:0; overflow-wrap:anywhere }
 .round-participants .chip { flex-shrink:0 }
+.hosting-setup form>label,.hosting-setup form>button { display:block }
+.round-stat dd small { display:block; margin-top:4px; font-size:12px; font-weight:500; color:var(--muted) }
 #gen progress { width:min(100%,320px); accent-color:var(--accent) }
 @media(max-width:520px) {
   .round-team-stats { grid-template-columns:repeat(2, minmax(0, 1fr)) }
