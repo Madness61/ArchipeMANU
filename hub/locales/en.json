@@ -2226,5 +2226,21 @@
   "slot_color_blue": "Blue",
   "slot_color_ochre": "Ochre",
   "slot_color_green": "Green",
-  "slot_color_lilac": "Lilac"
+  "slot_color_lilac": "Lilac",
+  "round_auto_port": "Automatic with room link",
+  "round_setup_address": "Enter the room link, or your server address and port if you host it yourself.",
+  "round_setup_save": "Save the connection and continue to the live console.",
+  "round_auto_port_help": "With a valid archipelago.gg room link, you can leave the port empty. A port is required for custom servers or manual port selection.",
+  "round_generating": "Generating seed …",
+  "round_generation_file": "A required game file is missing or invalid. Check the original files and paths on the generator computer.",
+  "round_generation_fill": "Archipelago could not create a valid item distribution with these settings. Review the game settings and try again.",
+  "round_generation_world": "An APWorld version has changed. Reopen the lobby, review the game versions and confirm the settings again.",
+  "round_generation_error": "Archipelago stopped generation. The error log contains the exact cause. You can retry with the same settings.",
+  "progression_inventory_unknown": "Inventory snapshot unknown",
+  "progression_goal_name": "Configured game goal: {v0}",
+  "progression_goal_unknown": "The exact goal description is not reliably available for this seed.",
+  "progression_goal_possible": "Theoretically reachable with the reported inventory",
+  "progression_goal_not_possible": "Theoretically not yet reachable with the reported inventory",
+  "progression_goal_not_checked": "Theoretical reachability has not been checked yet",
+  "progression_goal_help": "Reached means confirmed by the server. Theoretical reachability is checked on request using APWorld rules and does not confirm game completion."
 }

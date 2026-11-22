@@ -21,7 +21,7 @@
     </section>
     <section data-progression-section="next" hidden>
       <h3>{{ _("Was bringt mich weiter?") }}</h3>
-      {% if own %}<form id="progression-analyze" class="row"><label>{{ _("Dein Slot") }}<select name="slot">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label><button class="primary">{{ _("Möglichkeiten berechnen") }}</button></form>
+      {% if own %}<form id="progression-analyze" class="row"><label>{{ _("Dein Slot") }}<select name="slot">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label><button class="primary">{{ _("Möglichkeiten berechnen") }}</button><button type="button" id="progression-refresh">{{ _("Aktualisieren") }}</button></form>
       {% else %}<p>{{ _("Für eine persönliche Analyse brauchst du einen eigenen Spielslot.") }}</p>{% endif %}
       {% if own %}<details><summary>{{ _("Optional: bestimmter Check oder Bereich") }}</summary><label>{{ _("Optional: bestimmter Check oder Bereich") }}<select id="progression-target" form="progression-analyze"><option value="">{{ _("Allgemeine Hilfe") }}</option></select></label></details>{% endif %}
       <p id="progression-analysis-state" role="status"></p><p id="progression-observed" class="small muted"></p>
@@ -31,7 +31,7 @@
       <details><summary>{{ _("Aktuell erreichbare Checks") }}</summary><ul id="progression-reachable"></ul></details>
       <details><summary>{{ _("Theoretische Seed-Reihenfolge") }}</summary><p class="small muted">{{ _("Diese Reihenfolge wurde bei der Generierung berechnet. Sie beschreibt nicht deinen aktuellen Spielstand.") }}</p><div id="progression-spheres"></div></details>
     </section>
-    <section data-progression-section="goal" hidden><h3>{{ _("Für das Spielziel wichtig") }}</h3>{% if own %}<form id="progression-goal-analyze" class="row"><label>{{ _("Dein Slot") }}<select name="slot">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label><button class="primary">{{ _("Spielziel ausdrücklich prüfen") }}</button></form>{% endif %}<p class="small muted">{{ _("Diese aufwendige Prüfung startet nur über den Button und wird getrennt von den Einzelitems gespeichert.") }}</p><p id="progression-goal-status">{{ _('Noch nicht zuverlässig bestimmbar') }}</p><p class="small muted">{{ _("Notwendig wird nur ein konkretes Itemexemplar genannt, wenn das Ziel mit den vollständigen erreichbaren Itemketten erreichbar ist, ohne dieses Exemplar aber nicht. Ersetzbare Einzelkopien können gemeinsam trotzdem nötig sein.") }}</p><div id="progression-goals"></div></section>
+    <section data-progression-section="goal" hidden><h3>{{ _("Spielziel") }}</h3><p id="progression-goal-name"></p>{% if own %}<form id="progression-goal-analyze" class="row"><label>{{ _("Dein Slot") }}<select name="slot">{% for slot in own %}<option value="{{ slot.slot }}">{{ slot.slot }} · {{ slot.game_name }}</option>{% endfor %}</select></label><button class="primary">{{ _("Spielziel ausdrücklich prüfen") }}</button></form>{% endif %}<p id="progression-goal-status">{{ _('Zielstatus unbekannt') }}</p><div id="progression-goals"></div><p id="progression-goal-observed" class="small muted"></p><p class="small muted">{{ _("Erreicht bedeutet vom Server bestätigt. Die theoretische Erreichbarkeit wird nur auf Wunsch anhand der APWorld-Regeln geprüft und bestätigt keinen Spielabschluss.") }}</p></section>
   </div>
 </dialog>
 {% endif %}

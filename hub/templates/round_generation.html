@@ -1,3 +1,11 @@
+<div id="gen" class="analysis-section" role="{{ 'alert' if generation and generation.status == 'failed' else 'status' }}" aria-busy="{{ 'true' if generation and generation.status in ['queued','running'] else 'false' }}" data-status-url="{{ url_for('mvp.build_status',sid=s.id,build_id=generation.id) if generation else url_for('session_status',sid=s.id) }}" data-status="{{ generation.status if generation else s.gen_status }}" {% if generation %}data-success-url="{{ url_for('session_view',sid=s.id,build=generation.id,_anchor='setup') }}"{% endif %}>
+  {% if generation and generation.status in ['queued','running'] %}<progress aria-label="{{ _('Seed wird generiert …') }}"></progress><p class="status-note">{{ _("Eure Runde wird generiert. Du kannst diese Seite offen lassen; sie aktualisiert sich automatisch.") }}</p>
+  {% elif generation and generation.status == 'failed' %}<p class="status-note warn"><strong>{{ _("Die Generierung ist fehlgeschlagen. Einstellungen bleiben erhalten.") }}</strong></p><p>{{ _(generation_error) }}</p><details><summary>{{ _("Fehlerprotokoll und technische Details") }}</summary><pre class="log">{{ generation.log }}</pre></details>
+  {% elif not generation %}
+    {% if s.gen_status == 'error' %}<p class="status-note warn">{{ _("Die Runde konnte nicht erstellt werden. Der Host kann das Fehlerprotokoll prüfen und es erneut versuchen.") }}</p>
+    {% elif s.gen_status == 'done' %}<a class="btn primary" href="{{ url_for('session_download',sid=s.id) }}">{{ s.gen_file }} {{ _("herunterladen") }}</a>{% endif %}
+  {% endif %}
+</div>
 {% if manage and not s.completed_at %}
 <section class="panel host-panel analysis-section" id="host-controls" data-refresh-fragment>
   <div class="row spread"><div><p class="eyebrow">{{ _("Nur für den Host") }}</p><h2 style="margin:0">{{ _("Runde starten") }}</h2></div><span class="chip {{ _('ok') if all_ready else 'warn' }}">{{ _('Alle bereit') if all_ready else _('Es fehlt noch etwas') }}</span></div>
@@ -10,20 +18,14 @@
   </aside>
   {% endif %}
   {% if waiting %}<div class="status-note warn"><strong>{{ _("Darauf wartet die Runde:") }}</strong><ul>{% for u in waiting %}<li>{{ u.name }}: {{ u.reason }}</li>{% endfor %}</ul></div>
-  {% elif all_ready %}<p class="status-note ok">{{ _("Alle Einstellungen sind bestätigt. Du kannst jetzt den gemeinsamen Seed generieren – das ist die Spieldatei für eure Runde.") }}</p>{% endif %}
+  {% elif all_ready and (not generation or generation.status not in ['queued','running']) %}<p class="status-note ok">{{ _("Alle Einstellungen sind bestätigt. Du kannst jetzt den gemeinsamen Seed generieren – das ist die Spieldatei für eure Runde.") }}</p>{% endif %}
   <form method="post" action="{{ url_for('session_generate', sid=s.id) }}" id="generate-round" data-preserve-draft>
     <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-    <button class="primary" {% if s.gen_status == 'running' or not all_ready or build_history|selectattr('status','in',['queued','running'])|list %}disabled{% endif %}>{{ _("Seed generieren") }}</button>
+    <button class="primary" {% if not all_ready or build_history|selectattr('status','in',['queued','running'])|list %}disabled{% endif %}>{{ _('Seed wird generiert …') if generation and generation.status in ['queued','running'] else _('Seed generieren') }}</button>
     <details class="technical-options"><summary>{{ _("Weitere Einstellungen zur Generierung") }}</summary><div class="row">
-      <label>{{ _("Spoiler-Datei") }}<select name="spoiler">{% for v,label in [(0,_('Keine')),(1,_('Nur Einstellungen')),(2,_('Mit Lösungsweg')),(3,_('Vollständig'))] %}<option value="{{ v }}" {% if s.spoiler == v %}selected{% endif %}>{{ _(label) }}</option>{% endfor %}</select></label>
-      <label><input type="checkbox" name="race" value="1" {% if s.race %}checked{% endif %}> {{ _("Race-Modus: keine Spoiler in der Analyse") }}</label>
+      <label>{{ _("Spoiler-Datei") }}<select name="spoiler">{% for v,label in [(0,_('Keine')),(1,_('Nur Einstellungen')),(2,_('Mit Lösungsweg')),(3,_('Vollständig'))] %}<option value="{{ v }}" {% if generation_settings.get('spoiler',s.spoiler) == v %}selected{% endif %}>{{ _(label) }}</option>{% endfor %}</select></label>
+      <label><input type="checkbox" name="race" value="1" {% if generation_settings.get('race',s.race) %}checked{% endif %}> {{ _("Race-Modus: keine Spoiler in der Analyse") }}</label>
     </div></details>
   </form>
 </section>
 {% elif is_member and not s.locked %}<p class="status-note">{{ _("Der Host startet die Runde, sobald alle bereit sind. Du musst dafür nichts installieren oder eine Datei bearbeiten.") }}</p>{% endif %}
-<div id="gen" class="analysis-section" role="status" data-status-url="{{ url_for('session_status', sid=s.id) }}" data-status="{{ s.gen_status }}">
-  {% if s.gen_status == 'running' %}<p class="status-note">{{ _("Eure Runde wird generiert. Du kannst diese Seite offen lassen; sie aktualisiert sich automatisch.") }}</p>
-  {% elif s.gen_status == 'error' %}<p class="status-note warn">{{ _("Die Runde konnte nicht erstellt werden. Der Host kann das Fehlerprotokoll prüfen und es erneut versuchen.") }}</p>
-  {% elif s.gen_status == 'done' and not build_history %}<a class="btn primary" href="{{ url_for('session_download', sid=s.id) }}">{{ s.gen_file }} {{ _("herunterladen") }}</a>{% endif %}
-  {% if s.gen_log and not build_history %}<details><summary>{{ _("Fehlerprotokoll und technische Details") }}</summary><pre class="log">{{ s.gen_log }}</pre></details>{% endif %}
-</div>

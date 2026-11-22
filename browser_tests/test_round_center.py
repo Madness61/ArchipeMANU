@@ -8,6 +8,89 @@ from .fake_ap import FakeAP
 from .fixtures import GAME
 from .test_players import area,generated,register,upload_world,create_lobby,join_lobby,mark_ready
 from .test_preferences import set_preference
+from .test_players import select_game
+
+
+def test_generation_failure_retry_setup_and_global_progress(actors, live_server, artifact_dir):
+    a, b = actors.alice, actors.bob
+    with FakeAP(game=GAME, names=('Alice', 'Bob'), seed='BROWSER_TEST') as server:
+        register(a, 'Alice'); register(b, 'Bob'); upload_world(a)
+        lobby = create_lobby(a, 'Gemeinsam startklar'); join_lobby(b, 'Gemeinsam startklar')
+        select_game(a); select_game(b); mark_ready(a, 'Alice'); mark_ready(b, 'Bob')
+        a.reload()
+        expect(a.locator('#round-participants')).to_contain_text('Alice')
+        expect(a.locator('#round-participants')).to_contain_text('Bob')
+        expect(a.locator('#round-participants .chip.ok')).to_have_count(2)
+        a.goto('/rounds')
+        card = a.locator('[data-round-id="1"]')
+        expect(card.locator('.round-participants')).to_contain_text('Alice')
+        expect(card.locator('.round-participants')).to_contain_text(GAME)
+        expect(card.locator('.round-participants .chip.ok')).to_have_count(2)
+        a.goto(lobby.split('#')[0])
+        a.get_by_role('button', name='Seed generieren', exact=True).click()
+        expect(a.locator('#round-setup')).to_be_visible(timeout=15000)
+        generated(a)
+        expect(a.locator('[data-round-view="setup"]')).to_have_attribute('aria-current', 'page')
+        with a.expect_download() as downloaded:
+            a.locator('#round-host-connection').get_by_role('link', name='Multiworld-ZIP herunterladen', exact=True).click()
+        assert downloaded.value.suggested_filename == 'AP_BROWSER_TEST.zip'
+        area(a, 'Verwaltung')
+        a.get_by_role('button', name='Entsperren', exact=True).click()
+        mark_ready(a, 'Alice'); b.goto(lobby.split('#')[0]); mark_ready(b, 'Bob'); a.reload()
+        form = a.locator('#generate-round')
+        form.locator('summary').click()
+        form.locator('[name="spoiler"]').select_option('3')
+        form.locator('[name="race"]').check()
+        control = live_server.root / 'generation-stage.json'
+        control.write_text(json.dumps(dict(fail=True, delay=3.5)), encoding='utf-8')
+        form.get_by_role('button', name='Seed generieren', exact=True).click()
+        expect(a.locator('#gen')).to_have_attribute('aria-busy', 'true')
+        expect(a.locator('#gen progress')).to_be_visible()
+        expect(a.locator('#generate-round button')).to_be_disabled()
+        a.screenshot(path=str(artifact_dir / 'generation-loading-desktop.png'), full_page=True)
+        a.set_viewport_size(dict(width=390, height=844))
+        a.screenshot(path=str(artifact_dir / 'generation-loading-mobile.png'), full_page=True)
+        expect(a.locator('#round-center')).to_have_attribute('data-build-status', 'failed', timeout=15000)
+        expect(a.locator('#gen[role="alert"]')).to_contain_text('Originaldateien und Pfade')
+        expect(a.locator('#round-setup')).to_have_count(0)
+        expect(form.locator('[name="spoiler"]')).to_have_value('3')
+        expect(form.locator('[name="race"]')).to_be_checked()
+        a.screenshot(path=str(artifact_dir / 'generation-error-mobile.png'), full_page=True)
+        # Retry the exact saved game settings; the earlier seed is retained.
+        control.write_text(json.dumps(dict(delay=1)), encoding='utf-8')
+        form.locator('summary').click(); form.locator('[name="race"]').uncheck()
+        form.get_by_role('button', name='Seed generieren', exact=True).click()
+        expect(a.locator('#round-setup')).to_be_visible(timeout=15000)
+        host = generated(a)
+        expect(host.get_by_label('Serveradresse', exact=True)).to_have_value('archipelago.gg')
+        expect(host.locator('a[href="https://archipelago.gg/uploads"]')).to_be_visible()
+        expect(a.locator('[data-round-view="setup"]')).to_have_attribute('aria-current', 'page')
+        assert a.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+        a.screenshot(path=str(artifact_dir / 'server-setup-mobile.png'), full_page=True)
+        host.get_by_label('Serveradresse', exact=True).fill('127.0.0.1')
+        host.get_by_label('Port', exact=True).fill(str(server.port))
+        host.get_by_role('button', name='Verbindung speichern', exact=True).click()
+        expect(a.locator('[data-round-view="play"]')).to_have_attribute('aria-current', 'page')
+        expect(a.locator('#console-state')).to_contain_text('Mit Archipelago verbunden', timeout=20000)
+        area(a, 'Dateien & Setup')
+        host.locator('summary').click()
+        expect(host.get_by_label('Serveradresse', exact=True)).to_have_value('127.0.0.1')
+        summary_url = a.locator('#round-center').get_attribute('data-live')
+        summary = a.request.get(summary_url).json()
+        summary.update(checks=2, total=10, progress=20, goals=0, known_goals=2)
+        a.route('**/live/data?summary=1', lambda route: route.fulfill(json=summary))
+        for label in ('Live', 'Spieler & Items', 'Dateien & Setup', 'Verwaltung'):
+            area(a, label)
+            expect(a.locator('.round-team-summary')).to_be_visible()
+            expect(a.locator('#round-percent')).to_have_text('20 %')
+        summary.update(checks=5, progress=50, goals=1)
+        expect(a.locator('#round-checks')).to_have_text('5 / 10', timeout=12000)
+        expect(a.locator('#round-percent')).to_have_text('50 %')
+        expect(a.locator('#round-goals')).to_have_text('1 / 2')
+        a.screenshot(path=str(artifact_dir / 'global-progress-mobile.png'), full_page=True)
+        a.set_viewport_size(dict(width=1440, height=1000))
+        a.screenshot(path=str(artifact_dir / 'global-progress-desktop.png'), full_page=True)
+        assert len(live_server.calls()) == 3
 
 
 def test_round_center_standards_files_progress_connection_and_completion(actors,artifact_dir):

@@ -302,7 +302,7 @@ def save_hosting(sid, build_id):
         link, host, port = mvp.parse_room_form(request.form)
     except ValueError as exc:
         flash(str(exc), 'error')
-        return redirect(url_for('session_view', sid=sid, _anchor=f'hosting-{build_id}'))
+        return redirect(url_for('session_view', sid=sid, build=build_id, _anchor=f'hosting-{build_id}'))
     with mvp._LOCK:
         conn = db.get()
         try:
@@ -310,7 +310,8 @@ def save_hosting(sid, build_id):
             current = db.query('SELECT completed_at FROM seed_builds WHERE id=?', (build_id,), one=True)
             if not current or current['completed_at']:
                 abort(409, 'Dieser Seed ist abgeschlossen. Für eine neue Runde einen neuen Seed generieren.')
-            conn.execute('INSERT INTO hosted_rooms(build_id,room_url,host,port,confirmed,entered_by,created_at)\n                         VALUES (?,?,?,?,?,?,?)', (build_id, link, host, port, int(request.form.get('confirmed') == '1'), g.user['id'], mvp.utc_now()))
+            if port is not None:
+                conn.execute('INSERT INTO hosted_rooms(build_id,room_url,host,port,confirmed,entered_by,created_at)\n                         VALUES (?,?,?,?,?,?,?)', (build_id, link, host, port, int(request.form.get('confirmed') == '1'), g.user['id'], mvp.utc_now()))
             try:
                 live_api.room_id(link)
             except ValueError:
@@ -324,7 +325,7 @@ def save_hosting(sid, build_id):
     flash('Verbindung gespeichert. Alle Teilnehmer finden sie unter „Meine Runden“ direkt in eurer Rundenzentrale.', 'info')
     from hub import live_routes
     live_routes.collector()
-    return redirect(url_for('mvp.play_page', sid=sid, build_id=build_id))
+    return redirect(url_for('mvp.play_page', sid=sid, build_id=build_id, _anchor='play'))
 
 @bp.route('/sessions/<int:sid>/builds/<int:build_id>/stats')
 def build_stats(sid, build_id):

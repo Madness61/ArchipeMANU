@@ -101,6 +101,11 @@ def main():
         assert documents
         with (root/"generation_calls.jsonl").open("a",encoding="utf-8") as log:
             log.write(json.dumps({"yamls":payloads,"spoiler":spoiler,"race":race})+"\n")
+        stage_path = root / 'generation-stage.json'
+        stage = json.loads(stage_path.read_text(encoding='utf-8')) if stage_path.exists() else {}
+        time.sleep(min(5, max(0, stage.get('delay', 0))))
+        if stage.get('fail'):
+            return False, 'FileNotFoundError: required ROM file missing (test fixture)', None
         slots = [{"id":i,"name":doc["name"],"game":GAME} for i,doc in enumerate(documents,1)]
         placements,details = [],[]
         for slot in slots:

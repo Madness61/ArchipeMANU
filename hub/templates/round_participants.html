@@ -1,0 +1,3 @@
+<ul class="round-participants small">
+{% for player in participants %}<li><span><strong>{{ player.name }}</strong><span class="muted"> · {{ player.game or _('Noch kein Spiel ausgewählt') }}</span></span><span class="chip {{ 'ok' if player.ready else 'warn' }}">{{ _('Bereit') if player.ready else _('Nicht bereit') }}</span></li>{% endfor %}
+</ul>

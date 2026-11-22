@@ -129,7 +129,7 @@ def area(page,name):
 
 def generated(page):
     expect(page.locator('#round-center[data-build-status="succeeded"]')).to_be_visible(timeout=15000)
-    area(page,"Verwaltung")
+    area(page,"Dateien & Setup")
     return page.locator('#round-host-connection')
 
 
@@ -219,7 +219,7 @@ def test_shared_library_activation_two_player_lobby_and_seed_statistics(actors,l
     build.get_by_role("checkbox",name="Ich habe die Verbindung eingerichtet und geprüft.",exact=True).check()
     build.get_by_role("button",name="Verbindung speichern",exact=True).click()
     expect(alice.locator("#connection")).to_contain_text("archipelago.gg:38281")
-    area(alice,"Verwaltung")
+    area(alice,"Dateien & Setup")
     hosting = alice.locator("#round-host-connection .hosting-setup")
     expect(hosting).not_to_have_attribute("open", "")
     expect(hosting.get_by_label("Serveradresse", exact=True)).not_to_be_visible()
@@ -499,8 +499,10 @@ def test_refresh_preserves_draft_and_active_lobby_navigation(actors, live_server
     host.get_by_label("Serveradresse",exact=True).fill("archipelago.gg")
     host.get_by_label("Port",exact=True).fill("38281")
     host.get_by_role("checkbox",name="Ich habe die Verbindung eingerichtet und geprüft.",exact=True).check()
+    area(alice,"Verwaltung")
     alice.get_by_role("link",name="Runden aktualisieren",exact=True).click()
     expect(alice.locator("#session-refresh-status")).to_have_text("Teilnehmer und generierte Runden wurden aktualisiert.")
+    area(alice,"Dateien & Setup")
     expect(host.get_by_label("Port",exact=True)).to_have_value("38281")
     expect(host.get_by_role("checkbox",name="Ich habe die Verbindung eingerichtet und geprüft.",exact=True)).to_be_checked()
     host.get_by_role("button",name="Verbindung speichern",exact=True).click()

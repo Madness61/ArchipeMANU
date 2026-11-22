@@ -17,9 +17,9 @@ def test_dashboard_room_link_polling_two_players_charts_and_mobile(actors, live_
     alice.reload()
     alice.get_by_role("button", name="Seed generieren", exact=True).click()
     build = generated(alice)
-    build.get_by_label("Archipelago-Raum für Live-Statistiken", exact=True).fill(
+    build.get_by_label("Archipelago-Raum-Link (optional)", exact=True).fill(
         "https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw")
-    build.get_by_role("button", name="Raum verbinden", exact=True).click()
+    build.get_by_role("button", name="Verbindung speichern", exact=True).click()
     alice.get_by_role("link",name="Erweiterte Statistiken öffnen",exact=True).click()
     expect(alice.get_by_role("heading", level=1)).to_have_text("Unser Live-Abend")
     expect(alice.locator("#kpi-checks")).to_have_text("2", timeout=15000)

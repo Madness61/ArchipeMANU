@@ -88,6 +88,7 @@ def session_view(sid, selection=None, build_id=None):
     from hub import rounds
     explicit = build_id if build_id is not None else request.args.get("build", type=int)
     chosen = rounds.selected_build(row, history, explicit)
+    generation = chosen or (history[0] if history else None)
     play = mvp.play_context(sid, chosen["id"]) if chosen else {}
     phase, phase_label = rounds.phase(row, chosen)
     round_ready = bool(play and chosen["status"] == "succeeded")
@@ -96,6 +97,9 @@ def session_view(sid, selection=None, build_id=None):
     if round_ready and live_access and request.method == "GET" and play["live_connection"]:
         live_routes.open_room(chosen)
     return render_template("round.html", round_phase=phase, phase_label=phase_label,
+                           generation=generation, generation_settings=db.loads(generation['snapshot']) if generation else {},
+                           generation_error=rounds.generation_error(generation['log']) if generation and generation['status'] == 'failed' else '',
+                           participants=rounds.participants(sid, entries),
                            round_ready=round_ready, live_access=live_access,
                            console_primary=console_primary,console_commands=ap_console.COMMANDS,
                            play=play, **play, s=row, entries=entries, games=games,
@@ -321,7 +325,7 @@ def session_generate(sid):
             flash(msg, "error")
     else:
         flash(f"Eure Runde wird erstellt (Seed #{build_id}). Eure bestätigten Einstellungen werden dafür verwendet.", "info")
-    return redirect(url_for("session_view", sid=sid))
+    return redirect(url_for("session_view", sid=sid, build=build_id if not errors else None, _anchor='setup' if not errors else 'play'))
 
 
 @app.route("/sessions/<int:sid>/status")

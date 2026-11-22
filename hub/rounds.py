@@ -1,6 +1,7 @@
 """Task-oriented round navigation; reads existing records without new persistence."""
 import io
 import json
+import re
 from pathlib import Path
 import zipfile
 
@@ -32,8 +33,20 @@ def catalog():
         games = ap_bridge.index()["games"]
         room["game_names"] = [games.get(r["game"], {}).get("game", r["game"]) for r in db.query(
             "SELECT DISTINCT game FROM entries WHERE session_id=?", (room["id"],))]
+        room['participants'] = participants(room['id'])
         result.append(room)
     return result
+
+
+def participants(sid, entries=None):
+    from .services.selection import session_entries
+    entries = session_entries(sid) if entries is None else entries
+    rows = [dict(name=e['username'], game=e['game_name'], ready=e['ready_valid']) for e in entries]
+    selected = {e['user_id'] for e in entries}
+    rows.extend(dict(name=u['username'], game=None, ready=False) for u in db.query(
+        'SELECT u.id,u.username FROM lobby_members m JOIN users u ON u.id=m.user_id WHERE m.session_id=? ORDER BY u.username',
+        (sid,)) if u['id'] not in selected)
+    return rows
 
 
 def phase(room, build):
@@ -47,6 +60,18 @@ def phase(room, build):
             return "running", "Verbindung hinterlegt" if configured else "Spiel einrichten"
         return "preparation", "Generierung fehlgeschlagen"
     return "preparation", "Vorbereitung" if not room["locked"] else "Lobby geschlossen"
+
+
+def generation_error(log):
+    text = log.lower()
+    if 'fillerror' in text:
+        return 'Archipelago konnte mit diesen Einstellungen keine gültige Itemverteilung erstellen. Prüfe die Spieleinstellungen und versuche es erneut.'
+    if 'apworld-version' in text:
+        return 'Eine APWorld-Version wurde geändert. Öffne die Lobby, prüfe die Spielversionen und bestätige die Einstellungen erneut.'
+    if (re.search(r'\broms?\b.*\b(missing|invalid|not found|fehlt|ungültig)\b', text)
+            or any(word in text for word in ('filenotfounderror', 'no such file'))):
+        return 'Eine benötigte Spieldatei fehlt oder ist ungültig. Prüfe die Originaldateien und Pfade auf dem Generator-Rechner.'
+    return 'Archipelago hat die Generierung abgebrochen. Die genaue Ursache steht im Fehlerprotokoll. Du kannst es mit denselben Einstellungen erneut versuchen.'
 
 
 def dashboard():

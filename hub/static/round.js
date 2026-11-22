@@ -126,7 +126,13 @@
     $('round-checks').textContent = ratio(data.checks, data.total);
     $('round-percent').textContent = percent(data.progress);
     $('round-team-bar').style.width = Math.min(100, data.progress || 0) + '%';
-    $('round-goals').textContent = data.known_goals ? ratio(data.goals, data.known_goals) : '—';
+    const unknownGoals = data.players.length - data.known_goals;
+    $('round-goals').textContent = ratio(data.goals, data.players.length);
+    if (unknownGoals) {
+      const note = document.createElement('small');
+      note.textContent = t('Unbekannt') + ': ' + number(unknownGoals);
+      $('round-goals').append(note);
+    }
     for (const player of data.players) playerStates.set(player.name, player);
     for (const choice of choices) {
       const player = playerStates.get(choice.dataset.roundPlayer) || {};
@@ -142,7 +148,7 @@
   }
 
   async function load() {
-    if (!root.dataset.live || busy || authLost || document.hidden || (view !== 'players' && !(launch && view === 'play'))) return;
+    if (!root.dataset.live || busy || authLost || document.hidden) return;
     busy = true;
     try {
       const response = await fetch(root.dataset.live, {cache: 'no-store'});

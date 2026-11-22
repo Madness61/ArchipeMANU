@@ -122,9 +122,9 @@ def test_dark_platform_navigation_options_and_responsive_pages(actors, live_serv
     assert document[GAME]["death_link"] is False
     area(alice,"Spielen")
     play_url = alice.url
-    area(alice,"Verwaltung")
-    alice.get_by_label("Archipelago-Raum für Live-Statistiken", exact=True).fill("https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw")
-    alice.get_by_role("button", name="Raum verbinden", exact=True).click()
+    area(alice,"Dateien & Setup")
+    alice.get_by_label("Archipelago-Raum-Link (optional)", exact=True).fill("https://archipelago.gg/room/AAECAwQFBgcICQoLDA0ODw")
+    alice.get_by_role("button", name="Verbindung speichern", exact=True).click()
     alice.get_by_role("link",name="Erweiterte Statistiken öffnen",exact=True).click()
     expect(alice.locator("#kpi-checks")).to_have_text("2", timeout=15000)
     expect(alice.locator("#live-overview-players .overview-player")).to_have_count(2)

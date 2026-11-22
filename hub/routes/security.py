@@ -51,6 +51,9 @@ def save_preferences():
             values=db.loads(user['overrides'])
             values['_interface']=dict(language=language,theme=theme)
             conn.execute('UPDATE users SET overrides=? WHERE id=?',(db.dumps(values),g.user['id']))
+    else:
+        # Only an explicit choice on the login page overrides account settings.
+        session['interface_preferences'] = dict(language=language, theme=theme)
     response=jsonify(language=language,theme=theme)
     for key,value in (('ui_language',language),('ui_theme',theme)):
         response.set_cookie(key,value,max_age=31536000,samesite='Lax',secure=app.config.get('SESSION_COOKIE_SECURE',False))
