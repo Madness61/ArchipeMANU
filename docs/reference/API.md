@@ -118,7 +118,12 @@ bestehenden Spoilerfreigabe enthält diese Antwort konkrete Fundorte.
   Universal-Logikberechnung. Gemeinsame und alte explizite Aufzeichnungen nutzen
   `Tracker` und `ArchipeMANU-Reader` auf einem echten Seed-Slot und fordern
   keine Slotdaten an. Der Server veröffentlicht Join und Part weiterhin unter
-  dem Seed-Slot. Der Hub verarbeitet eindeutig markierte Reader-Verbindungen
+  dem Seed-Slot. Automatische Reader verwenden bevorzugt einen Seed-Slot des
+  Lobby-Erstellers; ältere Zuordnungen zu anderen Spielern werden beim nächsten
+  Start oder Supervisor-Abgleich korrigiert. Ohne eigenen Slot bleibt eine gültige
+  gespeicherte Zuordnung bestehen, andernfalls wird der erste Seed-Slot verwendet.
+  Diese Reader-Meldungen belegen keinen Beitritt eines Spielclients oder Besuchers.
+  Der Hub verarbeitet eindeutig markierte Reader-Verbindungen
   über Status und Aufzeichnungshinweise. Historische Einträge mit `connection_role: "reader"`
   behalten `server_text`. Reine `TextOnly`-Beitritte und -Abgänge erscheinen als
   `connection_role: "text_client"` mit der Originalmeldung in `server_text`.

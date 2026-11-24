@@ -241,6 +241,9 @@ class RealProgressionTests(unittest.TestCase):
                         bid=db.execute("INSERT INTO seed_builds(session_id,status,snapshot,created_at,seed_name) VALUES (?,'succeeded',?,'today',?)",
                                        (sid,db.dumps(snapshot),seed.stem))
                         db.execute("INSERT INTO hosted_rooms(build_id,host,port,entered_by,created_at) VALUES (?,'127.0.0.1',?,1,'today')",(bid,port))
+                        endpoint = db.query('SELECT * FROM hosted_rooms',one=True)
+                        db.execute('''INSERT INTO console_recordings(build_id,hosted_id,actor_id,slot,uuid,transport,automatic,updated_at)
+                                      VALUES (?,?,1,'NativeB','saved-reader','ws',1,0)''', (bid,endpoint['id']))
                         reader=recording.ensure(db.query('SELECT * FROM seed_builds',one=True),db.query('SELECT * FROM hosted_rooms',one=True),transport='ws')
                     def wait(predicate):
                         deadline=time.monotonic()+30
@@ -250,6 +253,7 @@ class RealProgressionTests(unittest.TestCase):
                             time.sleep(.05)
                         self.fail('Native AP protocol timed out: '+reader.state+' '+reader.error)
                     wait(lambda:reader.state=='connected' and reader.catalog_ready and reader.hint_seen is not None)
+                    self.assertEqual((reader.slot_name,reader.slot,reader.uuid), ('NativeA',1,'saved-reader'))
                     clients=[app.test_client(),app.test_client()]
                     def post(client,path,body):
                         client.get('/login')

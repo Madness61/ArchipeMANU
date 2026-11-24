@@ -141,14 +141,14 @@ class SharedRoomTests(unittest.TestCase):
         self.assertEqual(event['server_text'], original)
         self.assertEqual(event['text'], 'Archipelago-Textclient verbunden.')
 
-    def test_saved_reader_slot_survives_legacy_upgrade_and_restart(self):
+    def test_legacy_reader_moves_to_host_slot_and_retains_uuid_after_restart(self):
         with self.app.app_context():
             endpoint = db.query('SELECT id FROM hosted_rooms', one=True)['id']
             db.execute('''INSERT INTO console_recordings(build_id,hosted_id,actor_id,slot,uuid,transport,updated_at)
                           VALUES (?,?,1,'Friend','saved-reader','ws',0)''', (self.bid, endpoint))
         first = self.room()
         self.wait_for(lambda: first.catalog_ready)
-        self.assertEqual((first.slot_name, first.uuid, first.automatic), ('Friend', 'saved-reader', True))
+        self.assertEqual((first.slot_name, first.uuid, first.automatic), ('Host', 'saved-reader', True))
         ap_console.stop_all()
         with self.app.app_context():
             db.execute('UPDATE console_recordings SET lease_until=0')
@@ -158,8 +158,52 @@ class SharedRoomTests(unittest.TestCase):
         connections = [packet for packet in self.server.packets if packet['cmd'] == 'Connect']
         self.assertEqual(len(connections), 2)
         for packet in connections:
-            self.assertEqual((packet['name'], packet['uuid']), ('Friend', 'saved-reader'))
+            self.assertEqual((packet['name'], packet['uuid']), ('Host', 'saved-reader'))
             self.assertCountEqual(packet['tags'], ['Tracker', 'ArchipeMANU-Reader'])
+
+    def test_existing_automatic_reader_moves_to_host_slot_on_resume(self):
+        with self.app.app_context():
+            endpoint = db.query('SELECT id FROM hosted_rooms', one=True)['id']
+            db.execute('''INSERT INTO console_recordings(build_id,hosted_id,actor_id,slot,uuid,transport,automatic,state,updated_at)
+                          VALUES (?,?,1,'Friend','saved-reader','ws',1,'action_required',0)''', (self.bid, endpoint))
+        recording.resume_due(automatic=True)
+        reader = recording.worker(self.bid)
+        self.assertIsNotNone(reader)
+        self.wait_for(lambda: reader.catalog_ready)
+        connect = next(packet for packet in self.server.packets if packet['cmd'] == 'Connect')
+        self.assertEqual((connect['name'], connect['uuid']), ('Host', 'saved-reader'))
+        self.assertEqual(reader.user_id, 1)
+        self.assertIs(self.room(), reader)
+
+    def test_active_reader_changes_slot_with_in_memory_password(self):
+        self.server.password = 'Room-secret'
+        with self.app.app_context():
+            snapshot = db.loads(db.query('SELECT snapshot FROM seed_builds', one=True)['snapshot'])
+            without_host = dict(snapshot, slots=[dict(s, player_id=2) for s in reversed(snapshot['slots'])])
+            db.execute('UPDATE seed_builds SET snapshot=?', (db.dumps(without_host),))
+        first = self.room(password=self.server.password)
+        self.wait_for(lambda: first.catalog_ready)
+        self.assertEqual(first.slot_name, 'Friend')
+        with self.app.app_context():
+            db.execute('UPDATE seed_builds SET snapshot=?', (db.dumps(snapshot),))
+        reader = self.room()
+        self.wait_for(lambda: reader.catalog_ready)
+        self.assertFalse(first.thread.is_alive())
+        self.assertEqual((reader.slot_name, reader.uuid), ('Host', first.uuid))
+        self.assertIs(self.room(), reader)
+        self.assertEqual([p['name'] for p in self.server.packets if p['cmd'] == 'Connect'], ['Friend', 'Host'])
+
+    def test_saved_fallback_slot_is_retained_when_host_has_no_game(self):
+        with self.app.app_context():
+            snapshot = db.loads(db.query('SELECT snapshot FROM seed_builds', one=True)['snapshot'])
+            snapshot['slots'][0]['player_id'] = 2
+            db.execute('UPDATE seed_builds SET snapshot=?', (db.dumps(snapshot),))
+            endpoint = db.query('SELECT id FROM hosted_rooms', one=True)['id']
+            db.execute('''INSERT INTO console_recordings(build_id,hosted_id,actor_id,slot,uuid,transport,automatic,updated_at)
+                          VALUES (?,?,1,'Friend','saved-reader','ws',1,0)''', (self.bid, endpoint))
+        reader = self.room()
+        self.wait_for(lambda: reader.catalog_ready)
+        self.assertEqual((reader.slot_name, reader.uuid), ('Friend', 'saved-reader'))
 
     def test_invalid_saved_reader_slot_is_reselected_from_seed(self):
         with self.app.app_context():
@@ -326,6 +370,8 @@ class SharedRoomTests(unittest.TestCase):
         reader=self.room();self.wait_for(lambda:reader.state=='connected')
         self.assertEqual(self.post(self.url+'/recording/stop',{}).status_code,200)
         self.wait_for(lambda:not reader.thread.is_alive())
+        with self.app.app_context():
+            db.execute("UPDATE console_recordings SET slot='Friend'")
         recording.resume_due(automatic=True)
         self.assertFalse(self.state()['recording']['enabled'])
         self.assertEqual(len([packet for packet in self.server.packets if packet['cmd']=='Connect']),1)

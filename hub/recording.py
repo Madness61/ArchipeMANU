@@ -274,7 +274,11 @@ def ensure(build, endpoint, password=None, transport='auto', force=False):
                 return None
             same_room = row is not None and row['hosted_id'] == endpoint['id']
             saved_slot = row['slot'] if same_room and any(s['slot'] == row['slot'] for s in slots) else None
-            changed = not same_room or not row['automatic'] or saved_slot is None
+            host_slot = next((s['slot'] for s in slots if s['player_id'] == parent['created_by']), None)
+            # Correct older readers that selected another player's slot. Keep a
+            # valid fallback stable only when the host has no slot in this seed.
+            selected_slot = host_slot or saved_slot or slots[0]['slot']
+            changed = not same_room or not row['automatic'] or row['slot'] != selected_slot
             if same_room and not row['enabled'] and not force:
                 return None
             if not changed and not force:
@@ -285,7 +289,6 @@ def ensure(build, endpoint, password=None, transport='auto', force=False):
                 if not active and row['lease_until']>now:
                     return None
             if changed or force:
-                preferred = next((s for s in slots if s['player_id'] == parent['created_by']), slots[0])
                 # Credentials for a previous room are never carried across endpoints.
                 if same_room and not force:
                     transport = row['transport']
@@ -297,7 +300,7 @@ def ensure(build, endpoint, password=None, transport='auto', force=False):
                     actor_id=excluded.actor_id,slot=excluded.slot,transport=excluded.transport,automatic=1,
                     enabled=1,generation=console_recordings.generation+1,password_required=excluded.password_required,
                     state='connecting',error='',lease_owner='',lease_until=0,updated_at=excluded.updated_at''',
-                    (build['id'],endpoint['id'],parent['created_by'],saved_slot or preferred['slot'],
+                    (build['id'],endpoint['id'],parent['created_by'],selected_slot,
                      ap_console.secrets.token_hex(16),transport,password_required,now))
                 row = conn.execute('SELECT * FROM console_recordings WHERE build_id=?',(build['id'],)).fetchone()
             if not permitted(conn,row):
