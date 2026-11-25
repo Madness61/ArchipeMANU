@@ -77,9 +77,9 @@ def observe(reader, packet):
         return
     # Keep the full, case-sensitive source. Cause and recipient aren't identity.
     key = hashlib.sha256(db.dumps([reader.team, source, float(stamp).hex()]).encode()).hexdigest()
-    candidates = {p['name'] for slot, p in reader.players.items() if p['type'] == 1
-                  and source in (p['name'], reader.deathlink_aliases.get(slot))}
-    slot = next(iter(candidates)) if len(candidates) == 1 else None
+    candidates = [p['name'] for slot, p in reader.players.items() if p['type'] == 1
+                  and source in (p['name'], reader.deathlink_aliases.get(slot))]
+    slot = candidates[0] if len(candidates) == 1 else None
     with connection(reader.path) as conn:
         conn.execute('''INSERT OR IGNORE INTO deathlink_events
             (build_id,event_key,source,death_time,cause,slot,observed_at) VALUES (?,?,?,?,?,?,?)''',
