@@ -208,7 +208,7 @@ def test_official_room_port_rotation_updates_console_and_copy_address_without_re
         expect(alice.locator('.console-items')).to_have_count(1)
         expect(alice.get_by_label('Nachricht oder Befehl',exact=True)).to_have_value('Entwurf bleibt beim Portwechsel')
         login, = [p for p in second.packets if p['cmd']=='Connect']
-        assert set(login['tags']) == {'Tracker', 'ArchipeMANU-Reader'}
+        assert set(login['tags']) == {'Tracker', 'ArchipeMANU-Reader', 'DeathLink'}
         assert not any(p['cmd']=='Say' for p in second.packets)
         alice.screenshot(path=str(artifact_dir/'automatic-port-desktop.png'),full_page=True)
         alice.set_viewport_size(dict(width=390,height=844))
@@ -249,7 +249,7 @@ def test_opening_round_wakes_official_room_once_and_connects_to_new_port(actors,
         assert [json.loads(line)['identifier'] for line in calls if json.loads(line)['endpoint'] == 'wake'] == [
             'AAECAwQFBgcICQoLDA0ODw']
         login, = [packet for packet in server.packets if packet['cmd'] == 'Connect']
-        assert set(login['tags']) == {'Tracker', 'ArchipeMANU-Reader'}
+        assert set(login['tags']) == {'Tracker', 'ArchipeMANU-Reader', 'DeathLink'}
 
 
 def test_missing_login_shows_recovery_and_returns_to_round(actors,artifact_dir):

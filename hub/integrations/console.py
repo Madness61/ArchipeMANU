@@ -33,7 +33,8 @@ PUBLIC_TYPES = frozenset(('Chat','ServerChat','Join','Part','TagsChanged','Goal'
 READER_TAGS = ('Tracker', 'ArchipeMANU-Reader')
 _READER_PART = re.compile(
     r" has stopped tracking the game\. Client\(\d+\.\d+\.\d+\), "
-    r"\[(?:'Tracker', 'ArchipeMANU-Reader'|'ArchipeMANU-Reader', 'Tracker')\]\.$"
+    r"\[(?=[^\]\n]*'Tracker')(?=[^\]\n]*'ArchipeMANU-Reader')"
+    r"'(?:Tracker|ArchipeMANU-Reader|DeathLink)'(?:, '(?:Tracker|ArchipeMANU-Reader|DeathLink)')*\]\.$"
 )
 _clients = {}
 _lock = threading.RLock()

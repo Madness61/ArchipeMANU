@@ -34,6 +34,10 @@ def test_dashboard_room_link_polling_two_players_charts_and_mobile(actors, live_
     dashboard_url = alice.url
     bob.goto(dashboard_url)
     expect(bob.locator("#kpi-checks")).to_have_text("2")
+    bob.get_by_role('tab',name='DeathLink',exact=True).click()
+    expect(bob.locator('#live-deathlinks')).to_be_visible()
+    expect(bob.locator('#deathlink-total')).to_have_text('0')
+    expect(bob.locator('#deathlink-history')).to_contain_text('Ohne DeathLink-fähige')
     bob.get_by_role("button", name="Jetzt aktualisieren", exact=True).click()
     expect(bob.locator("#live-refresh")).to_have_text("Jetzt aktualisieren")
     calls = (live_server.root / "live-api-calls.jsonl").read_text(encoding="utf-8").splitlines()

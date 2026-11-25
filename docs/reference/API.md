@@ -116,7 +116,7 @@ bestehenden Spoilerfreigabe enthält diese Antwort konkrete Fundorte.
   Eigene Slotdaten persönlicher Verbindungen bleiben im Arbeitsspeicher und
   werden nicht im gemeinsamen Protokoll veröffentlicht. Es gibt keine aktive
   Universal-Logikberechnung. Gemeinsame und alte explizite Aufzeichnungen nutzen
-  `Tracker` und `ArchipeMANU-Reader` auf einem echten Seed-Slot und fordern
+  `Tracker`, `ArchipeMANU-Reader` und `DeathLink` auf einem echten Seed-Slot und fordern
   keine Slotdaten an. Der Server veröffentlicht Join und Part weiterhin unter
   dem Seed-Slot. Automatische Reader verwenden bevorzugt einen Seed-Slot des
   Lobby-Erstellers; ältere Zuordnungen zu anderen Spielern werden beim nächsten
@@ -193,6 +193,35 @@ bestehenden Spoilerfreigabe enthält diese Antwort konkrete Fundorte.
   Verbindungen und Befehle. DNS wird fest aufgelöst; Metadaten-/Link-Local-Ziele
   werden abgelehnt. Eigene lokale Spielserver bleiben nutzbar.
 - Servertexte werden als Text angezeigt, niemals als ausführbares HTML.
+
+Die Statistik ergänzt `GET /sessions/<sid>/builds/<build_id>/live/deathlinks`
+(dieselben Lobbyrechte, `Cache-Control: no-store`). Sie liest alle fünf Sekunden
+die lokal gespeicherte DeathLink-Auswertung, auch bei selbst gehosteten Räumen.
+Im Race-Modus bleiben Aufzeichnung und Ausgabe deaktiviert.
+
+Der gemeinsame Tracker empfängt `Bounced` mit Tag `DeathLink`; er sendet,
+beantwortet und wiederholt keine Bounces. Der zusätzliche Tag abonniert die
+Nachrichten, der `Tracker`-Tag erhält die bestehende Serveridentität. Ereignisse
+liegen dauerhaft in `deathlink_events`, Abdeckungsintervalle und verworfene
+ungültige Pakete in `deathlink_coverage`. Der eindeutige Schlüssel umfasst Runde,
+Team, unveränderten `source` und numerischen `time`, unabhängig von Empfängern,
+Todesursache oder Reader-Neustart. Zwei tatsächliche Tode mit identischem
+Auslöser und Zeitwert sind im Protokoll nicht unterscheidbar.
+
+`source` und `time` sind Angaben des Spielclients, keine verifizierte Absender-ID
+oder Serverzeit. Nur ein eindeutiger Treffer unter verifizierten Slotnamen und
+aktuellen Serveraliasen zählt zur Slot-Rangliste; andere Auslöser bleiben separat.
+Es werden keine Kontonamen oder unscharfen Namensvergleiche verwendet. Ursachen
+bleiben optionale, als Text dargestellte Clientangaben. Die Historie zeigt die
+letzten 50 Ereignisse nach gemeldetem Todeszeitpunkt; Summen umfassen den gesamten
+gespeicherten Rundenverlauf.
+
+Frühere oder während einer Trennung gesendete DeathLinks sind nicht nachholbar.
+Die Ansicht nennt Aufzeichnungsbeginn und Unterbrechungen; ein abgestürzter Reader
+gilt spätestens nach 15 Sekunden ohne Lebenszeichen als ausgefallen, seine
+bekannte Abdeckung endet am letzten Lebenszeichen. Ohne beobachtete Bounces
+kann der Hub fehlende DeathLink-Unterstützung nicht von inaktiven Clients oder
+einer Runde ohne Tode unterscheiden.
 
 Quellen: [Archipelago-Protokoll 0.6.8](https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/docs/network%20protocol.md),
 [offizieller Textclient](https://github.com/ArchipelagoMW/Archipelago/blob/0.6.8/CommonClient.py),

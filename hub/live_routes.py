@@ -70,6 +70,15 @@ def data(sid, build_id):
     return response
 
 
+@bp.get('/sessions/<int:sid>/builds/<int:build_id>/live/deathlinks')
+def deathlink_data(sid, build_id):
+    from .services import deathlinks
+    _, build = access(sid, build_id)
+    response = jsonify(deathlinks.presentation(build))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 @bp.route("/sessions/<int:sid>/builds/<int:build_id>/live/connect", methods=["POST"])
 def connect(sid, build_id):
     room, build = access(sid, build_id)
