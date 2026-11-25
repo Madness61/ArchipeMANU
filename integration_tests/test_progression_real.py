@@ -285,7 +285,7 @@ class RealProgressionTests(unittest.TestCase):
                                 if ap_console.reader_presence(packet):
                                     presence[packet['type']] = packet
                         self.assertEqual(set(presence), {'Join', 'Part'})
-                        self.assertCountEqual(presence['Join']['tags'], ['Tracker', 'ArchipeMANU-Reader'])
+                        self.assertCountEqual(presence['Join']['tags'], ['Tracker', 'ArchipeMANU-Reader', 'DeathLink'])
                         self.assertIn('NativeA (Team #1) tracking ChecksFinder has joined', presence['Join']['data'][0]['text'])
                         self.assertNotIn('tags', presence['Part'])
                         self.assertIn('NativeA (Team #1) has stopped tracking the game', presence['Part']['data'][0]['text'])
@@ -296,7 +296,7 @@ class RealProgressionTests(unittest.TestCase):
                     self.assertEqual(sum('Itemaufzeichnung unterbrochen' in row['text'] for row in events()), 1)
                     with ap_console.open_socket('127.0.0.1', port, False) as wire:
                         self.assertEqual(json.loads(wire.recv(timeout=5))[0]['cmd'], 'RoomInfo')
-                        wire.send(json.dumps([{**handshake, 'name':'NativeB', 'game':'ChecksFinder', 'tags':['AP']}]))
+                        wire.send(json.dumps([{**handshake, 'name':'NativeB', 'game':'ChecksFinder', 'tags':['AP','DeathLink']}]))
                         def receive(kind):
                             deadline = time.monotonic() + 10
                             while time.monotonic() < deadline:
@@ -305,6 +305,59 @@ class RealProgressionTests(unittest.TestCase):
                                         return packet
                             self.fail(f'No real AP packet for {kind}')
                         receive('Connected')
+                        # Only disposable test clients send bounces. The Hub reader receives only.
+                        death_url = f'/sessions/{sid}/builds/{bid}/live/deathlinks'
+                        def deaths():
+                            return clients[0].get(death_url).json
+                        bounce = dict(cmd='Bounce', tags=['DeathLink'],
+                                      data=dict(source='NativeB',time=1800000000.125,cause='NativeB fell'))
+                        with ap_console.open_socket('127.0.0.1',port,False) as other:
+                            json.loads(other.recv(timeout=5))
+                            other.send(json.dumps([{**handshake, 'name':'NativeA','game':'ChecksFinder',
+                                                    'uuid':'other-game-client','tags':['AP','DeathLink']}]))
+                            def other_receive(cmd):
+                                deadline=time.monotonic()+10
+                                while time.monotonic()<deadline:
+                                    for packet in json.loads(other.recv(timeout=5)):
+                                        if packet.get('cmd')==cmd:return packet
+                                self.fail('Missing second recipient packet: '+cmd)
+                            other_receive('Connected')
+                            wire.send(json.dumps([bounce]))
+                            self.assertEqual(receive('Bounced')['data'],bounce['data'])
+                            self.assertEqual(other_receive('Bounced')['data'],bounce['data'])
+                            wait(lambda:deaths()['total']==1)
+                            wire.send(json.dumps([bounce,bounce]))
+                            receive('Bounced');receive('Bounced')
+                            other.send(json.dumps([{**bounce,'data':dict(source='NativeA',time=1800000000.125)}]))
+                            receive('Bounced')
+                            wait(lambda:deaths()['total']==2)
+                            self.assertCountEqual(deaths()['ranking'],[dict(slot='NativeA',count=1),dict(slot='NativeB',count=1)])
+                            wire.send(json.dumps([{**bounce,'data':dict(source='In-game character',time=1800000001)}]))
+                            receive('Bounced')
+                            wait(lambda:deaths()['total']==3)
+                            previous=reader.connected_at
+                            reader.wire.close(1012)
+                            wait(lambda:reader.state!='connected')
+                            wire.send(json.dumps([{**bounce,'data':dict(source='Missed while offline',time=1800000002)}]))
+                            receive('Bounced')
+                            wait(lambda:reader.state=='connected' and reader.connected_at>previous and reader.hint_seen is not None)
+                            wire.send(json.dumps([bounce,{**bounce,'data':dict(source='NativeB',time=1800000003)}]))
+                            receive('Bounced');receive('Bounced')
+                            wait(lambda:deaths()['total']==4)
+                            self.assertEqual(deaths()['ranking'][0],dict(slot='NativeB',count=2))
+                            self.assertEqual(deaths()['unresolved'],[dict(source='In-game character',count=1)])
+                            self.assertGreaterEqual(deaths()['gap_count'],1)
+                            self.assertEqual(clients[1].get(death_url).json['total'],4)
+                            wire.send(json.dumps([dict(cmd='Say',text='!alias NativeAlias')]))
+                            wait(lambda:reader.deathlink_aliases.get(2)=='NativeAlias (NativeB)')
+                            wire.send(json.dumps([{**bounce,'data':dict(source='NativeAlias (NativeB)',time=1800000004)}]))
+                            receive('Bounced')
+                            wait(lambda:deaths()['total']==5)
+                            self.assertEqual(deaths()['ranking'][0],dict(slot='NativeB',count=3))
+                            wire.send(json.dumps([dict(cmd='Say',text='!alias')]))
+                            wait(lambda:reader.deathlink_aliases.get(2)=='NativeB')
+                            self.report.append(dict(protocol='real MultiServer DeathLink',recipients=3,recorded=5,
+                                                    deduplicated=True,reconnect_gap=True,unresolved=1))
                         item_name=target['item']['name']
                         invalid='ThisIsNotARealChecksFinderItemABCXYZ'
                         for text, result in ((f'!hint {item_name}','Hint'), (f'!hint {invalid}','CommandResult'),

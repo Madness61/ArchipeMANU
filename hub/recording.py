@@ -8,6 +8,7 @@ import time
 from . import ap_console, config, db, i18n
 from .integrations.console import administrative_message, hint_key
 from .services.console_journal import record_goal
+from .services import deathlinks
 
 LEASE_SECONDS = 20
 _thread = None
@@ -18,6 +19,7 @@ HANDSHAKE_EVENT_LIMIT = 256 * 1024
 
 
 def migrate():
+    deathlinks.migrate()
     with db.transaction() as conn:
         conn.executescript('''CREATE TABLE IF NOT EXISTS console_recordings(
             build_id INTEGER PRIMARY KEY REFERENCES seed_builds(id) ON DELETE CASCADE,
@@ -59,7 +61,7 @@ def permitted(conn, row):
 
 
 class Recorder(ap_console.Client):
-    connect_tags = ap_console.READER_TAGS
+    connect_tags = (*ap_console.READER_TAGS, 'DeathLink')
     report_connection_events = False  # Coverage transitions are journaled separately.
     coverage_recovery_seconds = 8
 
@@ -74,6 +76,7 @@ class Recorder(ap_console.Client):
         self.pending_size = 0
         self.hint_keys = set()
         self.hint_seen = None
+        self.deathlink_aliases = {}
         if self.automatic:
             self.user_id = next(s['player_id'] for s in self.expected if s['slot']==self.slot_name)
         self.thread.name = f"ap-recording-{self.build_id}"
@@ -95,6 +98,7 @@ class Recorder(ap_console.Client):
 
     def stream_state(self):
         super().stream_state()
+        deathlinks.coverage(self)
         self.persist()
 
     def note(self, text, kind='system', origin='hub', values=None):
@@ -112,6 +116,9 @@ class Recorder(ap_console.Client):
 
     def packet(self, packet):
         cmd = packet.get('cmd')
+        if cmd == 'Bounced':
+            deathlinks.observe(self, packet)
+            return
         kind = self.public_type(packet) if self.automatic and cmd == 'PrintJSON' else None
         if kind:
             if administrative_message(packet) or ap_console.reader_presence(packet):
@@ -141,6 +148,18 @@ class Recorder(ap_console.Client):
                                  'Für die Rundenaufzeichnung das Raumpasswort erneut eingeben. Es wird nicht gespeichert.')
         if cmd in ('RoomInfo','Connected','ConnectionRefused','ReceivedItems','DataPackage','RoomUpdate') or (cmd=='PrintJSON' and packet.get('type')=='ItemSend'):
             super().packet(packet)
+        if cmd == 'Connected':
+            self.deathlink_aliases = {}
+        if cmd in ('Connected', 'RoomUpdate') and self.state == 'connected':
+            for player in packet.get('players', []):
+                if isinstance(player, dict):
+                    team, slot, alias = player.get('team'), player.get('slot'), player.get('alias')
+                elif isinstance(player, (list, tuple)) and len(player) == 4:
+                    team, slot, alias, _ = player
+                else:
+                    continue
+                if type(team) is int and team == self.team and type(slot) is int and slot in self.players:
+                    self.deathlink_aliases[slot] = alias if isinstance(alias, str) else None
         if self.automatic and cmd == 'RoomInfo':
             # MultiServer can broadcast Join before Connected. Publish only
             # after Connected has verified the seed slots and team.

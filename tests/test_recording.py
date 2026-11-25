@@ -119,7 +119,7 @@ class SharedRoomTests(unittest.TestCase):
         reader = self.room()
         self.wait_for(lambda: reader.state == 'connected' and reader.catalog_ready)
         connect = next(packet for packet in self.server.packets if packet['cmd'] == 'Connect')
-        self.assertCountEqual(connect['tags'], ['Tracker', 'ArchipeMANU-Reader'])
+        self.assertCountEqual(connect['tags'], ['Tracker', 'ArchipeMANU-Reader', 'DeathLink'])
         for client in (self.client, self.friend):
             events = self.state(client)['events']
             self.assertEqual(sum('Itemaufzeichnung gestartet' in entry['text'] for entry in events), 1)
@@ -159,7 +159,7 @@ class SharedRoomTests(unittest.TestCase):
         self.assertEqual(len(connections), 2)
         for packet in connections:
             self.assertEqual((packet['name'], packet['uuid']), ('Host', 'saved-reader'))
-            self.assertCountEqual(packet['tags'], ['Tracker', 'ArchipeMANU-Reader'])
+            self.assertCountEqual(packet['tags'], ['Tracker', 'ArchipeMANU-Reader', 'DeathLink'])
 
     def test_existing_automatic_reader_moves_to_host_slot_on_resume(self):
         with self.app.app_context():
@@ -427,7 +427,7 @@ class RecordingTests(unittest.TestCase):
         self.assertEqual(current.slot_name,'Host')
         hello = next(p for p in self.server.packets if p['cmd']=='Connect')
         self.assertFalse(hello['slot_data'])
-        self.assertCountEqual(hello['tags'], ['Tracker', 'ArchipeMANU-Reader'])
+        self.assertCountEqual(hello['tags'], ['Tracker', 'ArchipeMANU-Reader', 'DeathLink'])
         self.post('/logout',{})
         self.assertTrue(current.valid())
         self.server.interrupt()

@@ -15,7 +15,7 @@
   <div class="live-notice" id="live-warning" role="status" hidden></div>
   <div class="live-notice" id="live-seed-warning" hidden>{{ _("Die Spieler und Spiele des Raums weichen vom lokalen Seed ab. Bitte den Raumlink prüfen. Hier werden ausschließlich die Daten des verknüpften Archipelago-Raums angezeigt.") }}</div>
   <div class="live-tabs" role="tablist" aria-label="{{ _("Live-Statistiken") }}">
-    {% for id, label in [('overview',_('Übersicht')),('players',_('Spieler')),('interactions','Interaktionen'),('history',_('Verlauf')),('events','Ereignisse'),('comparisons','Vergleiche')] %}
+    {% for id, label in [('overview',_('Übersicht')),('players',_('Spieler')),('interactions','Interaktionen'),('history',_('Verlauf')),('events','Ereignisse'),('comparisons','Vergleiche'),('deathlinks',_('DeathLink'))] %}
     <button type="button" role="tab" id="tab-{{ id }}" aria-controls="live-{{ id }}" aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}" data-tab="{{ id }}">{{ _(label) }}</button>
     {% endfor %}
   </div>
@@ -62,7 +62,17 @@
   </section>
   <details class="panel live-methods"><summary>{{ _("Datenquellen, Grenzen & Raumlink verwalten") }}</summary><p>{{ _("Automatische Abrufe erfolgen alle 60 Sekunden gemeinsam für alle Spieler. Statische Gesamtzahlen werden mindestens 5 Minuten zwischengespeichert. „Jetzt aktualisieren“ liest den gemeinsamen Datenstand und umgeht diese Grenzen nicht.") }}</p><p>{{ _("Clientstatus und Zeitangaben stammen vom Tracker und sind keine Live-Verbindungsprüfung. Ziele werden vom Spielclient gemeldet; persönliche „Ich bin fertig“-Bestätigungen in der Lobby bleiben davon getrennt. Historische Werte stammen ausschließlich aus gespeicherten Beobachtungen. Bei einem Tracker-Reset beginnt ein neuer Verlaufabschnitt.") }}</p><p><a href="https://github.com/ArchipelagoMW/Archipelago/blob/main/docs/webhost%20api.md" target="_blank" rel="noopener noreferrer">{{ _("Offizielle API-Dokumentation ↗") }}</a></p>{% set live_connection = linked %}{% include "live_connect.html" %}</details>
   {% endif %}
+  <section id="live-deathlinks" data-url="{{ url_for('live.deathlink_data', sid=room.id, build_id=build.id) }}" {% if linked %}role="tabpanel" aria-labelledby="tab-deathlinks" class="live-view" hidden{% endif %}>
+    <div class="section-head"><div><h2>{{ _('DeathLink-Auswertung') }}</h2><p class="muted">{{ _('Gezählt wird jeder beobachtete Auslöser einmal, unabhängig von der Zahl der Empfänger.') }}</p></div></div>
+    <p id="deathlink-status" role="status">{{ _('DeathLink-Daten werden geladen …') }}</p>
+    <p class="small muted">{{ _('Frühere DeathLinks sind nicht rückwirkend verfügbar. Die Anzahl umfasst nur aufgezeichnete Ereignisse. Auslöser und Zeitpunkt stammen vom Spielclient und sind nicht verifiziert.') }}</p>
+    <div class="live-bottom-grid">
+      <article class="panel"><h3>{{ _('Aufgezeichnete DeathLinks') }}</h3><strong id="deathlink-total" class="deathlink-total">—</strong><h3>{{ _('DeathLink-Rangliste') }}</h3><ol id="deathlink-ranking" class="live-rankings"></ol><div id="deathlink-unresolved" hidden><h3>{{ _('Unklare Auslöser') }}</h3><p class="small muted">{{ _('Diese Namen lassen sich keinem Spielslot eindeutig zuordnen und zählen nicht zur Rangliste.') }}</p><ul id="deathlink-unresolved-list"></ul></div></article>
+      <article class="panel"><h3>{{ _('DeathLink-Verlauf') }}</h3><p class="small muted">{{ _('Die letzten 50 Ereignisse, sortiert nach dem vom Spielclient gemeldeten Todeszeitpunkt.') }}</p><ol id="deathlink-history" class="live-timeline"></ol></article>
+    </div>
+    <details id="deathlink-gaps" class="panel" hidden><summary>{{ _('Aufzeichnungslücken') }} <span id="deathlink-gap-count"></span></summary><p class="small muted">{{ _('Letzte zehn Lücken. Bei einem Absturz endet die bekannte Abdeckung mit dem letzten Lebenszeichen des Readers.') }}</p><ul id="deathlink-gap-list"></ul></details>
+  </section>
   <noscript><p class="status-note warn">{{ _("Für die automatische Live-Anzeige bitte JavaScript aktivieren. Raum und Seed bleiben über die Rundenseite erreichbar.") }}</p></noscript>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='live.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='live.js') }}" defer></script><script src="{{ url_for('static', filename='deathlinks.js') }}" defer></script>{% endblock %}
